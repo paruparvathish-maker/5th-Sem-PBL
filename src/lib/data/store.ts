@@ -29,7 +29,7 @@ class PBLStore {
           // Force update admin email if they have an old localStorage state
           const admin = this.profiles.find((p: UserProfile) => p.role === 'admin' && p.id === '180881');
           if (admin) {
-            admin.email = 'parvathisha-cse@dsatm.edu.in';
+            admin.email = 'admin@pbl.edu.in';
           }
 
           this.teams = parsed.teams || [];
@@ -51,8 +51,8 @@ class PBLStore {
     const facultyMap = new Map<string, UserProfile>();
     const adminUser: UserProfile = {
       id: '180881',
-      email: 'parvathisha-cse@dsatm.edu.in',
-      name: 'Parvathisha P',
+      email: 'admin@pbl.edu.in',
+      name: 'System Administrator (Parvathisha P)',
       role: 'admin',
       isFirstLogin: false,
       createdAt: new Date().toISOString()
@@ -290,7 +290,7 @@ class PBLStore {
     }
 
     if (user.role === 'admin') {
-      return inputPassword === '03May@2002@';
+      return inputPassword === 'Admin@PBL2026!';
     } else if (user.role === 'student') {
       return inputPassword === user.usn;
     } else if (user.role === 'faculty') {
