@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '@/lib/auth/auth-context';
 import { useRouter } from 'next/navigation';
+import { store } from '@/lib/data/store';
 import { GraduationCap, ShieldCheck, UserCheck, Lock, Mail, User, AlertCircle, ArrowRight, Sparkles, Eye, EyeOff } from 'lucide-react';
 import { UserRole } from '@/lib/types/pbl';
 
@@ -17,7 +18,7 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsSubmitting(true);
@@ -34,6 +35,9 @@ export default function LoginPage() {
       setIsSubmitting(false);
       return;
     }
+
+    // Sync from Supabase so the app has the latest cloud data in memory
+    await store.syncFromSupabase();
 
     if (res.requiresPasswordChange) {
       router.push('/first-time-password-change');
