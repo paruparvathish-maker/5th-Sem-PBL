@@ -12,17 +12,7 @@ import {
 import { EvaluationCriterion } from '@/lib/types/pbl';
 
 const DEFAULT_CRITERIA: EvaluationCriterion[] = [
-  { criterion: 'Problem Statement & Scope', maxMarks: 10, marksObtained: 8, comments: '' },
-  { criterion: 'Literature Survey & References', maxMarks: 10, marksObtained: 8, comments: '' },
-  { criterion: 'Methodology & System Architecture', maxMarks: 15, marksObtained: 12, comments: '' },
-  { criterion: 'Implementation & Prototype Progress', maxMarks: 25, marksObtained: 20, comments: '' },
-  { criterion: 'Results & Performance Benchmarks', maxMarks: 20, marksObtained: 16, comments: '' },
-  { criterion: 'Presentation & Defense Q/A', maxMarks: 10, marksObtained: 8, comments: '' },
-  { criterion: 'Documentation & Code Standard', maxMarks: 10, marksObtained: 8, comments: '' },
-];
-
-const ZEROTH_REVIEW_CRITERIA: EvaluationCriterion[] = [
-  { criterion: 'Submission of Project Details & 1st Guide Meeting Document', maxMarks: 5, marksObtained: 5, comments: '' },
+  { criterion: 'Problem Statement & Description', maxMarks: 5, marksObtained: 5, comments: '' },
 ];
 
 function FacultyEvaluationsContent() {
@@ -54,12 +44,8 @@ function FacultyEvaluationsContent() {
   }, [selectedTeamId, activeTeam]);
 
   useEffect(() => {
-    if (activeDeadline?.title.includes('0th Review')) {
-      setCriteria(ZEROTH_REVIEW_CRITERIA.map(c => ({ ...c })));
-    } else {
-      setCriteria(DEFAULT_CRITERIA.map(c => ({ ...c })));
-    }
-  }, [selectedDeadlineId, activeDeadline]);
+    setCriteria(DEFAULT_CRITERIA.map(c => ({ ...c })));
+  }, [selectedDeadlineId]);
 
   const handleMarksChange = (idx: number, val: number) => {
     const updated = [...criteria];

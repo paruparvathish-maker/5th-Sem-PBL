@@ -194,25 +194,19 @@ class PBLStore {
       // Seed Evaluation for Team A1
       const eval1: Evaluation = {
         id: 'eval-001',
-        deadlineId: d2.id,
-        deadlineTitle: d2.title,
+        deadlineId: d3.id,
+        deadlineTitle: d3.title,
         teamId: teamA1.id,
         teamNumber: teamA1.teamNumber,
         evaluatorId: teamA1.guideId,
         evaluatorName: teamA1.guideName,
         evaluationType: 'team',
         criteriaScores: [
-          { criterion: 'Problem Statement', maxMarks: 10, marksObtained: 9, comments: 'Well identified campus problem.' },
-          { criterion: 'Literature Survey', maxMarks: 10, marksObtained: 8.5, comments: 'Good references cited.' },
-          { criterion: 'Methodology & Design', maxMarks: 15, marksObtained: 13, comments: 'Feasible hardware architecture.' },
-          { criterion: 'Implementation Progress', maxMarks: 25, marksObtained: 21, comments: 'Prototype frame built.' },
-          { criterion: 'Results & Demo', maxMarks: 20, marksObtained: 17, comments: 'Initial classification accuracy 88%.' },
-          { criterion: 'Presentation & Q/A', maxMarks: 10, marksObtained: 9, comments: 'Confident presentation.' },
-          { criterion: 'Documentation', maxMarks: 10, marksObtained: 8, comments: 'Minor formatting fixes needed.' }
+          { criterion: 'Problem Statement & Description', maxMarks: 5, marksObtained: 5, comments: 'Project title and description submitted successfully.' },
         ],
-        totalMarks: 85.5,
-        maxTotalMarks: 100,
-        facultyComments: 'Strong initial prototype demonstration. Focus on sensor response latency before Review 2.',
+        totalMarks: 5,
+        maxTotalMarks: 5,
+        facultyComments: 'Project details submitted and verified. Proceed with 1st guide meeting.',
         isPublished: true,
         evaluatedAt: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString()
       };
