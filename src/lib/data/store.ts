@@ -120,12 +120,12 @@ class PBLStore {
     const futureDate1 = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
     const pastDate1 = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString();
 
-    const d3: Deadline = {
-      id: 'dl-003',
-      title: '0th Review: Project Title, Description & 1st Guide Meeting Document',
-      description: 'Finalize your project title and description on your team page, and upload your 1st guide meeting document.',
+    const dProjectStmt: Deadline = {
+      id: 'dl-project-stmt',
+      title: 'Problem Statement & Description',
+      description: 'Submit your finalized project title and detailed problem description.',
       deadlineType: 'submission',
-      dueDate: '2026-09-22T17:00:00', // Sep 22, 2026 5:00 PM
+      dueDate: '2026-09-22T17:00:00',
       applicableSections: ['A', 'B', 'C', 'D', 'E', 'F'],
       submissionRequired: true,
       status: 'open',
@@ -133,7 +133,20 @@ class PBLStore {
       createdAt: new Date().toISOString()
     };
 
-    this.deadlines.push(d3);
+    const dGuideDoc: Deadline = {
+      id: 'dl-guide-meeting',
+      title: '1st Guide Meeting Document',
+      description: 'Upload the signed document from your first guide meeting (PDF/DOCX).',
+      deadlineType: 'submission',
+      dueDate: '2026-09-29T17:00:00',
+      applicableSections: ['A', 'B', 'C', 'D', 'E', 'F'],
+      submissionRequired: true,
+      status: 'open',
+      createdBy: adminUser.id,
+      createdAt: new Date().toISOString()
+    };
+
+    this.deadlines.push(dProjectStmt, dGuideDoc);
 
     // Seed Sample Submissions for Team A1
     const teamA1 = this.teams.find(t => t.teamNumber === 'A1');
@@ -171,8 +184,8 @@ class PBLStore {
       teamA1.members?.forEach((student, idx) => {
         const studentEval: Evaluation = {
           id: `eval-001-${idx}`,
-          deadlineId: d3.id,
-          deadlineTitle: d3.title,
+          deadlineId: 'dl-project-stmt',
+          deadlineTitle: 'Problem Statement & Description',
           teamId: teamA1.id,
           teamNumber: teamA1.teamNumber,
           evaluatorId: teamA1.guideId,
@@ -285,7 +298,17 @@ class PBLStore {
       }
 
       if (evals && evals.length > 0) {
-        this.evaluations = evals.map((e: any) => ({
+        // Self-healing: Delete any evaluation that has max_total_marks !== 5
+        const badEvals = evals.filter((e: any) => Number(e.max_total_marks) !== 5);
+        if (badEvals.length > 0) {
+          console.warn(`Purging ${badEvals.length} corrupted evaluations from Supabase`);
+          for (const be of badEvals) {
+            await supabase.from('evaluations').delete().eq('id', be.id);
+          }
+        }
+        
+        const goodEvals = evals.filter((e: any) => Number(e.max_total_marks) === 5);
+        this.evaluations = goodEvals.map((e: any) => ({
           id: e.id,
           deadlineId: e.deadline_id,
           deadlineTitle: e.deadline_title,

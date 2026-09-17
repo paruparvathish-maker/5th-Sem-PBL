@@ -130,16 +130,13 @@ function FacultyEvaluationsContent() {
     );
   };
 
-  // --- Total Scores ---
-  const totalMarks =
-    scope === 'individual'
-      ? studentScores.reduce((sum, s) => sum + s.marksObtained, 0)
-      : criteriaScores.reduce((sum, c) => sum + c.marksObtained, 0);
-
-  const maxTotalMarks =
-    scope === 'individual'
-      ? studentScores.length * 5
-      : criteriaScores.reduce((sum, c) => sum + c.maxMarks, 0);
+  // --- Total Scores --- Always per-student: max 5
+  // totalMarks is shown as a per-student score (not sum of all students)
+  const avgMarks = studentScores.length > 0
+    ? Math.round(studentScores.reduce((sum, s) => sum + s.marksObtained, 0) / studentScores.length)
+    : 5;
+  const totalMarks = 5;   // max per student is always 5
+  const maxTotalMarks = 5;
 
   // --- Validation ---
   const validate = () => {
@@ -291,13 +288,13 @@ function FacultyEvaluationsContent() {
                   Rubric Scoring — Group {selectedTeam?.teamNumber}
                 </h2>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  {scope === 'individual' ? 'Individual Student Evaluation' : 'Team Level Evaluation'}
+                  Individual Student Evaluation (5 marks max each)
                 </p>
               </div>
               <div className="text-center bg-indigo-600/30 border border-indigo-500/30 rounded-xl px-6 py-3">
-                <span className="block text-xs text-indigo-200 uppercase font-bold mb-1">Total Score</span>
-                <span className="text-3xl font-black">{totalMarks}</span>
-                <span className="text-sm text-indigo-300"> / {maxTotalMarks}</span>
+                <span className="block text-xs text-indigo-200 uppercase font-bold mb-1">Max Per Student</span>
+                <span className="text-3xl font-black">5</span>
+                <span className="text-sm text-indigo-300"> marks</span>
               </div>
             </div>
 
