@@ -47,7 +47,7 @@ function FacultyEvaluationsContent() {
 
   const [selectedTeamId, setSelectedTeamId] = useState(preselectedTeamId || assignedTeams[0]?.id || '');
   const [selectedDeadlineId, setSelectedDeadlineId] = useState(allDeadlines[0]?.id || '');
-  const [scope, setScope] = useState<EvaluationScope>('team');
+  const scope: EvaluationScope = 'individual';
 
   // Criteria scores (rubric - for team level)
   const [criteriaScores, setCriteriaScores] = useState<EvaluationCriterion[]>(
@@ -74,7 +74,7 @@ function FacultyEvaluationsContent() {
 
   // Reset student scores when team or scope changes
   useEffect(() => {
-    if (scope === 'individual' && selectedTeam?.members) {
+    if (selectedTeam?.members) {
       setStudentScores(
         selectedTeam.members.map((m) => ({
           studentId: m.id,
@@ -87,7 +87,7 @@ function FacultyEvaluationsContent() {
     } else {
       setStudentScores([]);
     }
-  }, [selectedTeamId, scope, selectedTeam]);
+  }, [selectedTeamId, selectedTeam]);
 
   // Reset criteria when deadline changes
   useEffect(() => {
@@ -165,36 +165,8 @@ function FacultyEvaluationsContent() {
     setMessage(null);
 
     try {
-      if (scope === 'individual') {
-        // Save one evaluation per student
-        studentScores.forEach((s) => {
-          store.saveEvaluation({
-            deadlineId: selectedDeadlineId,
-            deadlineTitle: selectedDeadline?.title,
-            teamId: selectedTeamId,
-            teamNumber: selectedTeam?.teamNumber,
-            evaluatorId: user.id,
-            evaluatorName: user.name,
-            evaluationType: 'individual',
-            studentId: s.studentId,
-            studentName: s.studentName,
-            studentUsn: s.studentUsn,
-            criteriaScores: [
-              {
-                criterion: criteriaScores[0]?.criterion || 'Problem Statement & Description',
-                maxMarks: 5,
-                marksObtained: s.marksObtained,
-                comments: s.comments,
-              },
-            ],
-            totalMarks: s.marksObtained,
-            maxTotalMarks: 5,
-            facultyComments: overallFeedback,
-            isPublished,
-          });
-        });
-      } else {
-        // Save one evaluation for the team
+      // Save one evaluation per student for the 0th review
+      studentScores.forEach((s) => {
         store.saveEvaluation({
           deadlineId: selectedDeadlineId,
           deadlineTitle: selectedDeadline?.title,
@@ -202,14 +174,24 @@ function FacultyEvaluationsContent() {
           teamNumber: selectedTeam?.teamNumber,
           evaluatorId: user.id,
           evaluatorName: user.name,
-          evaluationType: 'team',
-          criteriaScores,
-          totalMarks,
-          maxTotalMarks,
+          evaluationType: 'individual',
+          studentId: s.studentId,
+          studentName: s.studentName,
+          studentUsn: s.studentUsn,
+          criteriaScores: [
+            {
+              criterion: 'Problem Statement & Description',
+              maxMarks: 5,
+              marksObtained: s.marksObtained,
+              comments: s.comments,
+            },
+          ],
+          totalMarks: s.marksObtained,
+          maxTotalMarks: 5,
           facultyComments: overallFeedback,
           isPublished,
         });
-      }
+      });
 
       setPublished(isPublished);
       setMessage({
@@ -293,52 +275,6 @@ function FacultyEvaluationsContent() {
             </div>
           </div>
 
-          {/* Scope */}
-          <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-3">
-              Evaluation Scope
-            </label>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-
-              {/* Team Level */}
-              <button
-                type="button"
-                onClick={() => setScope('team')}
-                className={`p-4 rounded-xl border text-left transition ${
-                  scope === 'team'
-                    ? 'border-amber-500 bg-amber-50'
-                    : 'border-slate-200 bg-white hover:bg-slate-50'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <Users className="w-5 h-5 text-slate-500" />
-                  <div>
-                    <p className="font-bold text-sm text-slate-800">Team Level</p>
-                    <p className="text-xs text-slate-500 mt-0.5">Score applies to all team members.</p>
-                  </div>
-                </div>
-              </button>
-
-              {/* Individual */}
-              <button
-                type="button"
-                onClick={() => setScope('individual')}
-                className={`p-4 rounded-xl border text-left transition ${
-                  scope === 'individual'
-                    ? 'border-indigo-500 bg-indigo-50'
-                    : 'border-slate-200 bg-white hover:bg-slate-50'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <UserCheck className="w-5 h-5 text-indigo-600" />
-                  <div>
-                    <p className="font-bold text-sm text-slate-800">Individual Student</p>
-                    <p className="text-xs text-slate-500 mt-0.5">Give marks separately to each student.</p>
-                  </div>
-                </div>
-              </button>
-            </div>
-          </div>
         </div>
 
         {/* ── Evaluation Card ── */}
@@ -365,48 +301,8 @@ function FacultyEvaluationsContent() {
               </div>
             </div>
 
-            {/* ── TEAM LEVEL ── */}
-            {scope === 'team' && (
-              <div className="p-6 space-y-4">
-                <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  Rubric Criteria
-                </h3>
-                {criteriaScores.map((c, idx) => (
-                  <div key={idx} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-center p-4 rounded-xl bg-slate-50 border border-slate-200">
-                    <div className="md:col-span-2">
-                      <h4 className="font-bold text-slate-800 text-sm">{c.criterion}</h4>
-                      <p className="text-[11px] text-slate-500 mt-0.5">Maximum Marks: {c.maxMarks}</p>
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Marks Awarded</label>
-                      <input
-                        type="number"
-                        min={0}
-                        max={c.maxMarks}
-                        step={1}
-                        value={c.marksObtained}
-                        onChange={(e) => updateCriterionMarks(idx, parseFloat(e.target.value) || 0)}
-                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-indigo-600 focus:outline-none focus:ring-2 focus:ring-amber-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Comment</label>
-                      <input
-                        type="text"
-                        value={c.comments || ''}
-                        onChange={(e) => updateCriterionComment(idx, e.target.value)}
-                        placeholder="Optional feedback..."
-                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500"
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
             {/* ── INDIVIDUAL STUDENT ── */}
-            {scope === 'individual' && (
-              <div className="p-6 space-y-4">
+            <div className="p-6 space-y-4">
                 <div className="p-4 rounded-xl border border-indigo-200 bg-indigo-50 flex items-start gap-3">
                   <AlertCircle className="w-5 h-5 text-indigo-600 shrink-0 mt-0.5" />
                   <div>
@@ -472,7 +368,6 @@ function FacultyEvaluationsContent() {
                   </div>
                 ))}
               </div>
-            )}
 
             {/* ── Overall Feedback ── */}
             <div className="border-t border-slate-200 p-6">

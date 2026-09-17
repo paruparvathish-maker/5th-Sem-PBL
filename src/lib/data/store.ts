@@ -119,32 +119,6 @@ class PBLStore {
     const futureDate1 = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
     const pastDate1 = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString();
 
-    const d1: Deadline = {
-      id: 'dl-001',
-      title: 'Synopsis & Problem Statement Submission',
-      description: 'Upload PDF/DOCX containing Problem Statement, Literature Survey & Initial Architecture.',
-      deadlineType: 'submission',
-      dueDate: futureDate1,
-      applicableSections: ['A', 'B', 'C', 'D', 'E', 'F'],
-      submissionRequired: true,
-      status: 'open',
-      createdBy: adminUser.id,
-      createdAt: new Date().toISOString()
-    };
-
-    const d2: Deadline = {
-      id: 'dl-002',
-      title: 'Review 1 Evaluation',
-      description: 'First formal presentation review before assigned faculty guide.',
-      deadlineType: 'review',
-      dueDate: pastDate1,
-      applicableSections: ['A', 'B', 'C', 'D', 'E', 'F'],
-      submissionRequired: true,
-      status: 'evaluated',
-      createdBy: adminUser.id,
-      createdAt: new Date().toISOString()
-    };
-
     const d3: Deadline = {
       id: 'dl-003',
       title: '0th Review: Project Title, Description & 1st Guide Meeting Document',
@@ -158,7 +132,7 @@ class PBLStore {
       createdAt: new Date().toISOString()
     };
 
-    this.deadlines.push(d1, d2, d3);
+    this.deadlines.push(d3);
 
     // Seed Sample Submissions for Team A1
     const teamA1 = this.teams.find(t => t.teamNumber === 'A1');
@@ -192,25 +166,31 @@ class PBLStore {
       this.submissions.push(sub1);
 
       // Seed Evaluation for Team A1
-      const eval1: Evaluation = {
-        id: 'eval-001',
-        deadlineId: d3.id,
-        deadlineTitle: d3.title,
-        teamId: teamA1.id,
-        teamNumber: teamA1.teamNumber,
-        evaluatorId: teamA1.guideId,
-        evaluatorName: teamA1.guideName,
-        evaluationType: 'team',
-        criteriaScores: [
-          { criterion: 'Problem Statement & Description', maxMarks: 5, marksObtained: 5, comments: 'Project title and description submitted successfully.' },
-        ],
-        totalMarks: 5,
-        maxTotalMarks: 5,
-        facultyComments: 'Project details submitted and verified. Proceed with 1st guide meeting.',
-        isPublished: true,
-        evaluatedAt: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString()
-      };
-      this.evaluations.push(eval1);
+      // For 0th review, we seed one individual evaluation for each student
+      teamA1.members?.forEach((student, idx) => {
+        const studentEval: Evaluation = {
+          id: `eval-001-${idx}`,
+          deadlineId: d3.id,
+          deadlineTitle: d3.title,
+          teamId: teamA1.id,
+          teamNumber: teamA1.teamNumber,
+          evaluatorId: teamA1.guideId,
+          evaluatorName: teamA1.guideName,
+          evaluationType: 'individual',
+          studentId: student.id,
+          studentName: student.name,
+          studentUsn: student.usn,
+          criteriaScores: [
+            { criterion: 'Problem Statement & Description', maxMarks: 5, marksObtained: 5, comments: 'Project title and description submitted successfully.' },
+          ],
+          totalMarks: 5,
+          maxTotalMarks: 5,
+          facultyComments: 'Project details submitted and verified. Proceed with 1st guide meeting.',
+          isPublished: true,
+          evaluatedAt: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString()
+        };
+        this.evaluations.push(studentEval);
+      });
 
       // Seed Guide Meeting for Team A1
       const meeting1: GuideMeeting = {
