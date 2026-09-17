@@ -147,7 +147,7 @@ class PBLStore {
 
     const d3: Deadline = {
       id: 'dl-003',
-      title: 'Project Title, Description & 1st Guide Meeting Document',
+      title: '0th Review: Project Title, Description & 1st Guide Meeting Document',
       description: 'Finalize your project title and description on your team page, and upload your 1st guide meeting document.',
       deadlineType: 'submission',
       dueDate: '2026-09-22T17:00:00', // Sep 22, 2026 5:00 PM

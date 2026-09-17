@@ -4,9 +4,9 @@ import React, { useState } from 'react';
 import { useAuth } from '@/lib/auth/auth-context';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { store } from '@/lib/data/store';
-import { 
-  UploadCloud, FileText, CheckCircle2, AlertOctagon, Clock, 
-  FileCheck, ShieldAlert, Sparkles, FileCode, Check 
+import {
+  UploadCloud, FileText, CheckCircle2, AlertOctagon, Clock,
+  FileCheck, ShieldAlert, Sparkles, FileCode, Check
 } from 'lucide-react';
 
 export default function StudentSubmissionsPage() {
@@ -77,9 +77,9 @@ export default function StudentSubmissionsPage() {
     if (!result.success) {
       setMessage({ type: 'error', text: result.error || 'Upload failed.' });
     } else {
-      setMessage({ 
-        type: 'success', 
-        text: `Document "${file.name}" uploaded successfully! Registered as Version ${result.submission?.version}.` 
+      setMessage({
+        type: 'success',
+        text: `Document "${file.name}" uploaded successfully! Registered as Version ${result.submission?.version}.`
       });
       setFile(null);
     }
@@ -88,7 +88,7 @@ export default function StudentSubmissionsPage() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        
+
         {/* Header */}
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
@@ -105,7 +105,7 @@ export default function StudentSubmissionsPage() {
 
         {/* 2 Column Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
+
           {/* Upload Form (2 Columns) */}
           <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-6">
             <h3 className="font-bold text-slate-800 text-base flex items-center space-x-2">
@@ -114,18 +114,17 @@ export default function StudentSubmissionsPage() {
             </h3>
 
             {message && (
-              <div className={`p-4 rounded-xl text-xs font-semibold flex items-start space-x-2 border ${
-                message.type === 'success' 
-                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
+              <div className={`p-4 rounded-xl text-xs font-semibold flex items-start space-x-2 border ${message.type === 'success'
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                   : 'bg-rose-50 text-rose-800 border-rose-200'
-              }`}>
+                }`}>
                 {message.type === 'success' ? <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" /> : <AlertOctagon className="h-4 w-4 shrink-0 mt-0.5" />}
                 <span>{message.text}</span>
               </div>
             )}
 
             <form onSubmit={handleUploadSubmit} className="space-y-5">
-              
+
               {/* Deadline Milestone Select */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
@@ -149,11 +148,10 @@ export default function StudentSubmissionsPage() {
 
               {/* Deadline Status Banner */}
               {selectedDeadline && (
-                <div className={`p-4 rounded-xl border text-xs leading-relaxed flex items-center justify-between ${
-                  isPastDeadline 
-                    ? 'bg-rose-50 border-rose-200 text-rose-800' 
+                <div className={`p-4 rounded-xl border text-xs leading-relaxed flex items-center justify-between ${isPastDeadline
+                    ? 'bg-rose-50 border-rose-200 text-rose-800'
                     : 'bg-indigo-50 border-indigo-200 text-indigo-800'
-                }`}>
+                  }`}>
                   <div>
                     <span className="font-bold block">
                       {isPastDeadline ? '❌ DEADLINE PASSED & LOCKED' : '✅ UPLOAD OPEN'}
@@ -169,11 +167,10 @@ export default function StudentSubmissionsPage() {
               )}
 
               {/* Drag & Drop File Input Area */}
-              <div className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all ${
-                isPastDeadline 
-                  ? 'border-slate-200 bg-slate-50 cursor-not-allowed opacity-60' 
+              <div className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all ${isPastDeadline
+                  ? 'border-slate-200 bg-slate-50 cursor-not-allowed opacity-60'
                   : 'border-indigo-200 bg-indigo-50/30 hover:bg-indigo-50/60 cursor-pointer'
-              }`}>
+                }`}>
                 <input
                   type="file"
                   accept=".pdf,.docx,.pptx"
@@ -204,11 +201,10 @@ export default function StudentSubmissionsPage() {
               <button
                 type="submit"
                 disabled={isPastDeadline || !file || isSubmitting}
-                className={`w-full py-3.5 px-4 rounded-xl text-sm font-bold text-white shadow-lg transition-all flex items-center justify-center space-x-2 ${
-                  isPastDeadline || !file
+                className={`w-full py-3.5 px-4 rounded-xl text-sm font-bold text-white shadow-lg transition-all flex items-center justify-center space-x-2 ${isPastDeadline || !file
                     ? 'bg-slate-300 cursor-not-allowed shadow-none'
                     : 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-600/30'
-                }`}
+                  }`}
               >
                 <span>{isSubmitting ? 'Uploading & Processing AI Summary...' : 'Upload Document Deliverable'}</span>
               </button>

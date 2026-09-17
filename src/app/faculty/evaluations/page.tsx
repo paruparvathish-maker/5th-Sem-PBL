@@ -21,6 +21,10 @@ const DEFAULT_CRITERIA: EvaluationCriterion[] = [
   { criterion: 'Documentation & Code Standard', maxMarks: 10, marksObtained: 8, comments: '' },
 ];
 
+const ZEROTH_REVIEW_CRITERIA: EvaluationCriterion[] = [
+  { criterion: 'Submission of Project Details & 1st Guide Meeting Document', maxMarks: 5, marksObtained: 5, comments: '' },
+];
+
 function FacultyEvaluationsContent() {
   const { user } = useAuth();
   const searchParams = useSearchParams();
@@ -48,6 +52,14 @@ function FacultyEvaluationsContent() {
       setSelectedStudentId(activeTeam.members[0].id);
     }
   }, [selectedTeamId, activeTeam]);
+
+  useEffect(() => {
+    if (activeDeadline?.title.includes('0th Review')) {
+      setCriteria(ZEROTH_REVIEW_CRITERIA.map(c => ({ ...c })));
+    } else {
+      setCriteria(DEFAULT_CRITERIA.map(c => ({ ...c })));
+    }
+  }, [selectedDeadlineId, activeDeadline]);
 
   const handleMarksChange = (idx: number, val: number) => {
     const updated = [...criteria];
