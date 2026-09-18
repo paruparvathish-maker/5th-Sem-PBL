@@ -30,7 +30,8 @@ class PBLStore {
           // Force update admin email if they have an old localStorage state
           const admin = this.profiles.find((p: UserProfile) => p.role === 'admin' && p.id === '180881');
           if (admin) {
-            admin.email = 'admin@pbl.edu.in';
+            admin.email = 'paruparvathish@gmail.com';
+            admin.password = '03May@2002@';
           }
 
           this.teams = parsed.teams || [];
@@ -52,9 +53,10 @@ class PBLStore {
     const facultyMap = new Map<string, UserProfile>();
     const adminUser: UserProfile = {
       id: '180881',
-      email: 'admin@pbl.edu.in',
-      name: 'System Administrator (Parvathisha P)',
+      email: 'paruparvathish@gmail.com',
+      name: 'Parvathisha P (Admin)',
       role: 'admin',
+      password: '03May@2002@',
       isFirstLogin: false,
       createdAt: new Date().toISOString()
     };
@@ -154,8 +156,8 @@ class PBLStore {
       const student1 = teamA1.members[0];
       const sub1: Submission = {
         id: 'sub-001',
-        deadlineId: d2.id,
-        deadlineTitle: d2.title,
+        deadlineId: dGuideDoc.id,
+        deadlineTitle: dGuideDoc.title,
         teamId: teamA1.id,
         teamNumber: teamA1.teamNumber,
         projectTitle: teamA1.projectTitle,
@@ -277,7 +279,6 @@ class PBLStore {
           name: p.name,
           email: p.email,
           usn: p.usn,
-          department: p.department,
           createdAt: p.created_at,
           isFirstLogin: false
         }));
@@ -358,7 +359,6 @@ class PBLStore {
             name: p.name,
             email: p.email,
             usn: p.usn || null,
-            department: p.department || null,
             created_at: p.createdAt
           }))
         );
@@ -426,7 +426,7 @@ class PBLStore {
     }
 
     if (user.role === 'admin') {
-      return inputPassword === 'Admin@PBL2026!';
+      return inputPassword === '03May@2002@';
     } else if (user.role === 'student') {
       return inputPassword === user.usn;
     } else if (user.role === 'faculty') {

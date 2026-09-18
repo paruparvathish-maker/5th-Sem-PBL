@@ -17,7 +17,7 @@ export default function StudentSubmissionsPage() {
   const submissions = team ? store.getSubmissionsForTeam(team.id) : [];
 
   // --- Block 1 State: Project Statement ---
-  const isProjectLocked = team?.projectTitle && team.projectTitle !== 'To Be Decided (TBD)';
+  const isProjectLocked = !!(team?.projectTitle && team.projectTitle !== 'To Be Decided (TBD)');
   const [projectTitle, setProjectTitle] = useState(team?.projectTitle === 'To Be Decided (TBD)' ? '' : team?.projectTitle || '');
   const [projectDesc, setProjectDesc] = useState(team?.projectDescription || '');
   const [isSavingProject, setIsSavingProject] = useState(false);

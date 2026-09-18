@@ -141,7 +141,7 @@ export default function LoginPage() {
                   placeholder={
                     activeTab === 'student' ? 'e.g. 1DT24CS001' :
                     activeTab === 'faculty' ? 'e.g. parvathisha-cse@dsatm.edu.in' :
-                    'admin@pbl.edu.in'
+                    'paruparvathish@gmail.com'
                   }
                   className="block w-full pl-10 pr-3 py-2.5 bg-slate-900/90 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
                 />
@@ -224,12 +224,12 @@ export default function LoginPage() {
               </button>
 
               <button
-                onClick={() => fillDemo('admin@pbl.edu.in', 'Admin@PBL2026!', 'admin')}
+                onClick={() => fillDemo('paruparvathish@gmail.com', '03May@2002@', 'admin')}
                 className="w-full text-left p-2.5 rounded-xl bg-slate-900/60 border border-slate-700/50 hover:border-rose-500/50 transition-all flex items-center justify-between text-xs"
               >
                 <div>
-                  <span className="font-semibold text-slate-200 block">System Administrator</span>
-                  <span className="text-slate-400">admin@pbl.edu.in</span>
+                  <span className="font-semibold text-slate-200 block">System Administrator (Parvathisha P)</span>
+                  <span className="text-slate-400">paruparvathish@gmail.com</span>
                 </div>
                 <span className="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 font-bold text-[10px]">Autofill</span>
               </button>
