@@ -37,7 +37,7 @@ export default function FacultyTeamsPage() {
     }
     setIsSaving(true);
     store.updateTeamProjectDetails(teamId, editTitle, editDesc);
-    await store.syncFromAppwrite(); // sync back if needed, but updateTeamProjectDetails syncs up
+    await store.syncFromSupabase(); // sync back if needed, but updateTeamProjectDetails syncs up
     setIsSaving(false);
     setEditingTeamId(null);
   };
