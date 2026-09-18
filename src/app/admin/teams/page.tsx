@@ -103,7 +103,7 @@ export default function AdminTeamsPage() {
       t.teamNumber,
       `"${t.projectTitle.replace(/"/g, '""')}"`,
       `"${(t.projectDescription || '').replace(/"/g, '""')}"`,
-      `"${t.guideName.replace(/"/g, '""')}"`
+      `"${(t.guideName || '').replace(/"/g, '""')}"`
     ]);
     const csvContent = [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });

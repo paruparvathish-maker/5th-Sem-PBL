@@ -2,7 +2,7 @@ import {
   UserProfile, Team, Deadline, Submission, Evaluation, GuideMeeting, NotificationItem, AuditLogItem, SectionCode
 } from '../types/pbl';
 import { RAW_PDF_SEED, getGuideEmail, getGuidePhone } from './seed-dataset';
-import { supabase } from '../supabase/client';
+import { databases, ID, Query, DB_ID, COLLECTIONS } from '../appwrite/config';
 
 class PBLStore {
   private profiles: UserProfile[] = [];
@@ -257,8 +257,8 @@ class PBLStore {
           auditLogs: this.auditLogs
         }));
         
-        // Fire-and-forget sync to cloud (if enabled)
-        this.syncToSupabase().catch(console.error);
+        // Fire-and-forget sync to cloud
+        this.syncToAppwrite().catch(console.error);
       } catch (e) {
         console.error("Save store error:", e);
       }
@@ -266,72 +266,90 @@ class PBLStore {
   }
 
   // --- Cloud Sync ---
-  public async syncFromSupabase() {
+  public async syncFromAppwrite() {
     try {
-      const { data: profiles } = await supabase.from('profiles').select('*');
-      const { data: teams } = await supabase.from('teams').select('*');
-      const { data: evals } = await supabase.from('evaluations').select('*');
-      
-      if (profiles && profiles.length > 0) {
-        this.profiles = profiles.map((p: any) => ({
-          id: p.id,
+      // Fetch profiles
+      const profRes = await databases.listDocuments(DB_ID, COLLECTIONS.PROFILES, [Query.limit(500)]);
+      if (profRes.documents.length > 0) {
+        this.profiles = profRes.documents.map((p: any) => ({
+          id: p.$id,
           role: p.role,
           name: p.name,
           email: p.email,
-          usn: p.usn,
-          createdAt: p.created_at,
-          isFirstLogin: p.is_first_login !== undefined ? p.is_first_login : false,
-          password: p.password || undefined
-        }));
-      }
-      
-      if (teams && teams.length > 0) {
-        this.teams = teams.map((t: any) => ({
-          id: t.id,
-          teamNumber: t.team_number,
-          section: t.section,
-          projectTitle: t.project_title,
-          projectDescription: t.project_description,
-          guideId: t.guide_id,
-          guideName: t.guide_name,
-          members: t.members,
-          createdAt: t.created_at
+          usn: p.usn || undefined,
+          phone: p.phone || undefined,
+          staffCode: p.staffCode || undefined,
+          section: p.section || undefined,
+          password: p.password || undefined,
+          isFirstLogin: p.isFirstLogin !== undefined ? p.isFirstLogin : true,
+          createdAt: p.$createdAt,
         }));
       }
 
-      if (evals && evals.length > 0) {
-        // Self-healing: Delete any evaluation that has max_total_marks !== 5
-        const badEvals = evals.filter((e: any) => Number(e.max_total_marks) !== 5);
-        if (badEvals.length > 0) {
-          console.warn(`Purging ${badEvals.length} corrupted evaluations from Supabase`);
-          for (const be of badEvals) {
-            await supabase.from('evaluations').delete().eq('id', be.id);
-          }
-        }
-        
-        const goodEvals = evals.filter((e: any) => Number(e.max_total_marks) === 5);
-        this.evaluations = goodEvals.map((e: any) => ({
-          id: e.id,
-          deadlineId: e.deadline_id,
-          deadlineTitle: e.deadline_title,
-          teamId: e.team_id,
-          teamNumber: e.team_number,
-          evaluatorId: e.evaluator_id,
-          evaluatorName: e.evaluator_name,
-          evaluationType: e.evaluation_type,
-          studentId: e.student_id,
-          studentName: e.student_name,
-          studentUsn: e.student_usn,
-          criteriaScores: e.criteria_scores,
-          totalMarks: e.total_marks,
-          maxTotalMarks: e.max_total_marks,
-          facultyComments: e.faculty_comments,
-          isPublished: e.is_published,
-          evaluatedAt: e.evaluated_at
+      // Fetch teams
+      const teamsRes = await databases.listDocuments(DB_ID, COLLECTIONS.TEAMS, [Query.limit(500)]);
+      if (teamsRes.documents.length > 0) {
+        this.teams = teamsRes.documents.map((t: any) => ({
+          id: t.$id,
+          teamNumber: t.teamNumber,
+          section: t.section,
+          projectTitle: t.projectTitle,
+          projectDescription: t.projectDescription || '',
+          guideId: t.guideId,
+          guideName: t.guideName,
+          guideEmail: t.guideEmail || '',
+          members: typeof t.members === 'string' ? JSON.parse(t.members) : t.members || [],
+          createdAt: t.$createdAt,
         }));
       }
-      
-      // Save pulled data to local storage so synchronous methods work
+
+      // Fetch evaluations
+      const evalsRes = await databases.listDocuments(DB_ID, COLLECTIONS.EVALUATIONS, [Query.limit(500)]);
+      if (evalsRes.documents.length > 0) {
+        this.evaluations = evalsRes.documents.map((e: any) => ({
+          id: e.$id,
+          deadlineId: e.deadlineId,
+          deadlineTitle: e.deadlineTitle,
+          teamId: e.teamId,
+          teamNumber: e.teamNumber,
+          evaluatorId: e.evaluatorId,
+          evaluatorName: e.evaluatorName,
+          evaluationType: e.evaluationType,
+          studentId: e.studentId || undefined,
+          studentName: e.studentName || undefined,
+          studentUsn: e.studentUsn || undefined,
+          criteriaScores: typeof e.criteriaScores === 'string' ? JSON.parse(e.criteriaScores) : e.criteriaScores,
+          totalMarks: e.totalMarks,
+          maxTotalMarks: e.maxTotalMarks,
+          facultyComments: e.facultyComments || '',
+          isPublished: e.isPublished,
+          evaluatedAt: e.evaluatedAt,
+        }));
+      }
+
+      // Fetch submissions
+      const subsRes = await databases.listDocuments(DB_ID, COLLECTIONS.SUBMISSIONS, [Query.limit(500)]);
+      if (subsRes.documents.length > 0) {
+        this.submissions = subsRes.documents.map((s: any) => ({
+          id: s.$id,
+          deadlineId: s.deadlineId,
+          deadlineTitle: s.deadlineTitle,
+          teamId: s.teamId,
+          teamNumber: s.teamNumber,
+          projectTitle: s.projectTitle,
+          submittedBy: s.submittedBy,
+          studentName: s.studentName,
+          fileName: s.fileName,
+          filePath: s.filePath,
+          fileType: s.fileType,
+          fileSize: s.fileSize,
+          submissionTime: s.submissionTime,
+          version: s.version || 1,
+          status: s.status || 'submitted',
+        }));
+      }
+
+      // Save pulled data to localStorage so synchronous methods work
       if (typeof window !== 'undefined') {
         localStorage.setItem('pbl_portal_store_v4', JSON.stringify({
           profiles: this.profiles,
@@ -345,69 +363,79 @@ class PBLStore {
         }));
       }
     } catch (err) {
-      console.error("Sync from Supabase failed", err);
+      console.error('Sync from Appwrite failed', err);
     }
   }
 
-  private async syncToSupabase() {
-    // Basic bulk upsert for the crucial tables to keep cloud in sync with local memory
+  private async syncToAppwrite() {
     try {
-      if (this.profiles.length > 0) {
-        await supabase.from('profiles').upsert(
-          this.profiles.map(p => ({
-            id: p.id,
-            role: p.role,
-            name: p.name,
-            email: p.email,
-            usn: p.usn || null,
-            password: p.password || null,
-            is_first_login: p.isFirstLogin,
-            created_at: p.createdAt
-          }))
-        );
+      // Upsert profiles
+      for (const p of this.profiles) {
+        const doc = {
+          role: p.role,
+          name: p.name,
+          email: p.email,
+          usn: p.usn || null,
+          phone: p.phone || null,
+          staffCode: p.staffCode || null,
+          section: p.section || null,
+          password: p.password || null,
+          isFirstLogin: p.isFirstLogin,
+        };
+        try {
+          await databases.updateDocument(DB_ID, COLLECTIONS.PROFILES, p.id, doc);
+        } catch {
+          try { await databases.createDocument(DB_ID, COLLECTIONS.PROFILES, p.id, doc); } catch {}
+        }
       }
 
-      if (this.teams.length > 0) {
-        await supabase.from('teams').upsert(
-          this.teams.map(t => ({
-            id: t.id,
-            team_number: t.teamNumber,
-            section: t.section,
-            project_title: t.projectTitle,
-            project_description: t.projectDescription || null,
-            guide_id: t.guideId,
-            guide_name: t.guideName,
-            members: t.members,
-            created_at: t.createdAt
-          }))
-        );
+      // Upsert teams
+      for (const t of this.teams) {
+        const doc = {
+          teamNumber: t.teamNumber,
+          section: t.section,
+          projectTitle: t.projectTitle,
+          projectDescription: t.projectDescription || '',
+          guideId: t.guideId,
+          guideName: t.guideName,
+          guideEmail: t.guideEmail || '',
+          members: JSON.stringify(t.members || []),
+        };
+        try {
+          await databases.updateDocument(DB_ID, COLLECTIONS.TEAMS, t.id, doc);
+        } catch {
+          try { await databases.createDocument(DB_ID, COLLECTIONS.TEAMS, t.id, doc); } catch {}
+        }
       }
 
-      if (this.evaluations.length > 0) {
-        await supabase.from('evaluations').upsert(
-          this.evaluations.map(e => ({
-            id: e.id,
-            deadline_id: e.deadlineId,
-            deadline_title: e.deadlineTitle,
-            team_id: e.teamId,
-            team_number: e.teamNumber,
-            evaluator_id: e.evaluatorId,
-            evaluator_name: e.evaluatorName,
-            evaluation_type: e.evaluationType,
-            student_id: e.studentId || null,
-            student_name: e.studentName || null,
-            student_usn: e.studentUsn || null,
-            criteria_scores: e.criteriaScores,
-            total_marks: e.totalMarks,
-            max_total_marks: e.maxTotalMarks,
-            faculty_comments: e.facultyComments || null,
-            is_published: e.isPublished,
-            evaluated_at: e.evaluatedAt
-          }))
-        );
+      // Upsert evaluations
+      for (const e of this.evaluations) {
+        const doc = {
+          deadlineId: e.deadlineId,
+          deadlineTitle: e.deadlineTitle,
+          teamId: e.teamId,
+          teamNumber: e.teamNumber,
+          evaluatorId: e.evaluatorId,
+          evaluatorName: e.evaluatorName,
+          evaluationType: e.evaluationType,
+          studentId: e.studentId || null,
+          studentName: e.studentName || null,
+          studentUsn: e.studentUsn || null,
+          criteriaScores: JSON.stringify(e.criteriaScores),
+          totalMarks: e.totalMarks,
+          maxTotalMarks: e.maxTotalMarks || 5,
+          facultyComments: e.facultyComments || '',
+          isPublished: e.isPublished,
+          evaluatedAt: e.evaluatedAt,
+        };
+        try {
+          await databases.updateDocument(DB_ID, COLLECTIONS.EVALUATIONS, e.id, doc);
+        } catch {
+          try { await databases.createDocument(DB_ID, COLLECTIONS.EVALUATIONS, e.id, doc); } catch {}
+        }
       }
     } catch (err) {
-      console.error("Sync to Supabase failed", err);
+      console.error('Sync to Appwrite failed', err);
     }
   }
 
@@ -448,7 +476,7 @@ class PBLStore {
       this.addAuditLog(userId, user.name, user.role, 'Password Updated', 'UserProfile', userId, { note: 'First-time credentials changed' });
       this.save();
       // Immediately sync this change to the cloud so it works on other devices
-      this.syncToSupabase().catch(console.error);
+      this.syncToAppwrite().catch(console.error);
       return true;
     }
     return false;

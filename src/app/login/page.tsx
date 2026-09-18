@@ -37,7 +37,7 @@ export default function LoginPage() {
     }
 
     // Sync from Supabase so the app has the latest cloud data in memory
-    await store.syncFromSupabase();
+    await store.syncFromAppwrite();
 
     if (res.requiresPasswordChange) {
       router.push('/first-time-password-change');
