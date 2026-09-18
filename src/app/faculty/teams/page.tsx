@@ -18,6 +18,34 @@ export default function FacultyTeamsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSection, setSelectedSection] = useState<string>('ALL');
 
+  // Edit State
+  const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDesc, setEditDesc] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleEditClick = (team: any) => {
+    setEditingTeamId(team.id);
+    setEditTitle(team.projectTitle === 'To Be Decided (TBD)' ? '' : team.projectTitle);
+    setEditDesc(team.projectDescription || '');
+  };
+
+  const handleSaveEdit = async (teamId: string) => {
+    if (!editTitle.trim() || !editDesc.trim()) {
+      alert('Please fill out both the title and description.');
+      return;
+    }
+    setIsSaving(true);
+    store.updateTeamProjectDetails(teamId, editTitle, editDesc);
+    await store.syncFromSupabase(); // sync back if needed, but updateTeamProjectDetails syncs up
+    setIsSaving(false);
+    setEditingTeamId(null);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingTeamId(null);
+  };
+
   const filteredTeams = assignedTeams.filter(t => {
     const matchesSearch =
       t.teamNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -150,9 +178,56 @@ export default function FacultyTeamsPage() {
                           <AlertCircle className="w-2.5 h-2.5" /> Pending
                         </span>
                       )}
+                      
+                      {!editingTeamId && (
+                        <button
+                          onClick={() => handleEditClick(t)}
+                          className="ml-auto flex items-center gap-1 text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded hover:bg-indigo-100 transition-colors"
+                        >
+                          Edit
+                        </button>
+                      )}
                     </div>
 
-                    {hasProjectDetails ? (
+                    {editingTeamId === t.id ? (
+                      <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 space-y-3">
+                        <div>
+                          <label className="block text-xs font-bold text-indigo-900 mb-1">Project Title</label>
+                          <input
+                            type="text"
+                            value={editTitle}
+                            onChange={(e) => setEditTitle(e.target.value)}
+                            className="w-full p-2 bg-white border border-indigo-200 rounded-lg text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-indigo-500"
+                            placeholder="Enter project title..."
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-indigo-900 mb-1">Description</label>
+                          <textarea
+                            value={editDesc}
+                            onChange={(e) => setEditDesc(e.target.value)}
+                            className="w-full p-2 bg-white border border-indigo-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-indigo-500 min-h-[100px] resize-none"
+                            placeholder="Enter project description..."
+                          />
+                        </div>
+                        <div className="flex items-center justify-end gap-2 pt-2">
+                          <button
+                            onClick={handleCancelEdit}
+                            disabled={isSaving}
+                            className="px-3 py-1.5 text-xs font-bold text-slate-600 hover:text-slate-800 disabled:opacity-50"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={() => handleSaveEdit(t.id)}
+                            disabled={isSaving}
+                            className="px-4 py-1.5 text-xs font-bold text-white bg-indigo-600 rounded-lg hover:bg-indigo-500 shadow-sm disabled:opacity-50"
+                          >
+                            {isSaving ? 'Saving...' : 'Save Changes'}
+                          </button>
+                        </div>
+                      </div>
+                    ) : hasProjectDetails ? (
                       <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 space-y-2">
                         <p className="text-xs font-bold text-indigo-900">Project Title:</p>
                         <p className="text-sm font-extrabold text-indigo-800">{t.projectTitle}</p>
