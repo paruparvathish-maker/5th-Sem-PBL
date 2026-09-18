@@ -42,7 +42,7 @@ function FacultyEvaluationsContent() {
   // Load assigned teams and deadlines from store
   const assignedTeams = store.getTeamsByGuideId(user.id);
   const allDeadlines = store.getAllDeadlines().filter(
-    (d) => d.deadlineType === 'review' || d.deadlineType === 'submission'
+    (d) => d.id === 'dl-project-stmt'
   );
 
   const [selectedTeamId, setSelectedTeamId] = useState(preselectedTeamId || assignedTeams[0]?.id || '');

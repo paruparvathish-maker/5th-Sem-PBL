@@ -280,7 +280,8 @@ class PBLStore {
           email: p.email,
           usn: p.usn,
           createdAt: p.created_at,
-          isFirstLogin: false
+          isFirstLogin: p.is_first_login !== undefined ? p.is_first_login : false,
+          password: p.password || undefined
         }));
       }
       
@@ -359,6 +360,8 @@ class PBLStore {
             name: p.name,
             email: p.email,
             usn: p.usn || null,
+            password: p.password || null,
+            is_first_login: p.isFirstLogin,
             created_at: p.createdAt
           }))
         );
@@ -444,6 +447,8 @@ class PBLStore {
       }
       this.addAuditLog(userId, user.name, user.role, 'Password Updated', 'UserProfile', userId, { note: 'First-time credentials changed' });
       this.save();
+      // Immediately sync this change to the cloud so it works on other devices
+      this.syncToSupabase().catch(console.error);
       return true;
     }
     return false;
