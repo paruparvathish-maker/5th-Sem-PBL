@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useAuth } from '@/lib/auth/auth-context';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { store } from '@/lib/data/store';
-import { GraduationCap, Search, Plus, Edit, UserCheck, Users, CheckCircle2, ShieldCheck, UploadCloud } from 'lucide-react';
+import { GraduationCap, Search, Plus, Edit, UserCheck, Users, CheckCircle2, ShieldCheck, UploadCloud, Download } from 'lucide-react';
 import { Team, SectionCode, UserProfile } from '@/lib/types/pbl';
 
 export default function AdminTeamsPage() {
@@ -96,6 +96,27 @@ export default function AdminTeamsPage() {
     refreshData();
   };
 
+  const exportToCSV = () => {
+    const headers = ['Section', 'Group Number', 'Project Title', 'Project Description', 'Guide Name'];
+    const rows = filteredTeams.map(t => [
+      t.section,
+      t.teamNumber,
+      `"${t.projectTitle.replace(/"/g, '""')}"`,
+      `"${(t.projectDescription || '').replace(/"/g, '""')}"`,
+      `"${t.guideName.replace(/"/g, '""')}"`
+    ]);
+    const csvContent = [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `PBL_Project_Statements_${selectedSection}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -108,13 +129,22 @@ export default function AdminTeamsPage() {
               Configure project teams, assign faculty guides, update project descriptions, and manage student team rosters.
             </p>
           </div>
-          <button
-            onClick={handleOpenAddModal}
-            className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-600/30 flex items-center space-x-2 w-fit"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Create New Team</span>
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={exportToCSV}
+              className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs shadow-lg shadow-slate-800/30 flex items-center space-x-2 w-fit transition"
+            >
+              <Download className="h-4 w-4" />
+              <span>Export as Excel</span>
+            </button>
+            <button
+              onClick={handleOpenAddModal}
+              className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-600/30 flex items-center space-x-2 w-fit transition"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Create New Team</span>
+            </button>
+          </div>
         </div>
 
         {message && (
