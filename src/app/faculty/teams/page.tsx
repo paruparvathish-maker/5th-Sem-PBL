@@ -14,9 +14,17 @@ export default function FacultyTeamsPage() {
   const { user } = useAuth();
   if (!user) return null;
 
-  const assignedTeams = store.getTeamsByGuideId(user.id);
+  const [assignedTeams, setAssignedTeams] = useState(store.getTeamsByGuideId(user.id));
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSection, setSelectedSection] = useState<string>('ALL');
+  const [isSyncing, setIsSyncing] = useState(true);
+
+  React.useEffect(() => {
+    store.syncFromSupabase().then(() => {
+      setAssignedTeams([...store.getTeamsByGuideId(user.id)]);
+      setIsSyncing(false);
+    });
+  }, [user.id]);
 
   // Edit State
   const [editingTeamId, setEditingTeamId] = useState<string | null>(null);

@@ -14,6 +14,14 @@ export default function AdminTeamsPage() {
   const [teams, setTeams] = useState<Team[]>(store.getAllTeams());
   const facultyList = store.getFaculty();
   const students = store.getStudents();
+  const [isSyncing, setIsSyncing] = useState(true);
+
+  React.useEffect(() => {
+    store.syncFromSupabase().then(() => {
+      setTeams([...store.getAllTeams()]);
+      setIsSyncing(false);
+    });
+  }, []);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSection, setSelectedSection] = useState<string>('ALL');

@@ -40,10 +40,17 @@ function FacultyEvaluationsContent() {
   if (!user) return null;
 
   // Load assigned teams and deadlines from store
-  const assignedTeams = store.getTeamsByGuideId(user.id);
-  const allDeadlines = store.getAllDeadlines().filter(
-    (d) => d.id === 'dl-project-stmt'
-  );
+  const [assignedTeams, setAssignedTeams] = useState(store.getTeamsByGuideId(user.id));
+  const [allDeadlines, setAllDeadlines] = useState(store.getAllDeadlines().filter((d) => d.id === 'dl-project-stmt'));
+  const [isSyncing, setIsSyncing] = useState(true);
+
+  useEffect(() => {
+    store.syncFromSupabase().then(() => {
+      setAssignedTeams([...store.getTeamsByGuideId(user.id)]);
+      setAllDeadlines(store.getAllDeadlines().filter((d) => d.id === 'dl-project-stmt'));
+      setIsSyncing(false);
+    });
+  }, [user.id]);
 
   const [selectedTeamId, setSelectedTeamId] = useState(preselectedTeamId || assignedTeams[0]?.id || '');
   const [selectedDeadlineId, setSelectedDeadlineId] = useState(allDeadlines[0]?.id || '');

@@ -34,6 +34,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } else {
           setUser(parsed);
         }
+        
+        // Background sync to ensure we have the latest data across devices
+        store.syncFromSupabase().catch(e => console.error("Background sync failed", e));
+        
       } catch (e) {
         console.error("Session restore failed", e);
       }

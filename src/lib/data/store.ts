@@ -424,6 +424,28 @@ class PBLStore {
           }))
         );
       }
+
+      if (this.submissions.length > 0) {
+        await supabase.from('submissions').upsert(
+          this.submissions.map(s => ({
+            id: s.id,
+            deadline_id: s.deadlineId,
+            deadline_title: s.deadlineTitle,
+            team_id: s.teamId,
+            team_number: s.teamNumber,
+            project_title: s.projectTitle,
+            submitted_by: s.submittedBy,
+            student_name: s.studentName,
+            file_name: s.fileName,
+            file_path: s.filePath,
+            file_type: s.fileType,
+            file_size: s.fileSize,
+            submission_time: s.submissionTime,
+            version: s.version || 1,
+            status: s.status || 'submitted',
+          }))
+        );
+      }
     } catch (err) {
       console.error('Sync to Supabase failed', err);
     }
