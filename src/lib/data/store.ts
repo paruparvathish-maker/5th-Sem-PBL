@@ -4,6 +4,16 @@ import {
 import { RAW_PDF_SEED, getGuideEmail, getGuidePhone } from './seed-dataset';
 import { supabase } from '../supabase/client';
 
+const generateUUID = () => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+};
+
 class PBLStore {
   private profiles: UserProfile[] = [];
   private teams: Team[] = [];
@@ -406,15 +416,10 @@ class PBLStore {
           this.evaluations.map(e => ({
             id: e.id,
             deadline_id: e.deadlineId,
-            deadline_title: e.deadlineTitle,
             team_id: e.teamId,
-            team_number: e.teamNumber,
             evaluator_id: e.evaluatorId,
-            evaluator_name: e.evaluatorName,
             evaluation_type: e.evaluationType,
             student_id: e.studentId || null,
-            student_name: e.studentName || null,
-            student_usn: e.studentUsn || null,
             criteria_scores: e.criteriaScores,
             total_marks: e.totalMarks,
             max_total_marks: e.maxTotalMarks || 5,
@@ -430,12 +435,8 @@ class PBLStore {
           this.submissions.map(s => ({
             id: s.id,
             deadline_id: s.deadlineId,
-            deadline_title: s.deadlineTitle,
             team_id: s.teamId,
-            team_number: s.teamNumber,
-            project_title: s.projectTitle,
             submitted_by: s.submittedBy,
-            student_name: s.studentName,
             file_name: s.fileName,
             file_path: s.filePath,
             file_type: s.fileType,
