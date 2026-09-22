@@ -385,7 +385,6 @@ class PBLStore {
             email: p.email,
             usn: p.usn || null,
             phone: p.phone || null,
-            staff_code: p.staffCode || null,
             section: p.section || null,
             password: p.password || null,
             is_first_login: p.isFirstLogin,
@@ -403,9 +402,6 @@ class PBLStore {
             project_title: t.projectTitle,
             project_description: t.projectDescription || null,
             guide_id: t.guideId,
-            guide_name: t.guideName,
-            guide_email: t.guideEmail || null,
-            members: t.members,
             created_at: t.createdAt,
           }))
         );
