@@ -2,7 +2,6 @@ import {
   UserProfile, Team, Deadline, Submission, Evaluation, GuideMeeting, NotificationItem, AuditLogItem, SectionCode
 } from '../types/pbl';
 import { RAW_PDF_SEED, getGuideEmail, getGuidePhone } from './seed-dataset';
-import { applyCloudSnapshot } from './sync-merge';
 import { supabase } from '../supabase/client';
 
 const generateUUID = () => {
@@ -250,169 +249,75 @@ class PBLStore {
       createdAt: new Date().toISOString()
     });
 
-    this.save();
+    this.save(true);
     this.initialized = true;
   }
 
-  private save() {
-    if (typeof window === 'undefined') return;
-    this.persistLocal();
-    // Fire-and-forget sync to cloud
-    this.syncToSupabase().catch(console.error);
-  }
-
-  private persistLocal() {
-    if (typeof window === 'undefined') return;
-    try {
-      localStorage.setItem('pbl_portal_store_v4', JSON.stringify({
-        profiles: this.profiles,
-        teams: this.teams,
-        deadlines: this.deadlines,
-        submissions: this.submissions,
-        evaluations: this.evaluations,
-        guideMeetings: this.guideMeetings,
-        notifications: this.notifications,
-        auditLogs: this.auditLogs
-      }));
-    } catch (e) {
-      console.error("Save store error:", e);
+  private save(skipCloudSync: boolean = false) {
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('pbl_portal_store_v4', JSON.stringify({
+          profiles: this.profiles,
+          teams: this.teams,
+          deadlines: this.deadlines,
+          submissions: this.submissions,
+          evaluations: this.evaluations,
+          guideMeetings: this.guideMeetings,
+          notifications: this.notifications,
+          auditLogs: this.auditLogs
+        }));
+        
+        // Fire-and-forget sync to cloud
+        if (!skipCloudSync) {
+          this.syncToSupabase().catch(console.error);
+        }
+      } catch (e) {
+        console.error("Save store error:", e);
+      }
     }
   }
 
-  // --- Cloud Sync ---
   public async syncFromSupabase() {
     try {
-      const { data: profiles } = await supabase.from('profiles').select('*');
-      const { data: teams } = await supabase.from('teams').select('*');
-      const { data: evals } = await supabase.from('evaluations').select('*');
-      const { data: subs } = await supabase.from('submissions').select('*');
-      const { data: meetings } = await supabase.from('guide_meetings').select('*');
-
-      // Fold the cloud rows into the local state instead of replacing it.
-      // Replacing data here is what previously discarded a student's freshly
-      // submitted project details/meeting document before faculty could see it.
-      const merged = applyCloudSnapshot(
-        {
-          profiles: this.profiles,
-          teams: this.teams,
-          evaluations: this.evaluations,
-          submissions: this.submissions,
-          guideMeetings: this.guideMeetings,
-        },
-        {
-          profiles,
-          teams,
-          evaluations: evals,
-          submissions: subs,
-          guideMeetings: meetings,
+      const res = await fetch('/api/db');
+      if (res.ok) {
+        const data = await res.json();
+        this.profiles = data.profiles || this.profiles;
+        this.teams = data.teams || this.teams;
+        this.deadlines = data.deadlines || this.deadlines;
+        this.submissions = data.submissions || this.submissions;
+        this.evaluations = data.evaluations || this.evaluations;
+        this.guideMeetings = data.guideMeetings || this.guideMeetings;
+        this.notifications = data.notifications || this.notifications;
+        this.auditLogs = data.auditLogs || this.auditLogs;
+        
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('pbl_portal_store_v4', JSON.stringify(data));
         }
-      );
-
-      this.profiles = merged.profiles;
-      this.teams = merged.teams;
-      this.evaluations = merged.evaluations;
-      this.submissions = merged.submissions;
-      this.guideMeetings = merged.guideMeetings;
-
-      this.persistLocal();
+      }
     } catch (err) {
-      console.error('Sync from Supabase failed', err);
+      console.error('Sync from local DB failed', err);
     }
   }
 
   private async syncToSupabase() {
     try {
-      if (this.profiles.length > 0) {
-        const { error } = await supabase.from('profiles').upsert(
-          this.profiles.map(p => ({
-            id: p.id,
-            role: p.role,
-            name: p.name,
-            email: p.email,
-            usn: p.usn || null,
-            phone: p.phone || null,
-            section: p.section || null,
-            password: p.password || null,
-            is_first_login: p.isFirstLogin,
-            created_at: p.createdAt,
-          }))
-        );
-        if (error) console.error('Supabase profiles upsert failed:', error.message || error);
-      }
-
-      if (this.teams.length > 0) {
-        const { error } = await supabase.from('teams').upsert(
-          this.teams.map(t => ({
-            id: t.id,
-            team_number: t.teamNumber,
-            section: t.section,
-            project_title: t.projectTitle,
-            project_description: t.projectDescription || null,
-            guide_id: t.guideId,
-            created_at: t.createdAt,
-          }))
-        );
-        if (error) console.error('Supabase teams upsert failed:', error.message || error);
-      }
-
-      if (this.evaluations.length > 0) {
-        const { error } = await supabase.from('evaluations').upsert(
-          this.evaluations.map(e => ({
-            id: e.id,
-            deadline_id: e.deadlineId,
-            team_id: e.teamId,
-            evaluator_id: e.evaluatorId,
-            evaluation_type: e.evaluationType,
-            student_id: e.studentId || null,
-            criteria_scores: e.criteriaScores,
-            total_marks: e.totalMarks,
-            max_total_marks: e.maxTotalMarks || 5,
-            faculty_comments: e.facultyComments || null,
-            is_published: e.isPublished,
-            evaluated_at: e.evaluatedAt,
-          }))
-        );
-        if (error) console.error('Supabase evaluations upsert failed:', error.message || error);
-      }
-
-      if (this.submissions.length > 0) {
-        const { error } = await supabase.from('submissions').upsert(
-          this.submissions.map(s => ({
-            id: s.id,
-            deadline_id: s.deadlineId,
-            team_id: s.teamId,
-            submitted_by: s.submittedBy,
-            file_name: s.fileName,
-            file_path: s.filePath,
-            file_type: s.fileType,
-            file_size: s.fileSize,
-            submission_time: s.submissionTime,
-            version: s.version || 1,
-            status: s.status || 'submitted',
-          }))
-        );
-        if (error) console.error('Supabase submissions upsert failed:', error.message || error);
-      }
-
-      if (this.guideMeetings.length > 0) {
-        const { error } = await supabase.from('guide_meetings').upsert(
-          this.guideMeetings.map(m => ({
-            id: m.id,
-            title: m.title,
-            faculty_id: m.facultyId,
-            team_id: m.teamId,
-            meeting_date: m.meetingDate,
-            location: m.location,
-            agenda: m.agenda,
-            status: m.status,
-            faculty_notes: m.facultyNotes || null,
-            created_at: m.createdAt,
-          }))
-        );
-        if (error) console.error('Supabase guide_meetings upsert failed:', error.message || error);
-      }
+      await fetch('/api/db', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          profiles: this.profiles,
+          teams: this.teams,
+          deadlines: this.deadlines,
+          submissions: this.submissions,
+          evaluations: this.evaluations,
+          guideMeetings: this.guideMeetings,
+          notifications: this.notifications,
+          auditLogs: this.auditLogs
+        })
+      });
     } catch (err) {
-      console.error('Sync to Supabase failed', err);
+      console.error('Sync to local DB failed', err);
     }
   }
 
