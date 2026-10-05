@@ -2,6 +2,7 @@ import {
   UserProfile, Team, Deadline, Submission, Evaluation, GuideMeeting, NotificationItem, AuditLogItem, SectionCode
 } from '../types/pbl';
 import { RAW_PDF_SEED, getGuideEmail, getGuidePhone } from './seed-dataset';
+import { applyCloudSnapshot } from './sync-merge';
 import { supabase } from '../supabase/client';
 
 const generateUUID = () => {
@@ -254,24 +255,27 @@ class PBLStore {
   }
 
   private save() {
-    if (typeof window !== 'undefined') {
-      try {
-        localStorage.setItem('pbl_portal_store_v4', JSON.stringify({
-          profiles: this.profiles,
-          teams: this.teams,
-          deadlines: this.deadlines,
-          submissions: this.submissions,
-          evaluations: this.evaluations,
-          guideMeetings: this.guideMeetings,
-          notifications: this.notifications,
-          auditLogs: this.auditLogs
-        }));
-        
-        // Fire-and-forget sync to cloud
-        this.syncToSupabase().catch(console.error);
-      } catch (e) {
-        console.error("Save store error:", e);
-      }
+    if (typeof window === 'undefined') return;
+    this.persistLocal();
+    // Fire-and-forget sync to cloud
+    this.syncToSupabase().catch(console.error);
+  }
+
+  private persistLocal() {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem('pbl_portal_store_v4', JSON.stringify({
+        profiles: this.profiles,
+        teams: this.teams,
+        deadlines: this.deadlines,
+        submissions: this.submissions,
+        evaluations: this.evaluations,
+        guideMeetings: this.guideMeetings,
+        notifications: this.notifications,
+        auditLogs: this.auditLogs
+      }));
+    } catch (e) {
+      console.error("Save store error:", e);
     }
   }
 
@@ -282,93 +286,35 @@ class PBLStore {
       const { data: teams } = await supabase.from('teams').select('*');
       const { data: evals } = await supabase.from('evaluations').select('*');
       const { data: subs } = await supabase.from('submissions').select('*');
+      const { data: meetings } = await supabase.from('guide_meetings').select('*');
 
-      if (profiles && profiles.length > 0) {
-        this.profiles = profiles.map((p: any) => ({
-          id: p.id,
-          role: p.role,
-          name: p.name,
-          email: p.email,
-          usn: p.usn || undefined,
-          phone: p.phone || undefined,
-          staffCode: p.staff_code || undefined,
-          section: p.section || undefined,
-          password: p.password || undefined,
-          isFirstLogin: p.is_first_login !== undefined ? p.is_first_login : true,
-          createdAt: p.created_at,
-        }));
-      }
-
-      if (teams && teams.length > 0) {
-        this.teams = teams.map((t: any) => ({
-          id: t.id,
-          teamNumber: t.team_number,
-          section: t.section,
-          projectTitle: t.project_title,
-          projectDescription: t.project_description || '',
-          guideId: t.guide_id,
-          guideName: t.guide_name,
-          guideEmail: t.guide_email || '',
-          members: t.members || [],
-          createdAt: t.created_at,
-        }));
-      }
-
-      if (evals && evals.length > 0) {
-        const goodEvals = evals.filter((e: any) => Number(e.max_total_marks) === 5);
-        this.evaluations = goodEvals.map((e: any) => ({
-          id: e.id,
-          deadlineId: e.deadline_id,
-          deadlineTitle: e.deadline_title,
-          teamId: e.team_id,
-          teamNumber: e.team_number,
-          evaluatorId: e.evaluator_id,
-          evaluatorName: e.evaluator_name,
-          evaluationType: e.evaluation_type,
-          studentId: e.student_id || undefined,
-          studentName: e.student_name || undefined,
-          studentUsn: e.student_usn || undefined,
-          criteriaScores: e.criteria_scores,
-          totalMarks: e.total_marks,
-          maxTotalMarks: e.max_total_marks,
-          facultyComments: e.faculty_comments || '',
-          isPublished: e.is_published,
-          evaluatedAt: e.evaluated_at,
-        }));
-      }
-
-      if (subs && subs.length > 0) {
-        this.submissions = subs.map((s: any) => ({
-          id: s.id,
-          deadlineId: s.deadline_id,
-          deadlineTitle: s.deadline_title,
-          teamId: s.team_id,
-          teamNumber: s.team_number,
-          projectTitle: s.project_title,
-          submittedBy: s.submitted_by,
-          studentName: s.student_name,
-          fileName: s.file_name,
-          filePath: s.file_path,
-          fileType: s.file_type,
-          fileSize: s.file_size,
-          submissionTime: s.submission_time,
-          version: s.version || 1,
-          status: s.status || 'submitted',
-        }));
-      }
-
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('pbl_portal_store_v4', JSON.stringify({
+      // Fold the cloud rows into the local state instead of replacing it.
+      // Replacing data here is what previously discarded a student's freshly
+      // submitted project details/meeting document before faculty could see it.
+      const merged = applyCloudSnapshot(
+        {
           profiles: this.profiles,
           teams: this.teams,
-          deadlines: this.deadlines,
-          submissions: this.submissions,
           evaluations: this.evaluations,
+          submissions: this.submissions,
           guideMeetings: this.guideMeetings,
-          notifications: this.notifications,
-          auditLogs: this.auditLogs
-        }));
-      }
+        },
+        {
+          profiles,
+          teams,
+          evaluations: evals,
+          submissions: subs,
+          guideMeetings: meetings,
+        }
+      );
+
+      this.profiles = merged.profiles;
+      this.teams = merged.teams;
+      this.evaluations = merged.evaluations;
+      this.submissions = merged.submissions;
+      this.guideMeetings = merged.guideMeetings;
+
+      this.persistLocal();
     } catch (err) {
       console.error('Sync from Supabase failed', err);
     }
@@ -377,7 +323,7 @@ class PBLStore {
   private async syncToSupabase() {
     try {
       if (this.profiles.length > 0) {
-        await supabase.from('profiles').upsert(
+        const { error } = await supabase.from('profiles').upsert(
           this.profiles.map(p => ({
             id: p.id,
             role: p.role,
@@ -391,10 +337,11 @@ class PBLStore {
             created_at: p.createdAt,
           }))
         );
+        if (error) console.error('Supabase profiles upsert failed:', error.message || error);
       }
 
       if (this.teams.length > 0) {
-        await supabase.from('teams').upsert(
+        const { error } = await supabase.from('teams').upsert(
           this.teams.map(t => ({
             id: t.id,
             team_number: t.teamNumber,
@@ -405,10 +352,11 @@ class PBLStore {
             created_at: t.createdAt,
           }))
         );
+        if (error) console.error('Supabase teams upsert failed:', error.message || error);
       }
 
       if (this.evaluations.length > 0) {
-        await supabase.from('evaluations').upsert(
+        const { error } = await supabase.from('evaluations').upsert(
           this.evaluations.map(e => ({
             id: e.id,
             deadline_id: e.deadlineId,
@@ -424,10 +372,11 @@ class PBLStore {
             evaluated_at: e.evaluatedAt,
           }))
         );
+        if (error) console.error('Supabase evaluations upsert failed:', error.message || error);
       }
 
       if (this.submissions.length > 0) {
-        await supabase.from('submissions').upsert(
+        const { error } = await supabase.from('submissions').upsert(
           this.submissions.map(s => ({
             id: s.id,
             deadline_id: s.deadlineId,
@@ -442,6 +391,25 @@ class PBLStore {
             status: s.status || 'submitted',
           }))
         );
+        if (error) console.error('Supabase submissions upsert failed:', error.message || error);
+      }
+
+      if (this.guideMeetings.length > 0) {
+        const { error } = await supabase.from('guide_meetings').upsert(
+          this.guideMeetings.map(m => ({
+            id: m.id,
+            title: m.title,
+            faculty_id: m.facultyId,
+            team_id: m.teamId,
+            meeting_date: m.meetingDate,
+            location: m.location,
+            agenda: m.agenda,
+            status: m.status,
+            faculty_notes: m.facultyNotes || null,
+            created_at: m.createdAt,
+          }))
+        );
+        if (error) console.error('Supabase guide_meetings upsert failed:', error.message || error);
       }
     } catch (err) {
       console.error('Sync to Supabase failed', err);
