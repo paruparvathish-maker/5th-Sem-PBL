@@ -51,6 +51,31 @@ export default function AdminDashboardPage() {
               </Link>
             </div>
           </div>
+        {/* Executive Leadership Credentials Quick Reference */}
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 shadow-sm space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-extrabold text-amber-950 flex items-center gap-2">
+              <ShieldAlert className="w-4 h-4 text-amber-600" /> Executive Leadership & Administration Access Accounts
+            </h3>
+            <span className="text-[10px] font-bold uppercase bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full">Official Credentials</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+            <div className="bg-white p-3 rounded-xl border border-amber-200">
+              <p className="font-extrabold text-slate-800">HOD (Dr. C Nandini)</p>
+              <p className="text-slate-500 text-[11px] mt-0.5">Email: <span className="font-mono text-slate-700">hod.cse@dsatm.edu.in</span></p>
+              <p className="text-slate-500 text-[11px]">Pass: <span className="font-mono font-bold text-indigo-700">HOD@CSE#2026</span></p>
+            </div>
+            <div className="bg-white p-3 rounded-xl border border-amber-200">
+              <p className="font-extrabold text-slate-800">Principal Office</p>
+              <p className="text-slate-500 text-[11px] mt-0.5">Email: <span className="font-mono text-slate-700">principal@dsatm.edu.in</span></p>
+              <p className="text-slate-500 text-[11px]">Pass: <span className="font-mono font-bold text-indigo-700">DSATM@PRIN#984</span></p>
+            </div>
+            <div className="bg-white p-3 rounded-xl border border-amber-200">
+              <p className="font-extrabold text-slate-800">Industry Partner</p>
+              <p className="text-slate-500 text-[11px] mt-0.5">Email: <span className="font-mono text-slate-700">industry.expert@dsatm.edu.in</span></p>
+              <p className="text-slate-500 text-[11px]">Pass: <span className="font-mono font-bold text-indigo-700">IND@EXPERT#451</span></p>
+            </div>
+          </div>
         </div>
 
         {/* 4 Stats Cards Row 1 */}

@@ -4,16 +4,16 @@ import React, { useState } from 'react';
 import { useAuth } from '@/lib/auth/auth-context';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { store } from '@/lib/data/store';
-import { GraduationCap, Search, Plus, Edit, UserCheck, Users, CheckCircle2, ShieldCheck, UploadCloud, Download } from 'lucide-react';
-import { Team, SectionCode, UserProfile } from '@/lib/types/pbl';
+import { GraduationCap, BookOpen, Search, Plus, Edit, Users, CheckCircle2, UploadCloud, Download, ExternalLink, FileCheck } from 'lucide-react';
+import { Team, SectionCode, ResearchPaperStatus } from '@/lib/types/pbl';
 
 export default function AdminTeamsPage() {
   const { user } = useAuth();
   if (!user) return null;
 
+  const [activeTab, setActiveTab] = useState<4 | 5>(5);
   const [teams, setTeams] = useState<Team[]>(store.getAllTeams());
   const facultyList = store.getFaculty();
-  const students = store.getStudents();
   const [isSyncing, setIsSyncing] = useState(true);
 
   React.useEffect(() => {
@@ -40,7 +40,9 @@ export default function AdminTeamsPage() {
     setTeams([...store.getAllTeams()]);
   };
 
-  const filteredTeams = teams.filter(t => {
+  const currentTabTeams = teams.filter(t => (t.semester || 5) === activeTab);
+
+  const filteredTeams = currentTabTeams.filter(t => {
     const matchesSearch = 
       t.teamNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
       t.projectTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -90,6 +92,7 @@ export default function AdminTeamsPage() {
       store.createTeam({
         teamNumber,
         section,
+        semester: activeTab,
         projectTitle,
         projectDescription,
         guideId,
@@ -97,20 +100,37 @@ export default function AdminTeamsPage() {
         guideEmail: guideObj?.email,
         members: []
       });
-      setMessage(`Created new PBL Group ${teamNumber} in Section ${section}.`);
+      setMessage(`Created new ${activeTab}th Sem Group ${teamNumber} in Section ${section}.`);
     }
 
     setShowModal(false);
     refreshData();
   };
 
+  const getStatusBadge = (status?: ResearchPaperStatus) => {
+    switch (status) {
+      case 'published':
+        return <span className="px-3 py-1 rounded-xl bg-purple-100 text-purple-700 text-xs font-bold border border-purple-200">Published</span>;
+      case 'accepted':
+        return <span className="px-3 py-1 rounded-xl bg-emerald-100 text-emerald-700 text-xs font-bold border border-emerald-200">Accepted</span>;
+      case 'presented':
+        return <span className="px-3 py-1 rounded-xl bg-blue-100 text-blue-700 text-xs font-bold border border-blue-200">Presented</span>;
+      case 'rejected':
+        return <span className="px-3 py-1 rounded-xl bg-rose-100 text-rose-700 text-xs font-bold border border-rose-200">Rejected</span>;
+      case 'submitted':
+      default:
+        return <span className="px-3 py-1 rounded-xl bg-amber-100 text-amber-700 text-xs font-bold border border-amber-200">Submitted</span>;
+    }
+  };
+
   const exportToCSV = () => {
-    const headers = ['Section', 'Group Number', 'Project Title', 'Project Description', 'Guide Name'];
+    const headers = ['Semester', 'Section', 'Group Number', 'Project Title / Paper', 'Research Paper Status', 'Guide Name'];
     const rows = filteredTeams.map(t => [
+      t.semester || 5,
       t.section,
       t.teamNumber,
       `"${t.projectTitle.replace(/"/g, '""')}"`,
-      `"${(t.projectDescription || '').replace(/"/g, '""')}"`,
+      t.researchPaperStatus || 'N/A',
       `"${(t.guideName || '').replace(/"/g, '""')}"`
     ]);
     const csvContent = [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
@@ -118,7 +138,7 @@ export default function AdminTeamsPage() {
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
-    link.setAttribute('download', `PBL_Project_Statements_${selectedSection}.csv`);
+    link.setAttribute('download', `PBL_${activeTab}th_Sem_Teams_${selectedSection}.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
@@ -132,9 +152,9 @@ export default function AdminTeamsPage() {
         {/* Header */}
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-extrabold text-slate-900">PBL Team & Guide Assignment Center</h1>
+            <h1 className="text-2xl font-extrabold text-slate-900">PBL & Research Paper Control Center</h1>
             <p className="text-sm text-slate-600 mt-1">
-              Configure project teams, assign faculty guides, update project descriptions, and manage student team rosters.
+              Separate 4th Semester Research Papers and 5th Semester PBL Project progress with assigned guides.
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -150,9 +170,56 @@ export default function AdminTeamsPage() {
               className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-600/30 flex items-center space-x-2 w-fit transition"
             >
               <Plus className="h-4 w-4" />
-              <span>Create New Team</span>
+              <span>Create New {activeTab}th Sem Team</span>
             </button>
           </div>
+        </div>
+
+        {/* Semester Selection Tabs */}
+        <div className="grid grid-cols-2 gap-4">
+          <button
+            onClick={() => setActiveTab(4)}
+            className={`p-5 rounded-2xl border transition-all flex items-center gap-4 text-left ${
+              activeTab === 4
+                ? 'bg-gradient-to-r from-indigo-900 to-indigo-800 border-indigo-700 text-white shadow-lg ring-2 ring-indigo-500/20'
+                : 'bg-white border-slate-200 text-slate-700 hover:border-indigo-300 hover:bg-indigo-50/50'
+            }`}
+          >
+            <div className={`p-3 rounded-xl ${activeTab === 4 ? 'bg-indigo-700/50 text-amber-400' : 'bg-indigo-100 text-indigo-700'}`}>
+              <BookOpen className="h-7 w-7" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-base font-black">4th Semester Research Papers</span>
+                {activeTab === 4 && <span className="text-[10px] uppercase font-bold bg-amber-400 text-slate-900 px-2 py-0.5 rounded-full">Active</span>}
+              </div>
+              <p className={`text-xs mt-0.5 ${activeTab === 4 ? 'text-indigo-200' : 'text-slate-500'}`}>
+                Monitor status (Submitted/Accepted/Presented/Published/Rejected) & proof uploads
+              </p>
+            </div>
+          </button>
+
+          <button
+            onClick={() => setActiveTab(5)}
+            className={`p-5 rounded-2xl border transition-all flex items-center gap-4 text-left ${
+              activeTab === 5
+                ? 'bg-gradient-to-r from-slate-900 to-slate-800 border-slate-700 text-white shadow-lg ring-2 ring-slate-500/20'
+                : 'bg-white border-slate-200 text-slate-700 hover:border-amber-300 hover:bg-amber-50/50'
+            }`}
+          >
+            <div className={`p-3 rounded-xl ${activeTab === 5 ? 'bg-slate-700/50 text-amber-400' : 'bg-amber-100 text-amber-700'}`}>
+              <GraduationCap className="h-7 w-7" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-base font-black">5th Semester PBL Projects</span>
+                {activeTab === 5 && <span className="text-[10px] uppercase font-bold bg-amber-400 text-slate-900 px-2 py-0.5 rounded-full">Active</span>}
+              </div>
+              <p className={`text-xs mt-0.5 ${activeTab === 5 ? 'text-slate-300' : 'text-slate-500'}`}>
+                Monitor project titles, problem statements, guide meeting docs, and marks
+              </p>
+            </div>
+          </button>
         </div>
 
         {message && (
@@ -168,7 +235,7 @@ export default function AdminTeamsPage() {
             <Search className="h-4 w-4 absolute left-3 top-3.5 text-slate-400" />
             <input
               type="text"
-              placeholder="Search team by Group #, Guide Name, or Project Title..."
+              placeholder={`Search ${activeTab}th Sem by Group #, Guide Name, or Project Title...`}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
@@ -195,65 +262,89 @@ export default function AdminTeamsPage() {
           {filteredTeams.map(t => {
             const submissions = store.getSubmissionsForTeam(t.id);
             return (
-            <div key={t.id} className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4 hover:border-emerald-300 transition flex flex-col justify-between">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="px-2.5 py-1 rounded bg-slate-900 text-white font-black text-xs uppercase">
-                    Sec {t.section} • Group {t.teamNumber}
-                  </span>
-                  <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                    Guide: {t.guideName || 'Unassigned'}
-                  </span>
-                </div>
-
-                <h3 className="font-extrabold text-slate-900 text-base leading-snug">{t.projectTitle}</h3>
-                <p className="text-xs text-slate-500 line-clamp-2">{t.projectDescription}</p>
-
-                <div className="pt-3 border-t border-slate-100 space-y-2">
-                  <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Roster ({t.members?.length || 0} Members)</h4>
-                  <div className="grid grid-cols-1 gap-1">
-                    {t.members?.map(m => (
-                      <div key={m.id} className="flex items-center justify-between text-xs bg-slate-50 p-2 rounded-lg border border-slate-100">
-                        <span className="font-bold text-slate-800">{m.name}</span>
-                        <span className="font-mono text-slate-500 text-[11px]">{m.usn}</span>
-                      </div>
-                    ))}
+              <div key={t.id} className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4 hover:border-emerald-300 transition flex flex-col justify-between">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="px-2.5 py-1 rounded bg-slate-900 text-white font-black text-xs uppercase">
+                      Sec {t.section} • Group {t.teamNumber}
+                    </span>
+                    <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                      Guide: {t.guideName || 'Unassigned'}
+                    </span>
                   </div>
-                </div>
 
-                <div className="pt-3 border-t border-slate-100 space-y-2">
-                  <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Submissions ({submissions.length})</h4>
-                  <div className="grid grid-cols-1 gap-1.5">
-                    {submissions.length === 0 && (
-                      <p className="text-xs text-slate-400 p-2 text-center">No submissions yet.</p>
-                    )}
-                    {submissions.map(sub => (
-                      <div key={sub.id} className="flex items-center justify-between text-xs bg-slate-50 p-2 rounded-lg border border-slate-100">
-                        <div className="flex flex-col">
-                          <span className="font-bold text-slate-800 truncate max-w-[150px]">{sub.fileName}</span>
-                          <span className="text-[10px] text-slate-500">v{sub.version} • {new Date(sub.submissionTime).toLocaleDateString()}</span>
+                  {activeTab === 4 ? (
+                    <div className="bg-indigo-50/50 p-3 rounded-xl border border-indigo-100 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-indigo-900">Research Paper Status:</span>
+                        {getStatusBadge(t.researchPaperStatus)}
+                      </div>
+                      {t.researchPaperProofName ? (
+                        <div className="flex items-center justify-between text-xs text-emerald-700 pt-1 border-t border-indigo-100">
+                          <span className="flex items-center gap-1 font-bold">
+                            <FileCheck className="w-3.5 h-3.5" /> Proof: {t.researchPaperProofName}
+                          </span>
+                          <a href={t.researchPaperProofPath || '#'} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline font-bold">View</a>
                         </div>
-                        <a href={sub.filePath} target="_blank" rel="noreferrer" className="text-emerald-600 font-bold text-[11px] hover:underline flex items-center space-x-1">
-                          <UploadCloud className="h-3 w-3" />
-                          <span>View</span>
-                        </a>
-                      </div>
-                    ))}
+                      ) : (
+                        <p className="text-[11px] text-slate-400 italic">No faculty proof document uploaded yet.</p>
+                      )}
+                    </div>
+                  ) : (
+                    <>
+                      <h3 className="font-extrabold text-slate-900 text-base leading-snug">{t.projectTitle}</h3>
+                      <p className="text-xs text-slate-500 line-clamp-2">{t.projectDescription}</p>
+                    </>
+                  )}
+
+                  <div className="pt-3 border-t border-slate-100 space-y-2">
+                    <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Roster ({t.members?.length || 0} Members)</h4>
+                    <div className="grid grid-cols-1 gap-1">
+                      {t.members?.map(m => (
+                        <div key={m.id} className="flex items-center justify-between text-xs bg-slate-50 p-2 rounded-lg border border-slate-100">
+                          <span className="font-bold text-slate-800">{m.name}</span>
+                          <span className="font-mono text-slate-500 text-[11px]">{m.usn}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
+
+                  {activeTab === 5 && (
+                    <div className="pt-3 border-t border-slate-100 space-y-2">
+                      <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Submissions ({submissions.length})</h4>
+                      <div className="grid grid-cols-1 gap-1.5">
+                        {submissions.length === 0 && (
+                          <p className="text-xs text-slate-400 p-2 text-center">No submissions yet.</p>
+                        )}
+                        {submissions.map(sub => (
+                          <div key={sub.id} className="flex items-center justify-between text-xs bg-slate-50 p-2 rounded-lg border border-slate-100">
+                            <div className="flex flex-col">
+                              <span className="font-bold text-slate-800 truncate max-w-[150px]">{sub.fileName}</span>
+                              <span className="text-[10px] text-slate-500">v{sub.version} • {new Date(sub.submissionTime).toLocaleDateString()}</span>
+                            </div>
+                            <a href={sub.filePath} target="_blank" rel="noreferrer" className="text-emerald-600 font-bold text-[11px] hover:underline flex items-center space-x-1">
+                              <UploadCloud className="h-3 w-3" />
+                              <span>View</span>
+                            </a>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-4 border-t border-slate-100 flex items-center justify-end">
+                  <button
+                    onClick={() => handleOpenEditModal(t)}
+                    className="px-3.5 py-2 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-bold text-xs border border-indigo-200 flex items-center space-x-1"
+                  >
+                    <Edit className="h-3.5 w-3.5" />
+                    <span>Edit Team Configuration</span>
+                  </button>
                 </div>
               </div>
-
-              <div className="pt-4 border-t border-slate-100 flex items-center justify-end">
-                <button
-                  onClick={() => handleOpenEditModal(t)}
-                  className="px-3.5 py-2 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-bold text-xs border border-indigo-200 flex items-center space-x-1"
-                >
-                  <Edit className="h-3.5 w-3.5" />
-                  <span>Edit Team Configuration</span>
-                </button>
-              </div>
-            </div>
-          )})}
+            );
+          })}
         </div>
 
         {/* Modal */}
@@ -262,7 +353,7 @@ export default function AdminTeamsPage() {
             <div className="bg-white rounded-2xl p-6 max-w-md w-full space-y-4 shadow-2xl border border-slate-200">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <h3 className="font-extrabold text-slate-900 text-base">
-                  {editingTeam ? `Edit Group ${editingTeam.teamNumber}` : 'Create New PBL Team'}
+                  {editingTeam ? `Edit Group ${editingTeam.teamNumber}` : `Create New ${activeTab}th Sem Team`}
                 </h3>
                 <button onClick={() => setShowModal(false)} className="text-slate-400 font-bold">✕</button>
               </div>
@@ -299,7 +390,7 @@ export default function AdminTeamsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Project Title</label>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Project Title / Topic</label>
                   <input
                     type="text"
                     required
@@ -307,17 +398,6 @@ export default function AdminTeamsPage() {
                     onChange={(e) => setProjectTitle(e.target.value)}
                     placeholder="e.g. Smart Autonomous Garbage Sorting System"
                     className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Project Description</label>
-                  <textarea
-                    rows={2}
-                    value={projectDescription}
-                    onChange={(e) => setProjectDescription(e.target.value)}
-                    placeholder="Brief architectural overview..."
-                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800"
                   />
                 </div>
 

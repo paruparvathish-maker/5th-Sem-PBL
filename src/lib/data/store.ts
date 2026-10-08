@@ -60,18 +60,50 @@ class PBLStore {
       }
     }
 
-    // Build initial seed dataset from PDF structure (5th semester)
-    const facultyMap = new Map<string, UserProfile>();
+    // Provision Main Admin & Executive Leadership Admins (HOD, Principal, Industry Person)
     const adminUser: UserProfile = {
       id: '180881',
       email: 'paruparvathish@gmail.com',
-      name: 'Parvathisha P (Admin)',
+      name: 'Parvathisha P (Main Admin)',
       role: 'admin',
       password: '03May@2002@',
       isFirstLogin: false,
       createdAt: new Date().toISOString()
     };
-    this.profiles.push(adminUser);
+
+    const hodAdmin: UserProfile = {
+      id: 'admin-hod',
+      email: 'hod.cse@dsatm.edu.in',
+      name: 'Dr. C Nandini (HOD CSE)',
+      role: 'admin',
+      password: 'HOD@CSE#2026',
+      isFirstLogin: false,
+      createdAt: new Date().toISOString()
+    };
+
+    const principalAdmin: UserProfile = {
+      id: 'admin-principal',
+      email: 'principal@dsatm.edu.in',
+      name: 'Dr. Principal Office',
+      role: 'admin',
+      password: 'DSATM@PRIN#984',
+      isFirstLogin: false,
+      createdAt: new Date().toISOString()
+    };
+
+    const industryAdmin: UserProfile = {
+      id: 'admin-industry',
+      email: 'industry.expert@dsatm.edu.in',
+      name: 'Mr. Rajesh Kumar (Industry Partner)',
+      role: 'admin',
+      password: 'IND@EXPERT#451',
+      isFirstLogin: false,
+      createdAt: new Date().toISOString()
+    };
+
+    this.profiles.push(adminUser, hodAdmin, principalAdmin, industryAdmin);
+
+    const facultyMap = new Map<string, UserProfile>();
 
     RAW_PDF_SEED.forEach((seedTeam, idx) => {
       // Provision Faculty Guide if not present
