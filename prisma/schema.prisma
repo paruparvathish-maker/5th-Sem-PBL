@@ -1,0 +1,178 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model UserProfile {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  name         String
+  usn          String?  @unique
+  role         String   // 'student' | 'faculty' | 'admin'
+  section      String?  // 'A' | 'B' | 'C' | 'D' | 'E' | 'F'
+  phone        String?
+  staffCode    String?
+  password     String?
+  isFirstLogin Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  // Relations
+  teamMemberships TeamMember[]
+  guidedTeams     Team[]         @relation("GuideTeams")
+  submissions     Submission[]
+  evaluations     Evaluation[]   @relation("EvaluatedBy")
+  meetings        GuideMeeting[] @relation("FacultyMeetings")
+  notifications   Notification[]
+  auditLogs       AuditLog[]
+}
+
+model Team {
+  id                     String   @id @default(uuid())
+  teamNumber             String
+  section                String
+  semester               Int      @default(5) // 4 or 5
+  projectTitle           String
+  projectDescription     String
+  guideId                String
+  guideName              String?
+  guideEmail             String?
+  createdAt              DateTime @default(now())
+
+  // 4th Semester Research Paper Tracking
+  researchPaperStatus    String?  // 'submitted' | 'accepted' | 'presented' | 'published' | 'rejected'
+  researchPaperProofPath String?
+  researchPaperProofName String?
+  researchPaperUpdatedAt DateTime?
+
+  // Relations
+  guide          UserProfile    @relation("GuideTeams", fields: [guideId], references: [id], onDelete: Cascade)
+  members        TeamMember[]
+  submissions    Submission[]
+  evaluations    Evaluation[]
+  guideMeetings  GuideMeeting[]
+}
+
+model TeamMember {
+  id        String   @id @default(uuid())
+  teamId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  team Team        @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+}
+
+model Deadline {
+  id                  String   @id @default(uuid())
+  title               String
+  description         String
+  deadlineType        String   // 'meeting' | 'review' | 'submission'
+  dueDate             DateTime
+  applicableSections  String?  // JSON string or comma-separated sections
+  submissionRequired Boolean  @default(true)
+  status              String   @default("open")
+  createdBy           String
+  createdAt           DateTime @default(now())
+
+  submissions Submission[]
+  evaluations Evaluation[]
+}
+
+model Submission {
+  id             String   @id @default(uuid())
+  deadlineId     String
+  deadlineTitle  String?
+  teamId         String
+  teamNumber     String?
+  projectTitle   String?
+  submittedBy    String
+  studentName    String?
+  fileName       String
+  filePath       String
+  fileType       String
+  fileSize       Int
+  submissionTime DateTime @default(now())
+  version        Int      @default(1)
+  status         String   @default("submitted")
+  aiSummary      String?
+  aiFeedback     String?  // JSON stringified
+
+  deadline Deadline    @relation(fields: [deadlineId], references: [id], onDelete: Cascade)
+  team     Team        @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user     UserProfile @relation(fields: [submittedBy], references: [id], onDelete: Cascade)
+}
+
+model Evaluation {
+  id             String   @id @default(uuid())
+  deadlineId     String
+  deadlineTitle  String?
+  teamId         String
+  teamNumber     String?
+  evaluatorId    String
+  evaluatorName  String?
+  evaluationType String   // 'team' | 'individual'
+  studentId      String?
+  studentName    String?
+  studentUsn     String?
+  criteriaScores String   // JSON stringified
+  totalMarks     Int
+  maxTotalMarks  Int
+  facultyComments String
+  isPublished    Boolean  @default(false)
+  evaluatedAt    DateTime @default(now())
+
+  deadline  Deadline    @relation(fields: [deadlineId], references: [id], onDelete: Cascade)
+  team      Team        @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  evaluator UserProfile @relation("EvaluatedBy", fields: [evaluatorId], references: [id], onDelete: Cascade)
+}
+
+model GuideMeeting {
+  id           String   @id @default(uuid())
+  title        String
+  facultyId    String
+  facultyName  String?
+  teamId       String
+  teamNumber   String?
+  projectTitle String?
+  meetingDate  DateTime
+  location     String
+  agenda       String
+  status       String   @default("scheduled")
+  facultyNotes String?
+  createdAt    DateTime @default(now())
+
+  faculty UserProfile @relation("FacultyMeetings", fields: [facultyId], references: [id], onDelete: Cascade)
+  team    Team        @relation(fields: [teamId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  message   String
+  link      String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String
+  userName   String?
+  userRole   String?
+  action     String
+  entityType String
+  entityId   String?
+  details    String?  // JSON stringified
+  createdAt  DateTime @default(now())
+
+  user UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+}

@@ -17,7 +17,7 @@ export default function StudentDeadlinesPage() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        
+
         {/* Header */}
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
@@ -43,30 +43,27 @@ export default function StudentDeadlinesPage() {
             const hoursLeft = Math.max(0, Math.round((due.getTime() - now.getTime()) / (1000 * 60 * 60)));
 
             return (
-              <div 
+              <div
                 key={d.id}
-                className={`p-6 rounded-2xl border transition-all ${
-                  isPassed 
-                    ? 'bg-slate-50 border-slate-200' 
+                className={`p-6 rounded-2xl border transition-all ${isPassed
+                    ? 'bg-slate-50 border-slate-200'
                     : 'bg-white border-slate-200 shadow-sm hover:border-indigo-300'
-                }`}
+                  }`}
               >
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div className="space-y-2">
                     <div className="flex items-center space-x-2">
-                      <span className={`px-2.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider ${
-                        d.deadlineType === 'submission' ? 'bg-indigo-100 text-indigo-700' :
-                        d.deadlineType === 'review' ? 'bg-amber-100 text-amber-800' :
-                        'bg-purple-100 text-purple-700'
-                      }`}>
+                      <span className={`px-2.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider ${d.deadlineType === 'submission' ? 'bg-indigo-100 text-indigo-700' :
+                          d.deadlineType === 'review' ? 'bg-amber-100 text-amber-800' :
+                            'bg-purple-100 text-purple-700'
+                        }`}>
                         {d.deadlineType}
                       </span>
 
-                      <span className={`px-2.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider ${
-                        isPassed 
-                          ? 'bg-rose-100 text-rose-700' 
+                      <span className={`px-2.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider ${isPassed
+                          ? 'bg-rose-100 text-rose-700'
                           : 'bg-emerald-100 text-emerald-700'
-                      }`}>
+                        }`}>
                         {isPassed ? 'Deadline Passed' : 'Open for Submission'}
                       </span>
                     </div>
@@ -99,9 +96,8 @@ export default function StudentDeadlinesPage() {
                   {d.submissionRequired && (
                     <Link
                       href="/student/submissions"
-                      className={`font-bold flex items-center space-x-1 ${
-                        isPassed ? 'text-slate-400 pointer-events-none' : 'text-indigo-600 hover:text-indigo-800'
-                      }`}
+                      className={`font-bold flex items-center space-x-1 ${isPassed ? 'text-slate-400 pointer-events-none' : 'text-indigo-600 hover:text-indigo-800'
+                        }`}
                     >
                       <span>{isPassed ? 'Upload Closed' : 'Upload Document'}</span>
                       <ArrowRight className="h-3.5 w-3.5" />
