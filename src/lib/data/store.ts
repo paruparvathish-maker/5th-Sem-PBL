@@ -473,8 +473,8 @@ class PBLStore {
     return this.teams.find(t => t.members?.some(m => m.id === studentId));
   }
 
-  public getTeamsByGuideId(guideId: string): Team[] {
-    return this.teams.filter(t => t.guideId === guideId);
+  public getTeamsByGuideId(guideId: string, semester?: 4 | 5): Team[] {
+    return this.teams.filter(t => t.guideId === guideId && (!semester || (t.semester || 5) === semester));
   }
 
   public createTeam(teamData: Omit<Team, 'id' | 'createdAt'>): Team {
