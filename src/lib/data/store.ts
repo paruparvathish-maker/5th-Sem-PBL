@@ -1,7 +1,8 @@
 import {
-  UserProfile, Team, Deadline, Submission, Evaluation, GuideMeeting, NotificationItem, AuditLogItem, SectionCode
+  UserProfile, Team, Deadline, Submission, Evaluation, GuideMeeting, NotificationItem, AuditLogItem, SectionCode, ResearchPaperStatus
 } from '../types/pbl';
 import { RAW_PDF_SEED, getGuideEmail, getGuidePhone } from './seed-dataset';
+import { RAW_4TH_SEM_SEED } from './seed-dataset-4th';
 import { supabase } from '../supabase/client';
 
 const generateUUID = () => {
@@ -31,7 +32,7 @@ class PBLStore {
 
   private initSeedData() {
     if (typeof window !== 'undefined') {
-      const storedData = localStorage.getItem('pbl_portal_store_v4');
+      const storedData = localStorage.getItem('pbl_portal_store_v5');
       if (storedData) {
         try {
           const parsed = JSON.parse(storedData);
@@ -59,7 +60,7 @@ class PBLStore {
       }
     }
 
-    // Build initial seed dataset from PDF structure
+    // Build initial seed dataset from PDF structure (5th semester)
     const facultyMap = new Map<string, UserProfile>();
     const adminUser: UserProfile = {
       id: '180881',
@@ -92,23 +93,26 @@ class PBLStore {
       }
       const guideObj = facultyMap.get(guideEmail)!;
 
-      // Create Team
-      const teamId = `team-${seedTeam.section}-${seedTeam.teamNumber}`;
+      // Create Team (Semester 5)
+      const teamId = `team-5-${seedTeam.section}-${seedTeam.teamNumber}`;
       const teamMembersList: UserProfile[] = [];
 
       seedTeam.students.forEach((s, sIdx) => {
         const cleanUsn = s.usn.toUpperCase().trim();
-        const studProfile: UserProfile = {
-          id: `stud-${cleanUsn}`,
-          email: `${cleanUsn.toLowerCase()}@student.dsatm.edu.in`,
-          name: s.name,
-          usn: cleanUsn,
-          role: 'student',
-          section: seedTeam.section,
-          isFirstLogin: true,
-          createdAt: new Date().toISOString()
-        };
-        this.profiles.push(studProfile);
+        let studProfile = this.profiles.find(p => p.usn === cleanUsn);
+        if (!studProfile) {
+          studProfile = {
+            id: `stud-${cleanUsn}`,
+            email: `${cleanUsn.toLowerCase()}@student.dsatm.edu.in`,
+            name: s.name,
+            usn: cleanUsn,
+            role: 'student',
+            section: seedTeam.section,
+            isFirstLogin: true,
+            createdAt: new Date().toISOString()
+          };
+          this.profiles.push(studProfile);
+        }
         teamMembersList.push(studProfile);
       });
 
@@ -116,8 +120,67 @@ class PBLStore {
         id: teamId,
         teamNumber: seedTeam.teamNumber,
         section: seedTeam.section,
+        semester: 5,
         projectTitle: seedTeam.projectTitle,
         projectDescription: seedTeam.projectDescription,
+        guideId: guideObj.id,
+        guideName: guideObj.name,
+        guideEmail: guideObj.email,
+        members: teamMembersList,
+        createdAt: new Date().toISOString()
+      };
+      this.teams.push(teamObj);
+    });
+
+    // Seed 4th Semester Teams
+    RAW_4TH_SEM_SEED.forEach((seedTeam) => {
+      const guideEmail = getGuideEmail(seedTeam.guideName);
+      const guidePhone = getGuidePhone(seedTeam.guideName);
+      if (!facultyMap.has(guideEmail)) {
+        const facProfile: UserProfile = {
+          id: `fac-${facultyMap.size + 1}`,
+          email: guideEmail,
+          name: seedTeam.guideName,
+          role: 'faculty',
+          phone: guidePhone,
+          staffCode: `F${1000 + facultyMap.size + 1}`,
+          isFirstLogin: true,
+          createdAt: new Date().toISOString()
+        };
+        facultyMap.set(guideEmail, facProfile);
+        this.profiles.push(facProfile);
+      }
+      const guideObj = facultyMap.get(guideEmail)!;
+
+      const teamId = `team-4-${seedTeam.section}-${seedTeam.teamNumber}`;
+      const teamMembersList: UserProfile[] = [];
+
+      seedTeam.students.forEach((s) => {
+        const cleanUsn = s.usn.toUpperCase().trim();
+        let studProfile = this.profiles.find(p => p.usn === cleanUsn);
+        if (!studProfile) {
+          studProfile = {
+            id: `stud-${cleanUsn}`,
+            email: `${cleanUsn.toLowerCase()}@student.dsatm.edu.in`,
+            name: s.name,
+            usn: cleanUsn,
+            role: 'student',
+            section: seedTeam.section,
+            isFirstLogin: true,
+            createdAt: new Date().toISOString()
+          };
+          this.profiles.push(studProfile);
+        }
+        teamMembersList.push(studProfile);
+      });
+
+      const teamObj: Team = {
+        id: teamId,
+        teamNumber: seedTeam.teamNumber,
+        section: seedTeam.section,
+        semester: 4,
+        projectTitle: `4th Sem Research Paper (${seedTeam.teamNumber})`,
+        projectDescription: `Research paper work under ${seedTeam.guideName}`,
         guideId: guideObj.id,
         guideName: guideObj.name,
         guideEmail: guideObj.email,
@@ -452,6 +515,24 @@ class PBLStore {
     const team = this.updateTeam(teamId, { projectTitle: title, projectDescription: description });
     if (!team) return { success: false, error: 'Team not found' };
 
+    return { success: true };
+  }
+
+  public updateResearchPaperStatus(
+    teamId: string,
+    status: ResearchPaperStatus,
+    proofName?: string,
+    proofPath?: string
+  ): { success: boolean; error?: string } {
+    const team = this.teams.find(t => t.id === teamId);
+    if (!team) return { success: false, error: 'Team not found' };
+
+    team.researchPaperStatus = status;
+    if (proofName) team.researchPaperProofName = proofName;
+    if (proofPath) team.researchPaperProofPath = proofPath;
+    team.researchPaperUpdatedAt = new Date().toISOString();
+
+    this.save();
     return { success: true };
   }
 

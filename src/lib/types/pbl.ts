@@ -16,10 +16,13 @@ export interface UserProfile {
   createdAt: string;
 }
 
+export type ResearchPaperStatus = 'submitted' | 'accepted' | 'presented' | 'published' | 'rejected';
+
 export interface Team {
   id: string;
   teamNumber: string; // e.g. 'A1', 'B3'
   section: SectionCode;
+  semester?: 4 | 5;
   projectTitle: string;
   projectDescription: string;
   guideId: string;
@@ -27,6 +30,12 @@ export interface Team {
   guideEmail?: string;
   members?: UserProfile[];
   createdAt: string;
+
+  // 4th Semester Research Paper Tracking
+  researchPaperStatus?: ResearchPaperStatus;
+  researchPaperProofPath?: string;
+  researchPaperProofName?: string;
+  researchPaperUpdatedAt?: string;
 }
 
 export type DeadlineType = 'meeting' | 'review' | 'submission';
