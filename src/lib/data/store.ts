@@ -32,7 +32,7 @@ class PBLStore {
 
   private initSeedData() {
     if (typeof window !== 'undefined') {
-      const storedData = localStorage.getItem('pbl_portal_store_v5');
+      const storedData = localStorage.getItem('pbl_portal_store_v6');
       if (storedData) {
         try {
           const parsed = JSON.parse(storedData);
@@ -351,7 +351,7 @@ class PBLStore {
   private save(skipCloudSync: boolean = false) {
     if (typeof window !== 'undefined') {
       try {
-        localStorage.setItem('pbl_portal_store_v4', JSON.stringify({
+        localStorage.setItem('pbl_portal_store_v6', JSON.stringify({
           profiles: this.profiles,
           teams: this.teams,
           deadlines: this.deadlines,

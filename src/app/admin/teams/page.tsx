@@ -11,7 +11,7 @@ export default function AdminTeamsPage() {
   const { user } = useAuth();
   if (!user) return null;
 
-  const [activeTab, setActiveTab] = useState<4 | 5>(5);
+  const [activeTab, setActiveTab] = useState<4 | 5>(4);
   const [teams, setTeams] = useState<Team[]>(store.getAllTeams());
   const facultyList = store.getFaculty();
   const [isSyncing, setIsSyncing] = useState(true);
