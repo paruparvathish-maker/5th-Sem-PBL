@@ -6,7 +6,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from models import (
     UserProfile, Team, Deadline, Submission, Evaluation, GuideMeeting,
-    LoginRequest, UpdateTeamRequest, DatabaseSyncPayload
+    LoginRequest, UpdateTeamRequest, UpdateResearchPaperRequest, DatabaseSyncPayload
 )
 
 app = FastAPI(
@@ -335,6 +335,32 @@ def update_team(team_id: str, req: UpdateTeamRequest):
                 t["guideName"] = req.guideName
             if req.guideEmail is not None:
                 t["guideEmail"] = req.guideEmail
+            if req.researchPaperStatus is not None:
+                t["researchPaperStatus"] = req.researchPaperStatus
+            if req.researchPaperProofName is not None:
+                t["researchPaperProofName"] = req.researchPaperProofName
+            if req.researchPaperProofPath is not None:
+                t["researchPaperProofPath"] = req.researchPaperProofPath
+            if req.researchPaperUpdatedAt is not None:
+                t["researchPaperUpdatedAt"] = req.researchPaperUpdatedAt
+
+            save_data()
+            return t
+
+    raise HTTPException(status_code=404, detail="Team not found")
+
+@app.put("/api/teams/{team_id}/research-paper", response_model=Team, tags=["Teams"])
+def update_research_paper(team_id: str, req: UpdateResearchPaperRequest):
+    import datetime
+    teams = DB.get("teams", [])
+    for t in teams:
+        if t.get("id") == team_id or t.get("teamNumber") == team_id:
+            t["researchPaperStatus"] = req.researchPaperStatus
+            if req.researchPaperProofName is not None:
+                t["researchPaperProofName"] = req.researchPaperProofName
+            if req.researchPaperProofPath is not None:
+                t["researchPaperProofPath"] = req.researchPaperProofPath
+            t["researchPaperUpdatedAt"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
             save_data()
             return t

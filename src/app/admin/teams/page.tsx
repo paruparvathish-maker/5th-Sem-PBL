@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useAuth } from '@/lib/auth/auth-context';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { store } from '@/lib/data/store';
-import { GraduationCap, BookOpen, Search, Plus, Edit, Users, CheckCircle2, UploadCloud, Download, ExternalLink, FileCheck } from 'lucide-react';
+import { GraduationCap, BookOpen, Search, Plus, Edit, Users, CheckCircle2, RefreshCw, UploadCloud, Download, ExternalLink, FileCheck } from 'lucide-react';
 import { Team, SectionCode, ResearchPaperStatus } from '@/lib/types/pbl';
 
 export default function AdminTeamsPage() {
@@ -22,6 +22,20 @@ export default function AdminTeamsPage() {
       setIsSyncing(false);
     });
   }, []);
+
+  const handleTabChange = (tab: 4 | 5) => {
+    setActiveTab(tab);
+    setTeams([...store.getAllTeams()]);
+  };
+
+  const handleManualSync = async () => {
+    setIsSyncing(true);
+    await store.syncFromSupabase();
+    setTeams([...store.getAllTeams()]);
+    setIsSyncing(false);
+    setMessage('Synchronized with latest cloud updates.');
+    setTimeout(() => setMessage(null), 3500);
+  };
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSection, setSelectedSection] = useState<string>('ALL');
@@ -178,7 +192,7 @@ export default function AdminTeamsPage() {
         {/* Semester Selection Tabs */}
         <div className="grid grid-cols-2 gap-4">
           <button
-            onClick={() => setActiveTab(4)}
+            onClick={() => handleTabChange(4)}
             className={`p-5 rounded-2xl border transition-all flex items-center gap-4 text-left ${
               activeTab === 4
                 ? 'bg-gradient-to-r from-indigo-900 to-indigo-800 border-indigo-700 text-white shadow-lg ring-2 ring-indigo-500/20'
@@ -200,7 +214,7 @@ export default function AdminTeamsPage() {
           </button>
 
           <button
-            onClick={() => setActiveTab(5)}
+            onClick={() => handleTabChange(5)}
             className={`p-5 rounded-2xl border transition-all flex items-center gap-4 text-left ${
               activeTab === 5
                 ? 'bg-gradient-to-r from-slate-900 to-slate-800 border-slate-700 text-white shadow-lg ring-2 ring-slate-500/20'
@@ -284,7 +298,15 @@ export default function AdminTeamsPage() {
                           <span className="flex items-center gap-1 font-bold">
                             <FileCheck className="w-3.5 h-3.5" /> Proof: {t.researchPaperProofName}
                           </span>
-                          <a href={t.researchPaperProofPath || '#'} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline font-bold">View</a>
+                          <a
+                            href={t.researchPaperProofPath || '#'}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            download={t.researchPaperProofPath?.startsWith('data:') ? (t.researchPaperProofName || 'proof-document') : undefined}
+                            className="text-indigo-600 hover:underline font-bold flex items-center gap-1"
+                          >
+                            View <ExternalLink className="w-3 h-3" />
+                          </a>
                         </div>
                       ) : (
                         <p className="text-[11px] text-slate-400 italic">No faculty proof document uploaded yet.</p>

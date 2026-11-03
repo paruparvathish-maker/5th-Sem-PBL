@@ -39,6 +39,7 @@ export default function FacultyTeamsPage() {
   const [uploadingTeamId, setUploadingTeamId] = useState<string | null>(null);
   const [selectedPaperStatus, setSelectedPaperStatus] = useState<ResearchPaperStatus>('submitted');
   const [proofFileName, setProofFileName] = useState<string>('');
+  const [proofFileDataUrl, setProofFileDataUrl] = useState<string>('');
 
   const handleEditClick = (team: any) => {
     setEditingTeamId(team.id);
@@ -64,13 +65,19 @@ export default function FacultyTeamsPage() {
 
   const handleSavePaperStatus = async (teamId: string) => {
     setIsSaving(true);
-    const mockPath = proofFileName ? `/storage/proofs/${proofFileName}` : undefined;
-    store.updateResearchPaperStatus(teamId, selectedPaperStatus, proofFileName || undefined, mockPath);
-    await store.syncFromSupabase();
-    setAssignedTeams([...store.getTeamsByGuideId(user.id)]);
-    setIsSaving(false);
-    setUploadingTeamId(null);
-    setProofFileName('');
+    try {
+      const finalProofPath = proofFileDataUrl || (proofFileName ? `/storage/proofs/${proofFileName}` : undefined);
+      await store.updateResearchPaperStatus(teamId, selectedPaperStatus, proofFileName || undefined, finalProofPath);
+      // Immediately reflect updated state in the view
+      setAssignedTeams([...store.getTeamsByGuideId(user.id)]);
+      setUploadingTeamId(null);
+      setProofFileName('');
+      setProofFileDataUrl('');
+    } catch (err) {
+      console.error('Failed to save paper status:', err);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const currentTabTeams = assignedTeams.filter(t => (t.semester || 5) === activeTab);
@@ -238,6 +245,7 @@ export default function FacultyTeamsPage() {
                           setUploadingTeamId(t.id);
                           setSelectedPaperStatus(t.researchPaperStatus || 'submitted');
                           setProofFileName(t.researchPaperProofName || '');
+                          setProofFileDataUrl(t.researchPaperProofPath || '');
                         }}
                         className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs shadow-md transition flex items-center gap-1.5"
                       >
@@ -284,9 +292,18 @@ export default function FacultyTeamsPage() {
                             </label>
                             <input
                               type="file"
+                              accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
                               onChange={(e) => {
                                 if (e.target.files && e.target.files[0]) {
-                                  setProofFileName(e.target.files[0].name);
+                                  const file = e.target.files[0];
+                                  setProofFileName(file.name);
+                                  const reader = new FileReader();
+                                  reader.onload = () => {
+                                    if (typeof reader.result === 'string') {
+                                      setProofFileDataUrl(reader.result);
+                                    }
+                                  };
+                                  reader.readAsDataURL(file);
                                 }
                               }}
                               className="w-full text-xs text-slate-600 bg-white p-2 rounded-xl border border-indigo-200 file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-indigo-100 file:text-indigo-700 hover:file:bg-indigo-200"
@@ -338,7 +355,8 @@ export default function FacultyTeamsPage() {
                                 <a
                                   href={t.researchPaperProofPath || '#'}
                                   target="_blank"
-                                  rel="noreferrer"
+                                  rel="noopener noreferrer"
+                                  download={t.researchPaperProofPath?.startsWith('data:') ? (t.researchPaperProofName || 'proof-document') : undefined}
                                   className="text-xs font-bold text-indigo-600 hover:underline flex items-center gap-1"
                                 >
                                   View Proof <ExternalLink className="w-3 h-3" />

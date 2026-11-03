@@ -61,3 +61,33 @@ export async function GET(request: Request) {
   }
 }
 
+export async function PUT(request: Request) {
+  try {
+    const body = await request.json();
+    const { teamId, status, proofName, proofPath, projectTitle, projectDescription, guideId } = body;
+
+    if (!teamId) {
+      return NextResponse.json({ error: 'teamId is required' }, { status: 400 });
+    }
+
+    if (status) {
+      const res = await store.updateResearchPaperStatus(teamId, status, proofName, proofPath);
+      return NextResponse.json(res);
+    }
+
+    if (projectTitle) {
+      const res = store.updateTeamProjectDetails(teamId, projectTitle, projectDescription || '');
+      return NextResponse.json(res);
+    }
+
+    if (guideId) {
+      const res = store.updateTeam(teamId, { guideId });
+      return NextResponse.json({ success: !!res, team: res });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+

@@ -90,6 +90,15 @@ class UpdateTeamRequest(BaseModel):
     guideId: Optional[str] = None
     guideName: Optional[str] = None
     guideEmail: Optional[str] = None
+    researchPaperStatus: Optional[str] = None
+    researchPaperProofName: Optional[str] = None
+    researchPaperProofPath: Optional[str] = None
+    researchPaperUpdatedAt: Optional[str] = None
+
+class UpdateResearchPaperRequest(BaseModel):
+    researchPaperStatus: str # 'submitted' | 'accepted' | 'presented' | 'published' | 'rejected'
+    researchPaperProofName: Optional[str] = None
+    researchPaperProofPath: Optional[str] = None
 
 class DatabaseSyncPayload(BaseModel):
     profiles: Optional[List[Dict[str, Any]]] = None

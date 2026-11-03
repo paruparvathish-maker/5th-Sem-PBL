@@ -227,6 +227,7 @@ class PBLStore {
         guideName: guideObj.name,
         guideEmail: guideObj.email,
         members: teamMembersList,
+        researchPaperStatus: 'submitted',
         createdAt: new Date().toISOString()
       };
       this.teams.push(teamObj);
@@ -384,7 +385,15 @@ class PBLStore {
 
   public async syncFromSupabase() {
     try {
-      const fastApiUrl = process.env.NEXT_PUBLIC_FASTAPI_URL || 'http://127.0.0.1:8000';
+      const getFastApiUrl = () => {
+        if (process.env.NEXT_PUBLIC_FASTAPI_URL) return process.env.NEXT_PUBLIC_FASTAPI_URL;
+        if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+          return 'https://backend-beta-kohl-9pcedk6q96.vercel.app';
+        }
+        return 'http://127.0.0.1:8000';
+      };
+
+      const fastApiUrl = getFastApiUrl();
       let res: Response | null = null;
       try {
         res = await fetch(`${fastApiUrl}/api/db`, { mode: 'cors' });
@@ -397,7 +406,36 @@ class PBLStore {
       if (res && res.ok) {
         const data = await res.json();
         this.profiles = data.profiles || this.profiles;
-        this.teams = data.teams || this.teams;
+
+        // Intelligent merge for teams: preserve newer local updates
+        if (data.teams && Array.isArray(data.teams)) {
+          const incomingMap = new Map<string, Team>(data.teams.map((t: Team) => [t.id, t]));
+          this.teams = this.teams.map((localTeam) => {
+            const incoming = incomingMap.get(localTeam.id);
+            if (!incoming) return localTeam;
+
+            const localTime = localTeam.researchPaperUpdatedAt ? new Date(localTeam.researchPaperUpdatedAt).getTime() : 0;
+            const incomingTime = incoming.researchPaperUpdatedAt ? new Date(incoming.researchPaperUpdatedAt).getTime() : 0;
+
+            if (localTime > incomingTime || (localTeam.researchPaperProofName && !incoming.researchPaperProofName)) {
+              return {
+                ...incoming,
+                researchPaperStatus: localTeam.researchPaperStatus || incoming.researchPaperStatus,
+                researchPaperProofName: localTeam.researchPaperProofName,
+                researchPaperProofPath: localTeam.researchPaperProofPath,
+                researchPaperUpdatedAt: localTeam.researchPaperUpdatedAt || incoming.researchPaperUpdatedAt,
+              };
+            }
+            return incoming;
+          });
+
+          data.teams.forEach((t: Team) => {
+            if (!this.teams.some(local => local.id === t.id)) {
+              this.teams.push(t);
+            }
+          });
+        }
+
         this.deadlines = data.deadlines || this.deadlines;
         this.submissions = data.submissions || this.submissions;
         this.evaluations = data.evaluations || this.evaluations;
@@ -406,7 +444,16 @@ class PBLStore {
         this.auditLogs = data.auditLogs || this.auditLogs;
         
         if (typeof window !== 'undefined') {
-          localStorage.setItem('pbl_portal_store_v7', JSON.stringify(data));
+          localStorage.setItem('pbl_portal_store_v7', JSON.stringify({
+            profiles: this.profiles,
+            teams: this.teams,
+            deadlines: this.deadlines,
+            submissions: this.submissions,
+            evaluations: this.evaluations,
+            guideMeetings: this.guideMeetings,
+            notifications: this.notifications,
+            auditLogs: this.auditLogs
+          }));
         }
       }
     } catch (err) {
@@ -414,7 +461,7 @@ class PBLStore {
     }
   }
 
-  private async syncToSupabase() {
+  public async syncToSupabase() {
     try {
       const payload = JSON.stringify({
         profiles: this.profiles,
@@ -427,7 +474,15 @@ class PBLStore {
         auditLogs: this.auditLogs
       });
 
-      const fastApiUrl = process.env.NEXT_PUBLIC_FASTAPI_URL || 'http://127.0.0.1:8000';
+      const getFastApiUrl = () => {
+        if (process.env.NEXT_PUBLIC_FASTAPI_URL) return process.env.NEXT_PUBLIC_FASTAPI_URL;
+        if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+          return 'https://backend-beta-kohl-9pcedk6q96.vercel.app';
+        }
+        return 'http://127.0.0.1:8000';
+      };
+
+      const fastApiUrl = getFastApiUrl();
       try {
         await fetch(`${fastApiUrl}/api/db`, {
           method: 'POST',
@@ -586,21 +641,22 @@ class PBLStore {
     return { success: true };
   }
 
-  public updateResearchPaperStatus(
+  public async updateResearchPaperStatus(
     teamId: string,
     status: ResearchPaperStatus,
     proofName?: string,
     proofPath?: string
-  ): { success: boolean; error?: string } {
+  ): Promise<{ success: boolean; error?: string }> {
     const team = this.teams.find(t => t.id === teamId);
     if (!team) return { success: false, error: 'Team not found' };
 
     team.researchPaperStatus = status;
-    if (proofName) team.researchPaperProofName = proofName;
-    if (proofPath) team.researchPaperProofPath = proofPath;
+    if (proofName !== undefined) team.researchPaperProofName = proofName;
+    if (proofPath !== undefined) team.researchPaperProofPath = proofPath;
     team.researchPaperUpdatedAt = new Date().toISOString();
 
-    this.save();
+    this.save(true);
+    await this.syncToSupabase();
     return { success: true };
   }
 
