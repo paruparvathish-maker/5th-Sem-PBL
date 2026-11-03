@@ -121,8 +121,8 @@ export default function AdminFacultyPage() {
         {/* Faculty Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {filteredFaculty.map(f => {
-            const assignedTeams = teams.filter(t => t.guideId === f.id);
-            const sections = Array.from(new Set(assignedTeams.map(t => t.section))).sort();
+            const assigned5thSemTeams = teams.filter(t => t.guideId === f.id && (t.semester || 5) === 5);
+            const sections = Array.from(new Set(assigned5thSemTeams.map(t => t.section))).sort();
 
             return (
               <div key={f.id} className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4 hover:border-amber-300 transition">
@@ -147,8 +147,8 @@ export default function AdminFacultyPage() {
 
                 <div className="pt-3 border-t border-slate-100 space-y-2">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-500">Assigned Teams Workload:</span>
-                    <span className="font-bold text-amber-700">{assignedTeams.length} Groups</span>
+                    <span className="text-slate-500">5th Sem PBL Workload:</span>
+                    <span className="font-bold text-amber-700">{assigned5thSemTeams.length} Groups</span>
                   </div>
 
                   <div className="flex items-center justify-between text-xs">
@@ -157,6 +157,20 @@ export default function AdminFacultyPage() {
                       {sections.length > 0 ? `Sec ${sections.join(', ')}` : 'None'}
                     </span>
                   </div>
+
+                  {assigned5thSemTeams.length > 0 && (
+                    <div className="pt-2 text-xs">
+                      <span className="text-slate-500 font-semibold block mb-1">5th Sem Project Titles:</span>
+                      <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                        {assigned5thSemTeams.map(t => (
+                          <div key={t.id} className="bg-slate-50 p-2 rounded-lg border border-slate-100 text-[11px]">
+                            <span className="font-bold text-indigo-700">Group {t.teamNumber} (Sec {t.section}):</span>{' '}
+                            <span className="text-slate-800 font-medium">{t.projectTitle}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="pt-4 border-t border-slate-100 flex items-center justify-end space-x-2">

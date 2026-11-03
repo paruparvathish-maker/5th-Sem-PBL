@@ -3,7 +3,6 @@ import {
 } from '../types/pbl';
 import { RAW_PDF_SEED, getGuideEmail, getGuidePhone } from './seed-dataset';
 import { RAW_4TH_SEM_SEED } from './seed-dataset-4th';
-import { supabase } from '../supabase/client';
 
 const generateUUID = () => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -32,7 +31,7 @@ class PBLStore {
 
   private initSeedData() {
     if (typeof window !== 'undefined') {
-      const storedData = localStorage.getItem('pbl_portal_store_v6');
+      const storedData = localStorage.getItem('pbl_portal_store_v7');
       if (storedData) {
         try {
           const parsed = JSON.parse(storedData);
@@ -46,6 +45,17 @@ class PBLStore {
           }
 
           this.teams = parsed.teams || [];
+
+          // Synchronize 5th sem project titles from latest RAW_PDF_SEED
+          RAW_PDF_SEED.forEach(seedTeam => {
+            const existing = this.teams.find(t => (t.semester || 5) === 5 && t.teamNumber === seedTeam.teamNumber && t.section === seedTeam.section);
+            if (existing) {
+              if (!existing.projectTitle || existing.projectTitle === 'To Be Decided (TBD)' || existing.projectTitle.startsWith('4th Sem')) {
+                existing.projectTitle = seedTeam.projectTitle;
+                existing.projectDescription = seedTeam.projectDescription;
+              }
+            }
+          });
           this.deadlines = parsed.deadlines || [];
           this.submissions = parsed.submissions || [];
           this.evaluations = parsed.evaluations || [];
@@ -351,7 +361,7 @@ class PBLStore {
   private save(skipCloudSync: boolean = false) {
     if (typeof window !== 'undefined') {
       try {
-        localStorage.setItem('pbl_portal_store_v6', JSON.stringify({
+        localStorage.setItem('pbl_portal_store_v7', JSON.stringify({
           profiles: this.profiles,
           teams: this.teams,
           deadlines: this.deadlines,
@@ -374,8 +384,17 @@ class PBLStore {
 
   public async syncFromSupabase() {
     try {
-      const res = await fetch('/api/db');
-      if (res.ok) {
+      const fastApiUrl = process.env.NEXT_PUBLIC_FASTAPI_URL || 'http://127.0.0.1:8000';
+      let res: Response | null = null;
+      try {
+        res = await fetch(`${fastApiUrl}/api/db`, { mode: 'cors' });
+      } catch {
+        // Fallback to internal /api/db proxy
+      }
+      if (!res || !res.ok) {
+        res = await fetch('/api/db');
+      }
+      if (res && res.ok) {
         const data = await res.json();
         this.profiles = data.profiles || this.profiles;
         this.teams = data.teams || this.teams;
@@ -387,32 +406,46 @@ class PBLStore {
         this.auditLogs = data.auditLogs || this.auditLogs;
         
         if (typeof window !== 'undefined') {
-          localStorage.setItem('pbl_portal_store_v4', JSON.stringify(data));
+          localStorage.setItem('pbl_portal_store_v7', JSON.stringify(data));
         }
       }
     } catch (err) {
-      console.error('Sync from local DB failed', err);
+      console.error('Sync from backend API failed', err);
     }
   }
 
   private async syncToSupabase() {
     try {
+      const payload = JSON.stringify({
+        profiles: this.profiles,
+        teams: this.teams,
+        deadlines: this.deadlines,
+        submissions: this.submissions,
+        evaluations: this.evaluations,
+        guideMeetings: this.guideMeetings,
+        notifications: this.notifications,
+        auditLogs: this.auditLogs
+      });
+
+      const fastApiUrl = process.env.NEXT_PUBLIC_FASTAPI_URL || 'http://127.0.0.1:8000';
+      try {
+        await fetch(`${fastApiUrl}/api/db`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: payload,
+          mode: 'cors'
+        });
+      } catch {
+        // Fallback to Next.js /api/db
+      }
+
       await fetch('/api/db', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          profiles: this.profiles,
-          teams: this.teams,
-          deadlines: this.deadlines,
-          submissions: this.submissions,
-          evaluations: this.evaluations,
-          guideMeetings: this.guideMeetings,
-          notifications: this.notifications,
-          auditLogs: this.auditLogs
-        })
-      });
+        body: payload
+      }).catch(() => {});
     } catch (err) {
-      console.error('Sync to local DB failed', err);
+      console.error('Sync to backend API failed', err);
     }
   }
 
@@ -501,7 +534,10 @@ class PBLStore {
   // --- Teams ---
   public getAllTeams(): Team[] { return this.teams; }
 
-  public getTeamByStudentId(studentId: string): Team | undefined {
+  public getTeamByStudentId(studentId: string, semester: 4 | 5 = 5): Team | undefined {
+    // Strictly prioritize 5th semester project by default, preventing accidental 4th sem mapping
+    const semTeam = this.teams.find(t => (t.semester || 5) === semester && t.members?.some(m => m.id === studentId));
+    if (semTeam) return semTeam;
     return this.teams.find(t => t.members?.some(m => m.id === studentId));
   }
 

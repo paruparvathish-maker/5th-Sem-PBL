@@ -1,27 +1,105 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
+import { prisma } from '@/lib/prisma/client';
+import { seedPrismaDatabase } from '@/lib/prisma/seed';
+import * as fs from 'fs';
+import * as path from 'path';
 
-const dbPath = path.join(process.cwd(), 'local-db.json');
+export const dynamic = 'force-dynamic';
+
+const FASTAPI_URL = process.env.NEXT_PUBLIC_FASTAPI_URL || 'http://127.0.0.1:8000';
+const BACKEND_DATA_PATH = path.join(process.cwd(), 'backend', 'data.json');
 
 export async function GET() {
   try {
-    if (fs.existsSync(dbPath)) {
-      const data = fs.readFileSync(dbPath, 'utf8');
-      return NextResponse.json(JSON.parse(data));
+    // 1. If Turso or DATABASE_URL is available, attempt Prisma fetch
+    if (process.env.TURSO_DATABASE_URL || process.env.DATABASE_URL) {
+      await seedPrismaDatabase().catch(() => {});
+
+      const [profiles, teams, deadlines, submissions, evaluations, guideMeetings, notifications, auditLogs] = await Promise.all([
+        prisma.userProfile.findMany(),
+        prisma.team.findMany({
+          include: {
+            members: {
+              include: {
+                user: true,
+              },
+            },
+          },
+        }),
+        prisma.deadline.findMany(),
+        prisma.submission.findMany(),
+        prisma.evaluation.findMany(),
+        prisma.guideMeeting.findMany(),
+        prisma.notification.findMany(),
+        prisma.auditLog.findMany(),
+      ]);
+
+      const formattedTeams = teams.map((t) => ({
+        ...t,
+        members: t.members.map((m) => m.user),
+      }));
+
+      return NextResponse.json({
+        profiles,
+        teams: formattedTeams,
+        deadlines,
+        submissions,
+        evaluations,
+        guideMeetings,
+        notifications,
+        auditLogs,
+      });
     }
-    return NextResponse.json({ error: 'No database found' }, { status: 404 });
-  } catch (err) {
-    return NextResponse.json({ error: 'Failed to read database' }, { status: 500 });
+
+    // 2. Try fetching from FastAPI backend
+    try {
+      const fastRes = await fetch(`${FASTAPI_URL}/api/db`, { cache: 'no-store' });
+      if (fastRes.ok) {
+        const data = await fastRes.json();
+        return NextResponse.json(data);
+      }
+    } catch {
+      // FastAPI backend not running or unreachable, fallback to data.json
+    }
+
+    // 3. Fallback to local backend/data.json
+    if (fs.existsSync(BACKEND_DATA_PATH)) {
+      const raw = fs.readFileSync(BACKEND_DATA_PATH, 'utf8');
+      const data = JSON.parse(raw);
+      return NextResponse.json(data);
+    }
+
+    return NextResponse.json({ error: 'Backend data not initialized' }, { status: 404 });
+  } catch (err: any) {
+    console.error('Database query error:', err);
+    return NextResponse.json({ error: 'Database query failed', message: err?.message }, { status: 500 });
   }
 }
 
 export async function POST(request: Request) {
   try {
-    const data = await request.json();
-    fs.writeFileSync(dbPath, JSON.stringify(data, null, 2));
-    return NextResponse.json({ success: true });
-  } catch (err) {
-    return NextResponse.json({ error: 'Failed to write database' }, { status: 500 });
+    const payload = await request.json();
+
+    // 1. Forward to FastAPI backend if available
+    try {
+      await fetch(`${FASTAPI_URL}/api/db`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    } catch {
+      // FastAPI offline
+    }
+
+    // 2. Persist to local backend/data.json
+    try {
+      fs.writeFileSync(BACKEND_DATA_PATH, JSON.stringify(payload, null, 2), 'utf8');
+    } catch (e) {
+      console.warn('Could not save to backend/data.json:', e);
+    }
+
+    return NextResponse.json({ success: true, message: 'Backend database synced successfully' });
+  } catch (err: any) {
+    return NextResponse.json({ error: 'Failed to sync database', message: err?.message }, { status: 500 });
   }
 }

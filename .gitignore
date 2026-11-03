@@ -3,3 +3,17 @@ node_modules/
 .env
 .env.local
 .DS_Store
+
+# Local Database Files
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+local-db.json
+dev.db
+
+*.tsbuildinfo
+__pycache__/
+*.py[cod]

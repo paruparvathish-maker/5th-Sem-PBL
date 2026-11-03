@@ -51,6 +51,8 @@ export default function AdminDashboardPage() {
               </Link>
             </div>
           </div>
+        </div>
+
         {/* Executive Leadership Credentials Quick Reference */}
         <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 shadow-sm space-y-3">
           <div className="flex items-center justify-between">

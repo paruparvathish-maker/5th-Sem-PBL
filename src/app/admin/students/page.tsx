@@ -165,7 +165,7 @@ export default function AdminStudentsPage() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredStudents.map(s => {
-                  const studTeam = teams.find(t => t.members?.some(m => m.id === s.id));
+                  const studTeam = teams.find(t => (t.semester || 5) === 5 && t.members?.some(m => m.id === s.id));
 
                   return (
                     <tr key={s.id} className="hover:bg-slate-50/50">
@@ -175,7 +175,14 @@ export default function AdminStudentsPage() {
                         <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700">Sec {s.section}</span>
                       </td>
                       <td className="py-3.5 px-4 text-slate-600 font-medium">
-                        {studTeam ? `Group ${studTeam.teamNumber}` : 'Unassigned'}
+                        {studTeam ? (
+                          <div>
+                            <span className="font-bold text-slate-800">Group {studTeam.teamNumber}</span>
+                            <p className="text-[11px] text-indigo-600 line-clamp-1 max-w-[220px]" title={studTeam.projectTitle}>
+                              {studTeam.projectTitle}
+                            </p>
+                          </div>
+                        ) : 'Unassigned'}
                       </td>
                       <td className="py-3.5 px-4 font-mono font-bold text-slate-700">
                         {s.password || s.usn}

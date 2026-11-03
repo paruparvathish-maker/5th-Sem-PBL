@@ -1,6 +1,6 @@
 # PBL AI Management Portal
 
-A full-stack, production-ready Project-Based Learning (PBL) Management Portal built for colleges using **Next.js (App Router)**, **TypeScript**, **Tailwind CSS**, **Supabase PostgreSQL (with RLS)**, **pgvector**, and **OpenAI API**.
+A full-stack, production-ready Project-Based Learning (PBL) Management Portal built for colleges using **Next.js (App Router)**, **TypeScript**, **Tailwind CSS**, , **pgvector**, and **OpenAI API**.
 
 ---
 
@@ -62,7 +62,7 @@ SQL migrations are provided in `supabase/migrations/`:
    ```bash
    npm run dev
    ```
-   Open [http://localhost:3000](http://localhost:3000) in your browser.
+   Open [http://localhost:3001](http://localhost:3001) in your browser.
 
 ---
 
