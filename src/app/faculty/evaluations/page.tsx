@@ -14,6 +14,8 @@ import {
   CheckCircle2,
   AlertCircle,
   ShieldCheck,
+  FileText,
+  ArrowDownToLine,
 } from 'lucide-react';
 import { EvaluationCriterion } from '@/lib/types/pbl';
 
@@ -29,7 +31,7 @@ type StudentScore = {
 
 // Single 5-mark criterion used for ALL evaluations currently
 const BASE_CRITERIA: EvaluationCriterion[] = [
-  { criterion: 'Problem Statement & Description', maxMarks: 5, marksObtained: 5, comments: '' },
+  { criterion: '1st Review Evaluation', maxMarks: 5, marksObtained: 5, comments: '' },
 ];
 
 function FacultyEvaluationsContent() {
@@ -41,13 +43,13 @@ function FacultyEvaluationsContent() {
 
   // Load assigned teams and deadlines from store
   const [assignedTeams, setAssignedTeams] = useState(store.getTeamsByGuideId(user.id).filter(t => (t.semester || 5) === 5));
-  const [allDeadlines, setAllDeadlines] = useState(store.getAllDeadlines().filter((d) => d.id === 'dl-project-stmt'));
+  const [allDeadlines, setAllDeadlines] = useState(store.getAllDeadlines());
   const [isSyncing, setIsSyncing] = useState(true);
 
   useEffect(() => {
     store.syncFromSupabase().then(() => {
       setAssignedTeams(store.getTeamsByGuideId(user.id).filter(t => (t.semester || 5) === 5));
-      setAllDeadlines(store.getAllDeadlines().filter((d) => d.id === 'dl-project-stmt'));
+      setAllDeadlines(store.getAllDeadlines());
       setIsSyncing(false);
     });
   }, [user.id]);
@@ -307,16 +309,57 @@ function FacultyEvaluationsContent() {
 
             {/* ── INDIVIDUAL STUDENT ── */}
             <div className="p-6 space-y-4">
-                <div className="p-4 rounded-xl border border-indigo-200 bg-indigo-50 flex items-start gap-3">
-                  <AlertCircle className="w-5 h-5 text-indigo-600 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-bold text-indigo-900">Problem Statement &amp; Description</p>
-                    <p className="text-xs text-indigo-700 mt-1">Each student is graded individually out of 5 marks.</p>
-                  </div>
-                </div>
+                {(() => {
+                  const teamSub = store.getSubmissionsForTeam(selectedTeamId).find(s => 
+                    s.deadlineId === selectedDeadlineId || 
+                    (selectedDeadlineId === 'dl-review-1' && s.deadlineTitle?.toLowerCase().includes('1st review'))
+                  );
+
+                  return teamSub ? (
+                    <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2.5 bg-white rounded-xl border border-emerald-200 text-emerald-600 shrink-0">
+                          <FileText className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-extrabold text-slate-900">{teamSub.fileName}</p>
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                              Locked Submission
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            Submitted by <strong>{teamSub.studentName}</strong> on {new Date(teamSub.submissionTime).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+
+                      <a
+                        href={teamSub.filePath || teamSub.fileData || '#'}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        download={teamSub.fileName}
+                        className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-sm flex items-center justify-center gap-1.5 transition shrink-0"
+                      >
+                        <ArrowDownToLine className="w-3.5 h-3.5" />
+                        <span>View / Download Report</span>
+                      </a>
+                    </div>
+                  ) : (
+                    <div className="p-4 rounded-xl border border-amber-200 bg-amber-50 flex items-center gap-3">
+                      <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
+                      <div>
+                        <p className="text-sm font-bold text-amber-900">1st Review Report Deliverable</p>
+                        <p className="text-xs text-amber-700 mt-0.5">
+                          Group {selectedTeam?.teamNumber} has not uploaded their report document for this review yet.
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  Individual Student Marks
+                  Individual Student Marks (Out of 5)
                 </h3>
 
                 {studentScores.map((s, i) => (

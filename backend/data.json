@@ -15654,11 +15654,11 @@
   ],
   "deadlines": [
     {
-      "id": "dl-project-stmt",
-      "title": "Problem Statement & Description",
-      "description": "Submit your finalized project title and detailed problem description.",
+      "id": "dl-review-1",
+      "title": "1st Review Report",
+      "description": "Upload your Phase 1 / 1st Review Report document (PDF or Word) for faculty guide review and evaluation.",
       "deadlineType": "submission",
-      "dueDate": "2026-09-22T17:00:00",
+      "dueDate": "2026-11-25T17:00:00",
       "applicableSections": [
         "A",
         "B",

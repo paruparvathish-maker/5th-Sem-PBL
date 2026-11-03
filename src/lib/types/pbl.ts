@@ -61,16 +61,21 @@ export interface Submission {
   deadlineTitle?: string;
   teamId: string;
   teamNumber?: string;
+  section?: string;
   projectTitle?: string;
   submittedBy: string;
   studentName?: string;
+  studentUsn?: string;
   fileName: string;
   filePath: string;
+  fileData?: string;
   fileType: string;
   fileSize: number;
   submissionTime: string;
   version: number;
   status: 'submitted' | 'late' | 'reopened_submission';
+  isLocked?: boolean;
+  remarks?: string;
   aiSummary?: string;
   aiFeedback?: {
     missingSections?: string[];

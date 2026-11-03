@@ -415,7 +415,7 @@ export default function FacultyTeamsPage() {
               const submissions = store.getSubmissionsForTeam(t.id);
               const evalList = store.getPublishedEvaluationsForTeam(t.id);
 
-              const projectStmtSub = submissions.find(s => s.deadlineId === 'dl-project-stmt');
+              const review1Sub = submissions.find(s => s.deadlineId === 'dl-review-1' || s.deadlineTitle?.toLowerCase().includes('1st review'));
               const hasProjectDetails = t.projectTitle && t.projectTitle !== 'To Be Decided (TBD)';
 
               return (
@@ -536,6 +536,51 @@ export default function FacultyTeamsPage() {
                         </div>
                       )}
 
+                      {/* 1st Review Report Submission */}
+                      <div className="pt-3 border-t border-slate-200">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <FileText className="h-4 w-4 text-indigo-600" />
+                            <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">1st Review Report</span>
+                          </div>
+                          {review1Sub ? (
+                            <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
+                              <Lock className="w-2.5 h-2.5" /> Submitted & Locked
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded">
+                              <Clock className="w-2.5 h-2.5" /> Awaiting Submission
+                            </span>
+                          )}
+                        </div>
+
+                        {review1Sub ? (
+                          <div className="bg-white border border-emerald-200 rounded-xl p-3 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <FileCheck className="h-5 w-5 text-emerald-600" />
+                              <div>
+                                <p className="text-xs font-bold text-slate-800">{review1Sub.fileName}</p>
+                                <p className="text-[10px] text-slate-400 mt-0.5">
+                                  Submitted by {review1Sub.studentName} on {new Date(review1Sub.submissionTime).toLocaleDateString()}
+                                </p>
+                              </div>
+                            </div>
+                            <a
+                              href={review1Sub.filePath || review1Sub.fileData || '#'}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              download={review1Sub.fileName}
+                              className="text-xs font-bold text-indigo-600 hover:underline flex items-center gap-1"
+                            >
+                              View Report <ExternalLink className="w-3 h-3" />
+                            </a>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-slate-400 italic">
+                            No 1st Review Report uploaded by team yet.
+                          </p>
+                        )}
+                      </div>
 
                     </div>
 

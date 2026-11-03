@@ -69,8 +69,31 @@ class PBLStore {
               }
             }
           });
-          this.deadlines = (parsed.deadlines || []).filter((d: any) => d.id !== 'dl-guide-meeting' && !d.title.toLowerCase().includes('guide meeting document'));
-          this.submissions = (parsed.submissions || []).filter((s: any) => s.deadlineId !== 'dl-guide-meeting');
+          this.deadlines = (parsed.deadlines || []).filter((d: any) => 
+            d.id !== 'dl-guide-meeting' && 
+            !d.title.toLowerCase().includes('guide meeting') &&
+            d.id !== 'dl-project-stmt' && 
+            !d.title.toLowerCase().includes('problem statement')
+          );
+          if (!this.deadlines.some(d => d.id === 'dl-review-1' || d.title.toLowerCase().includes('1st review'))) {
+            this.deadlines.push({
+              id: 'dl-review-1',
+              title: '1st Review Report',
+              description: 'Upload your Phase 1 / 1st Review Report document (PDF or Word) for faculty guide review and evaluation.',
+              deadlineType: 'submission',
+              dueDate: '2026-11-25T17:00:00',
+              applicableSections: ['A', 'B', 'C', 'D', 'E', 'F'],
+              submissionRequired: true,
+              status: 'open',
+              createdBy: '180881',
+              createdAt: new Date().toISOString()
+            });
+          }
+          this.submissions = (parsed.submissions || []).filter((s: any) => 
+            s.deadlineId !== 'dl-guide-meeting' && 
+            s.deadlineId !== 'dl-project-stmt' && 
+            !s.deadlineTitle?.toLowerCase().includes('problem statement')
+          );
           this.evaluations = parsed.evaluations || [];
           this.guideMeetings = parsed.guideMeetings || [];
           this.notifications = parsed.notifications || [];
@@ -252,16 +275,12 @@ class PBLStore {
     });
 
     // Seed Standard Deadlines
-    const now = new Date();
-    const futureDate1 = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
-    const pastDate1 = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString();
-
-    const dProjectStmt: Deadline = {
-      id: 'dl-project-stmt',
-      title: 'Problem Statement & Description',
-      description: 'Submit your finalized project title and detailed problem description.',
+    const dReview1: Deadline = {
+      id: 'dl-review-1',
+      title: '1st Review Report',
+      description: 'Upload your Phase 1 / 1st Review Report document (PDF or Word) for faculty guide review and evaluation.',
       deadlineType: 'submission',
-      dueDate: '2026-09-22T17:00:00',
+      dueDate: '2026-11-25T17:00:00',
       applicableSections: ['A', 'B', 'C', 'D', 'E', 'F'],
       submissionRequired: true,
       status: 'open',
@@ -269,84 +288,7 @@ class PBLStore {
       createdAt: new Date().toISOString()
     };
 
-    this.deadlines.push(dProjectStmt);
-
-    // Seed Sample Submissions for Team A1
-    const teamA1 = this.teams.find(t => t.teamNumber === 'A1');
-    if (teamA1 && teamA1.members && teamA1.members.length > 0) {
-      const student1 = teamA1.members[0];
-      const sub1: Submission = {
-        id: 'sub-001',
-        deadlineId: dProjectStmt.id,
-        deadlineTitle: dProjectStmt.title,
-        teamId: teamA1.id,
-        teamNumber: teamA1.teamNumber,
-        projectTitle: teamA1.projectTitle,
-        submittedBy: student1.id,
-        studentName: student1.name,
-        fileName: 'Group_A1_Synopsis_V1.pdf',
-        filePath: '/storage/submissions/Group_A1_Synopsis_V1.pdf',
-        fileType: 'application/pdf',
-        fileSize: 2450000,
-        submissionTime: new Date(now.getTime() - 4 * 24 * 60 * 60 * 1000).toISOString(),
-        version: 1,
-        status: 'submitted',
-        aiSummary: 'The document outlines the proposed project methodology, problem formulation, and hardware/software design architecture.',
-        aiFeedback: {
-          missingSections: ['Risk Analysis & Mitigation Plan'],
-          strengths: ['Clear hardware block diagram', 'Well formulated objectives', 'Extensive literature survey of 8 IEEE papers'],
-          potentialIssues: ['Accuracy might degrade under low lighting conditions in campus bins'],
-          suggestedImprovements: ['Add ambient LED lighting to bin entrance', 'Detail budget estimation for ultrasonic sensors'],
-          facultyQuestions: ['How does the model differentiate wet paper from organic food waste?']
-        }
-      };
-      this.submissions.push(sub1);
-
-      // Seed Evaluation for Team A1
-      // For 0th review, we seed one individual evaluation for each student
-      teamA1.members?.forEach((student, idx) => {
-        const studentEval: Evaluation = {
-          id: `eval-001-${idx}`,
-          deadlineId: 'dl-project-stmt',
-          deadlineTitle: 'Problem Statement & Description',
-          teamId: teamA1.id,
-          teamNumber: teamA1.teamNumber,
-          evaluatorId: teamA1.guideId,
-          evaluatorName: teamA1.guideName,
-          evaluationType: 'individual',
-          studentId: student.id,
-          studentName: student.name,
-          studentUsn: student.usn,
-          criteriaScores: [
-            { criterion: 'Problem Statement & Description', maxMarks: 5, marksObtained: 5, comments: 'Project title and description submitted successfully.' },
-          ],
-          totalMarks: 5,
-          maxTotalMarks: 5,
-          facultyComments: 'Project details submitted and verified. Proceed with 1st guide meeting.',
-          isPublished: true,
-          evaluatedAt: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString()
-        };
-        this.evaluations.push(studentEval);
-      });
-
-      // Seed Guide Meeting for Team A1
-      const meeting1: GuideMeeting = {
-        id: 'm-001',
-        title: 'Review 1 Progress & Circuit Diagram Check',
-        facultyId: teamA1.guideId,
-        facultyName: teamA1.guideName,
-        teamId: teamA1.id,
-        teamNumber: teamA1.teamNumber,
-        projectTitle: teamA1.projectTitle,
-        meetingDate: new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000).toISOString(),
-        location: 'CSE Lab 4 / Room 204',
-        agenda: 'Demonstrate live webcam waste detection and review Arduino pin layout.',
-        status: 'scheduled',
-        facultyNotes: 'Bring breadboard setup and power bank.',
-        createdAt: new Date().toISOString()
-      };
-      this.guideMeetings.push(meeting1);
-    }
+    this.deadlines.push(dReview1);
 
     // Initial audit log
     this.auditLogs.push({
@@ -482,8 +424,31 @@ class PBLStore {
           });
         }
 
-        this.deadlines = (data.deadlines || this.deadlines).filter((d: any) => d.id !== 'dl-guide-meeting' && !d.title.toLowerCase().includes('guide meeting document'));
-        this.submissions = (data.submissions || this.submissions).filter((s: any) => s.deadlineId !== 'dl-guide-meeting');
+        this.deadlines = (data.deadlines || this.deadlines).filter((d: any) => 
+          d.id !== 'dl-guide-meeting' && 
+          !d.title.toLowerCase().includes('guide meeting') &&
+          d.id !== 'dl-project-stmt' && 
+          !d.title.toLowerCase().includes('problem statement')
+        );
+        if (!this.deadlines.some(d => d.id === 'dl-review-1' || d.title.toLowerCase().includes('1st review'))) {
+          this.deadlines.push({
+            id: 'dl-review-1',
+            title: '1st Review Report',
+            description: 'Upload your Phase 1 / 1st Review Report document (PDF or Word) for faculty guide review and evaluation.',
+            deadlineType: 'submission',
+            dueDate: '2026-11-25T17:00:00',
+            applicableSections: ['A', 'B', 'C', 'D', 'E', 'F'],
+            submissionRequired: true,
+            status: 'open',
+            createdBy: '180881',
+            createdAt: new Date().toISOString()
+          });
+        }
+        this.submissions = (data.submissions || this.submissions).filter((s: any) => 
+          s.deadlineId !== 'dl-guide-meeting' && 
+          s.deadlineId !== 'dl-project-stmt' && 
+          !s.deadlineTitle?.toLowerCase().includes('problem statement')
+        );
         this.evaluations = data.evaluations || this.evaluations;
         this.guideMeetings = data.guideMeetings || this.guideMeetings;
         this.notifications = data.notifications || this.notifications;
@@ -764,9 +729,19 @@ class PBLStore {
   // --- Deadlines ---
   public getAllDeadlines(): Deadline[] { return this.deadlines; }
 
+  public getDeadlineById(id: string): Deadline | undefined {
+    return this.deadlines.find(d => d.id === id);
+  }
+
   public getDeadlinesForStudent(section?: SectionCode): Deadline[] {
-    if (!section) return this.deadlines;
-    return this.deadlines.filter(d =>
+    const valid = this.deadlines.filter(d => 
+      d.id !== 'dl-project-stmt' && 
+      d.id !== 'dl-guide-meeting' && 
+      !d.title.toLowerCase().includes('problem statement') &&
+      !d.title.toLowerCase().includes('guide meeting')
+    );
+    if (!section) return valid;
+    return valid.filter(d =>
       !d.applicableSections || d.applicableSections.length === 0 || d.applicableSections.includes(section)
     );
   }
@@ -782,6 +757,26 @@ class PBLStore {
     return newDeadline;
   }
 
+  public updateDeadline(id: string, updates: Partial<Deadline>): Deadline | null {
+    const idx = this.deadlines.findIndex(d => d.id === id);
+    if (idx !== -1) {
+      this.deadlines[idx] = { ...this.deadlines[idx], ...updates };
+      this.save();
+      return this.deadlines[idx];
+    }
+    return null;
+  }
+
+  public deleteDeadline(id: string): boolean {
+    const idx = this.deadlines.findIndex(d => d.id === id);
+    if (idx !== -1) {
+      this.deadlines.splice(idx, 1);
+      this.save();
+      return true;
+    }
+    return false;
+  }
+
   // --- Submissions ---
   public getAllSubmissions(): Submission[] { return this.submissions; }
 
@@ -795,7 +790,9 @@ class PBLStore {
     submittedBy: string,
     fileName: string,
     fileType: string,
-    fileSize: number
+    fileSize: number,
+    fileData?: string,
+    remarks?: string
   ): { success: boolean; submission?: Submission; error?: string } {
     const deadline = this.deadlines.find(d => d.id === deadlineId);
     if (!deadline) {
@@ -805,56 +802,99 @@ class PBLStore {
     const now = new Date();
     const dueDate = new Date(deadline.dueDate);
 
-    // Server-side Deadline Enforcement
-    if (now > dueDate) {
-      return {
-        success: false,
-        error: `Submission rejected: The deadline passed on ${dueDate.toLocaleString()}. Upload locked.`
-      };
-    }
-
-    if (fileSize > 10 * 1024 * 1024) {
-      return { success: false, error: 'Upload rejected: File size exceeds the maximum limit of 10MB.' };
+    // Maximum file limit: 25MB
+    if (fileSize > 25 * 1024 * 1024) {
+      return { success: false, error: 'Upload rejected: File size exceeds the maximum limit of 25MB.' };
     }
 
     const team = this.teams.find(t => t.id === teamId);
     const student = this.profiles.find(p => p.id === submittedBy);
-    const existingCount = this.submissions.filter(s => s.deadlineId === deadlineId && s.teamId === teamId).length;
+    const existingIdx = this.submissions.findIndex(s => s.deadlineId === deadlineId && s.teamId === teamId);
 
-    if (existingCount > 0) {
-      return { success: false, error: 'Upload rejected: A team member has already submitted a document for this deadline.' };
-    }
-
+    const isLate = now > dueDate;
     const newSub: Submission = {
-      id: `sub-${Date.now()}`,
+      id: existingIdx !== -1 ? this.submissions[existingIdx].id : `sub-${Date.now()}`,
       deadlineId,
       deadlineTitle: deadline.title,
       teamId,
       teamNumber: team?.teamNumber,
+      section: team?.section,
       projectTitle: team?.projectTitle,
       submittedBy,
       studentName: student?.name,
+      studentUsn: student?.usn,
       fileName,
-      filePath: `/storage/submissions/${fileName}`,
+      filePath: fileData || `/storage/submissions/${fileName}`,
+      fileData: fileData || undefined,
       fileType,
       fileSize,
       submissionTime: now.toISOString(),
-      version: existingCount + 1,
-      status: 'submitted',
-      aiSummary: `AI Summary generated for ${fileName}: Document outlines problem scope, implementation methodology, and experimental results for ${team?.projectTitle || 'project'}.`,
+      version: existingIdx !== -1 ? (this.submissions[existingIdx].version || 1) + 1 : 1,
+      status: isLate ? 'late' : 'submitted',
+      isLocked: true,
+      remarks: remarks || undefined,
+      aiSummary: `AI Summary generated for ${fileName}: Phase 1 Review Report for ${team?.projectTitle || 'project'}. Architecture and methodology submitted for faculty review.`,
       aiFeedback: {
-        missingSections: ['Hardware Bill of Materials'],
-        strengths: ['Clear architectural flow', 'Well structured objectives'],
-        potentialIssues: ['Need to detail test validation metrics'],
-        suggestedImprovements: ['Include performance benchmark graph'],
-        facultyQuestions: ['What is the expected latency under peak load?']
+        missingSections: [],
+        strengths: ['Clear architectural flow', 'Well structured objectives', 'Clear division of work'],
+        potentialIssues: ['Keep verification benchmarks ready for Review 2'],
+        suggestedImprovements: ['Prepare live demonstration setup for lab review'],
+        facultyQuestions: ['What are the expected response metrics under peak load?']
       }
     };
 
-    this.submissions.push(newSub);
-    this.addAuditLog(submittedBy, student?.name || 'Student', 'student', 'Submitted Document', 'Submission', newSub.id, { fileName });
+    if (existingIdx !== -1) {
+      this.submissions[existingIdx] = newSub;
+    } else {
+      this.submissions.push(newSub);
+    }
+
+    this.addAuditLog(
+      submittedBy,
+      student?.name || 'Student',
+      'student',
+      'Submitted & Locked Document',
+      'Submission',
+      newSub.id,
+      { fileName, teamNumber: team?.teamNumber, deadlineTitle: deadline.title }
+    );
     this.save();
     return { success: true, submission: newSub };
+  }
+
+  public updateSubmission(id: string, updates: Partial<Submission>): Submission | null {
+    const idx = this.submissions.findIndex(s => s.id === id);
+    if (idx !== -1) {
+      this.submissions[idx] = { ...this.submissions[idx], ...updates };
+      this.save();
+      return this.submissions[idx];
+    }
+    return null;
+  }
+
+  public deleteSubmission(id: string): boolean {
+    const idx = this.submissions.findIndex(s => s.id === id);
+    if (idx !== -1) {
+      const removed = this.submissions.splice(idx, 1)[0];
+      this.addAuditLog('admin', 'Admin', 'admin', 'Deleted Submission', 'Submission', id, {
+        teamNumber: removed.teamNumber,
+        fileName: removed.fileName
+      });
+      this.save();
+      return true;
+    }
+    return false;
+  }
+
+  public unlockSubmission(submissionId: string): boolean {
+    const sub = this.submissions.find(s => s.id === submissionId);
+    if (sub) {
+      sub.isLocked = false;
+      sub.status = 'reopened_submission';
+      this.save();
+      return true;
+    }
+    return false;
   }
 
   // --- Evaluations & Marks ---
