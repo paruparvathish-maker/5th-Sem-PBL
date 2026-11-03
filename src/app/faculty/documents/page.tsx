@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth/auth-context';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { store } from '@/lib/data/store';
@@ -8,15 +8,24 @@ import {
   FileText, Download, Sparkles, Clock, CheckCircle2, 
   AlertCircle, ShieldCheck, HelpCircle, FileCheck 
 } from 'lucide-react';
+import { downloadSubmissionFile } from '@/lib/utils/download';
 
 export default function FacultyDocumentsPage() {
   const { user } = useAuth();
   if (!user) return null;
 
-  const assignedTeams = store.getTeamsByGuideId(user.id);
-  const submissions = store.getAllSubmissions().filter(s => 
-    assignedTeams.some(t => t.id === s.teamId)
+  const [assignedTeams, setAssignedTeams] = useState(store.getTeamsByGuideId(user.id));
+  const [submissions, setSubmissions] = useState(
+    store.getAllSubmissions().filter(s => assignedTeams.some(t => t.id === s.teamId))
   );
+
+  useEffect(() => {
+    store.syncFromSupabase().then(() => {
+      const teams = store.getTeamsByGuideId(user.id);
+      setAssignedTeams(teams);
+      setSubmissions(store.getAllSubmissions().filter(s => teams.some(t => t.id === s.teamId)));
+    });
+  }, [user.id]);
 
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
   const [analysisResult, setAnalysisResult] = useState<any | null>(null);
@@ -91,11 +100,11 @@ export default function FacultyDocumentsPage() {
 
                   <div className="flex items-center space-x-3 shrink-0">
                     <button
-                      onClick={() => alert(`Simulated Download for ${sub.fileName}`)}
-                      className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center space-x-1.5 transition"
+                      onClick={() => downloadSubmissionFile(sub)}
+                      className="px-3.5 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center space-x-1.5 transition border border-indigo-200 shadow-sm"
                     >
                       <Download className="h-4 w-4" />
-                      <span>Download</span>
+                      <span>Download PDF</span>
                     </button>
 
                     <button

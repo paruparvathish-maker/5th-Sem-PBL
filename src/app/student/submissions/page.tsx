@@ -10,6 +10,7 @@ import {
   Clock, AlertCircle, Info, Sparkles, ExternalLink
 } from 'lucide-react';
 import { Deadline, Submission } from '@/lib/types/pbl';
+import { downloadSubmissionFile } from '@/lib/utils/download';
 
 export default function StudentSubmissionsPage() {
   const { user } = useAuth();
@@ -242,16 +243,14 @@ export default function StudentSubmissionsPage() {
               </div>
 
               {/* Download / View Button */}
-              <a
-                href={currentSubmission.filePath || currentSubmission.fileData || '#'}
-                target="_blank"
-                rel="noopener noreferrer"
-                download={currentSubmission.fileName || '1st_Review_Report.pdf'}
+              <button
+                type="button"
+                onClick={() => downloadSubmissionFile(currentSubmission)}
                 className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md transition flex items-center justify-center gap-2 shrink-0"
               >
                 <ArrowDownToLine className="w-4 h-4" />
-                <span>Download / View Document</span>
-              </a>
+                <span>Download PDF Document</span>
+              </button>
             </div>
 
             {/* Submission File Card */}

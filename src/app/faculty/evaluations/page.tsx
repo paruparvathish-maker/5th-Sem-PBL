@@ -16,8 +16,10 @@ import {
   ShieldCheck,
   FileText,
   ArrowDownToLine,
+  RefreshCw,
 } from 'lucide-react';
 import { EvaluationCriterion } from '@/lib/types/pbl';
+import { downloadSubmissionFile } from '@/lib/utils/download';
 
 type EvaluationScope = 'team' | 'individual';
 
@@ -81,30 +83,41 @@ function FacultyEvaluationsContent() {
     [allDeadlines, selectedDeadlineId]
   );
 
-  // Reset student scores when team or scope changes
+  // Load existing student scores or initialize defaults when team or deadline changes
   useEffect(() => {
     if (selectedTeam?.members) {
+      const existingEvals = store.getAllEvaluations().filter(
+        (e) => e.teamId === selectedTeamId && e.deadlineId === selectedDeadlineId
+      );
+
+      const hasPublished = existingEvals.some((e) => e.isPublished);
+      setPublished(hasPublished);
+
+      if (existingEvals.length > 0 && existingEvals[0]?.facultyComments) {
+        setOverallFeedback(existingEvals[0].facultyComments);
+      } else {
+        setOverallFeedback('');
+      }
+
       setStudentScores(
-        selectedTeam.members.map((m) => ({
-          studentId: m.id,
-          studentName: m.name,
-          studentUsn: m.usn || '',
-          marksObtained: 5,
-          comments: '',
-        }))
+        selectedTeam.members.map((m) => {
+          const existing = existingEvals.find((e) => e.studentId === m.id);
+          return {
+            studentId: m.id,
+            studentName: m.name,
+            studentUsn: m.usn || '',
+            marksObtained: existing ? existing.totalMarks : 5,
+            comments: existing?.criteriaScores?.[0]?.comments || existing?.facultyComments || '',
+          };
+        })
       );
     } else {
       setStudentScores([]);
+      setPublished(false);
+      setOverallFeedback('');
     }
-  }, [selectedTeamId, selectedTeam]);
-
-  // Reset criteria when deadline changes
-  useEffect(() => {
-    setCriteriaScores(BASE_CRITERIA.map((c) => ({ ...c })));
-    setOverallFeedback('');
-    setPublished(false);
     setMessage(null);
-  }, [selectedDeadlineId]);
+  }, [selectedTeamId, selectedDeadlineId, selectedTeam]);
 
   // --- Score Updates ---
   const updateCriterionMarks = (idx: number, val: number) => {
@@ -171,11 +184,11 @@ function FacultyEvaluationsContent() {
     setMessage(null);
 
     try {
-      // Save one evaluation per student for the 0th review
+      // Save one evaluation per student
       studentScores.forEach((s) => {
         store.saveEvaluation({
           deadlineId: selectedDeadlineId,
-          deadlineTitle: selectedDeadline?.title,
+          deadlineTitle: selectedDeadline?.title || '1st Review Evaluation',
           teamId: selectedTeamId,
           teamNumber: selectedTeam?.teamNumber,
           evaluatorId: user.id,
@@ -186,7 +199,7 @@ function FacultyEvaluationsContent() {
           studentUsn: s.studentUsn,
           criteriaScores: [
             {
-              criterion: 'Problem Statement & Description',
+              criterion: selectedDeadline?.title || '1st Review Evaluation',
               maxMarks: 5,
               marksObtained: s.marksObtained,
               comments: s.comments,
@@ -203,7 +216,7 @@ function FacultyEvaluationsContent() {
       setMessage({
         type: 'success',
         text: isPublished
-          ? `Marks published successfully to Group ${selectedTeam?.teamNumber}!`
+          ? `Marks saved and published successfully for Group ${selectedTeam?.teamNumber}! You can modify them anytime.`
           : `Draft saved for Group ${selectedTeam?.teamNumber}.`,
       });
     } catch (err) {
@@ -334,16 +347,14 @@ function FacultyEvaluationsContent() {
                         </div>
                       </div>
 
-                      <a
-                        href={teamSub.filePath || teamSub.fileData || '#'}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        download={teamSub.fileName}
+                      <button
+                        type="button"
+                        onClick={() => downloadSubmissionFile(teamSub)}
                         className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-sm flex items-center justify-center gap-1.5 transition shrink-0"
                       >
                         <ArrowDownToLine className="w-3.5 h-3.5" />
-                        <span>View / Download Report</span>
-                      </a>
+                        <span>Download PDF Report</span>
+                      </button>
                     </div>
                   ) : (
                     <div className="p-4 rounded-xl border border-amber-200 bg-amber-50 flex items-center gap-3">
@@ -448,26 +459,42 @@ function FacultyEvaluationsContent() {
             )}
 
             {/* ── Actions ── */}
-            <div className="border-t border-slate-200 bg-slate-50 p-6 flex flex-col sm:flex-row justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => handleSave(false)}
-                disabled={saving || published}
-                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-700 text-sm font-bold hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Save className="w-4 h-4" />
-                {saving ? 'Saving...' : 'Save Draft'}
-              </button>
+            <div className="border-t border-slate-200 bg-slate-50 p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="text-xs">
+                {published ? (
+                  <span className="flex items-center gap-1.5 font-bold text-emerald-800 bg-emerald-100/70 border border-emerald-300 px-3.5 py-1.5 rounded-xl">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Marks are currently Published. You can modify scores above and click "Update & Republish Marks".</span>
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1.5 font-bold text-amber-800 bg-amber-100/70 border border-amber-300 px-3.5 py-1.5 rounded-xl">
+                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>Marks are not yet published to students.</span>
+                  </span>
+                )}
+              </div>
 
-              <button
-                type="button"
-                onClick={() => handleSave(true)}
-                disabled={saving || published}
-                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold shadow-lg shadow-amber-600/30 disabled:opacity-50 disabled:cursor-not-allowed transition"
-              >
-                <Send className="w-4 h-4" />
-                {published ? 'Published ✓' : 'Publish Marks to Students'}
-              </button>
+              <div className="flex items-center gap-3 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => handleSave(false)}
+                  disabled={saving}
+                  className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-700 text-sm font-bold hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>{saving ? 'Saving...' : 'Save Draft'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleSave(true)}
+                  disabled={saving}
+                  className="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold shadow-lg shadow-amber-600/30 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                >
+                  <Send className="w-4 h-4" />
+                  <span>{published ? 'Update & Republish Marks' : 'Publish Marks to Students'}</span>
+                </button>
+              </div>
             </div>
 
           </div>

@@ -10,6 +10,7 @@ import {
   AlertTriangle, RefreshCw, Eye
 } from 'lucide-react';
 import { Deadline, DeadlineType, DeadlineStatus, SectionCode, Submission, Team } from '@/lib/types/pbl';
+import { downloadSubmissionFile } from '@/lib/utils/download';
 
 export default function AdminDeadlinesPage() {
   const { user } = useAuth();
@@ -483,16 +484,14 @@ export default function AdminDeadlinesPage() {
                       {/* Actions */}
                       <div className="flex flex-wrap items-center gap-2 shrink-0 border-t lg:border-t-0 pt-3 lg:pt-0">
                         {/* Download / View */}
-                        <a
-                          href={s.filePath || s.fileData || '#'}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          download={s.fileName}
+                        <button
+                          type="button"
+                          onClick={() => downloadSubmissionFile(s)}
                           className="px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center gap-1 transition"
                         >
                           <ArrowDownToLine className="w-3.5 h-3.5" />
-                          <span>View / Download</span>
-                        </a>
+                          <span>Download PDF</span>
+                        </button>
 
                         {/* Quick Unlock */}
                         {isLocked ? (

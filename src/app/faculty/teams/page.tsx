@@ -9,8 +9,10 @@ import Link from 'next/link';
 import {
   Users, Search, Filter, ShieldCheck, Award,
   FileText, Upload, CheckCircle2, Clock, Lock, AlertCircle,
-  GraduationCap, BookOpen, FileCheck, ExternalLink, Check, Sparkles
+  GraduationCap, BookOpen, FileCheck, ExternalLink, Check, Sparkles,
+  Download, Edit2
 } from 'lucide-react';
+import { downloadSubmissionFile } from '@/lib/utils/download';
 
 export default function FacultyTeamsPage() {
   const { user } = useAuth();
@@ -449,7 +451,7 @@ export default function FacultyTeamsPage() {
                         className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shadow-md transition flex items-center gap-1"
                       >
                         <Award className="h-3.5 w-3.5" />
-                        <span>Grade Students</span>
+                        <span>{evalList.length > 0 ? 'Modify Marks' : 'Grade Students'}</span>
                       </Link>
                     </div>
                   </div>
@@ -565,15 +567,14 @@ export default function FacultyTeamsPage() {
                                 </p>
                               </div>
                             </div>
-                            <a
-                              href={review1Sub.filePath || review1Sub.fileData || '#'}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              download={review1Sub.fileName}
-                              className="text-xs font-bold text-indigo-600 hover:underline flex items-center gap-1"
+                            <button
+                              type="button"
+                              onClick={() => downloadSubmissionFile(review1Sub)}
+                              className="px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center gap-1.5 transition border border-indigo-200"
                             >
-                              View Report <ExternalLink className="w-3 h-3" />
-                            </a>
+                              <Download className="w-3.5 h-3.5" />
+                              <span>Download PDF</span>
+                            </button>
                           </div>
                         ) : (
                           <p className="text-xs text-slate-400 italic">
@@ -603,13 +604,26 @@ export default function FacultyTeamsPage() {
                                   </div>
                                 </div>
                                 {studentEval ? (
-                                  <span className="text-xs font-black text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
-                                    {studentEval.totalMarks}/5
-                                  </span>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-xs font-black text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
+                                      {studentEval.totalMarks}/5
+                                    </span>
+                                    <Link
+                                      href={`/faculty/evaluations?teamId=${t.id}`}
+                                      className="p-1 rounded text-indigo-600 hover:bg-indigo-100"
+                                      title="Modify student marks"
+                                    >
+                                      <Edit2 className="w-3 h-3" />
+                                    </Link>
+                                  </div>
                                 ) : (
-                                  <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
-                                    —/5
-                                  </span>
+                                  <Link
+                                    href={`/faculty/evaluations?teamId=${t.id}`}
+                                    className="text-[10px] font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-2 py-0.5 rounded"
+                                    title="Grade student"
+                                  >
+                                    Grade
+                                  </Link>
                                 )}
                               </div>
                             </div>
