@@ -1,7 +1,8 @@
 import json
 import os
 from typing import List, Optional, Dict, Any
-from fastapi import FastAPI, HTTPException, Query, Body, status
+from fastapi import FastAPI, HTTPException, Query, Body, status, Request
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from models import (
     UserProfile, Team, Deadline, Submission, Evaluation, GuideMeeting,
@@ -16,10 +17,15 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
-# Enable CORS for Next.js Frontend
+# Enable CORS for Next.js Frontend (local & deployed Vercel domains)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:3001", "*"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:3001"
+    ],
+    allow_origin_regex=r"https?://.*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -60,17 +66,162 @@ def save_data():
 def startup_event():
     load_data()
 
-# Root & Health Check
+# Root: Interactive API Portal Dashboard or JSON
 @app.get("/", tags=["General"])
-def root():
-    return {
-        "status": "online",
-        "service": "PBL Portal FastAPI Backend",
-        "version": "1.0.0",
-        "docs_url": "/docs",
-        "teams_count": len(DB.get("teams", [])),
-        "profiles_count": len(DB.get("profiles", []))
-    }
+def root(request: Request, format: Optional[str] = None):
+    accept = request.headers.get("accept", "")
+    if format == "json" or ("application/json" in accept and "text/html" not in accept):
+        return {
+            "status": "online",
+            "service": "PBL Portal FastAPI Backend",
+            "version": "1.0.0",
+            "docs_url": "/docs",
+            "teams_count": len(DB.get("teams", [])),
+            "profiles_count": len(DB.get("profiles", []))
+        }
+
+    teams = DB.get("teams", [])
+    sem5_count = len([t for t in teams if t.get("semester", 5) == 5])
+    sem4_count = len([t for t in teams if t.get("semester") == 4])
+    profiles = DB.get("profiles", [])
+    students_count = len([p for p in profiles if p.get("role") == "student"])
+    faculty_count = len([p for p in profiles if p.get("role") == "faculty"])
+
+    html_content = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DSATM PBL Portal — FastAPI Backend</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body {{ font-family: 'Plus Jakarta Sans', sans-serif; }}
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between selection:bg-indigo-500 selection:text-white">
+  
+  <div class="max-w-5xl mx-auto px-6 py-12 w-full space-y-10">
+    <!-- Header -->
+    <header class="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-slate-800 pb-8">
+      <div>
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-bold border border-emerald-500/20 mb-3">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span>FastAPI Backend Online & Synced</span>
+        </div>
+        <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight text-white">
+          DSATM PBL Portal Backend
+        </h1>
+        <p class="text-slate-400 text-sm mt-1">
+          High-performance REST API powering 5th Semester Project-Based Learning & 4th Semester Research Papers.
+        </p>
+      </div>
+
+      <div class="flex items-center gap-3 shrink-0">
+        <a href="/docs" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg shadow-indigo-600/30 transition flex items-center gap-2">
+          <span>Explore Swagger API Docs</span>
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+        </a>
+        <a href="/redoc" class="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs border border-slate-700 transition">
+          <span>ReDoc</span>
+        </a>
+      </div>
+    </header>
+
+    <!-- Stats Grid -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">5th Sem Projects</span>
+        <h2 class="text-3xl font-black text-white mt-2">{sem5_count}</h2>
+        <p class="text-xs text-indigo-400 font-semibold mt-1">Sections 5A — 5F</p>
+      </div>
+
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">4th Sem Papers</span>
+        <h2 class="text-3xl font-black text-white mt-2">{sem4_count}</h2>
+        <p class="text-xs text-amber-400 font-semibold mt-1">Isolated Tracking</p>
+      </div>
+
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Students</span>
+        <h2 class="text-3xl font-black text-white mt-2">{students_count}</h2>
+        <p class="text-xs text-emerald-400 font-semibold mt-1">Authenticated Enrollees</p>
+      </div>
+
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Faculty Guides</span>
+        <h2 class="text-3xl font-black text-white mt-2">{faculty_count}</h2>
+        <p class="text-xs text-purple-400 font-semibold mt-1">Project Mentors</p>
+      </div>
+    </div>
+
+    <!-- Live Endpoints Explorer -->
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
+      <div class="flex items-center justify-between">
+        <h2 class="text-base font-extrabold text-white">Live REST API Endpoints</h2>
+        <span class="text-xs text-slate-400 font-mono">Format: JSON</span>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+        <a href="/api/teams?semester=5" target="_blank" class="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 hover:border-indigo-500/50 hover:bg-slate-800/40 transition flex items-center justify-between group">
+          <div>
+            <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold text-[10px] mr-2">GET</span>
+            <span class="font-mono text-slate-300">/api/teams?semester=5</span>
+            <p class="text-slate-500 text-[11px] mt-1">List 5th Semester PBL Projects & titles</p>
+          </div>
+          <span class="text-indigo-400 group-hover:translate-x-1 transition text-sm">→</span>
+        </a>
+
+        <a href="/api/faculty" target="_blank" class="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 hover:border-indigo-500/50 hover:bg-slate-800/40 transition flex items-center justify-between group">
+          <div>
+            <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold text-[10px] mr-2">GET</span>
+            <span class="font-mono text-slate-300">/api/faculty</span>
+            <p class="text-slate-500 text-[11px] mt-1">List faculty mentors & 5th sem workloads</p>
+          </div>
+          <span class="text-indigo-400 group-hover:translate-x-1 transition text-sm">→</span>
+        </a>
+
+        <a href="/api/students?section=A" target="_blank" class="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 hover:border-indigo-500/50 hover:bg-slate-800/40 transition flex items-center justify-between group">
+          <div>
+            <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold text-[10px] mr-2">GET</span>
+            <span class="font-mono text-slate-300">/api/students?section=A</span>
+            <p class="text-slate-500 text-[11px] mt-1">Query students by section or USN</p>
+          </div>
+          <span class="text-indigo-400 group-hover:translate-x-1 transition text-sm">→</span>
+        </a>
+
+        <a href="/api/deadlines" target="_blank" class="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 hover:border-indigo-500/50 hover:bg-slate-800/40 transition flex items-center justify-between group">
+          <div>
+            <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold text-[10px] mr-2">GET</span>
+            <span class="font-mono text-slate-300">/api/deadlines</span>
+            <p class="text-slate-500 text-[11px] mt-1">Active project deadlines & milestone rubrics</p>
+          </div>
+          <span class="text-indigo-400 group-hover:translate-x-1 transition text-sm">→</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Frontend Link Guide -->
+    <div class="bg-indigo-950/40 border border-indigo-800/50 rounded-2xl p-6 text-xs text-indigo-200 space-y-2">
+      <div class="flex items-center gap-2 text-indigo-300 font-extrabold text-sm">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <span>Looking for the Student / Faculty / Admin Portal UI?</span>
+      </div>
+      <p class="leading-relaxed">
+        This URL is the <strong>FastAPI Backend Service</strong>. The Next.js Frontend Portal runs in the project root.
+        To deploy the frontend on Vercel, ensure the project root directory is set to <code class="bg-indigo-900/50 px-2 py-0.5 rounded font-mono text-white">.</code> (root) and configure <code class="bg-indigo-900/50 px-2 py-0.5 rounded font-mono text-white">NEXT_PUBLIC_FASTAPI_URL</code> to this URL.
+      </p>
+    </div>
+  </div>
+
+  <footer class="text-center py-6 border-t border-slate-900 text-slate-500 text-xs">
+    Dayananda Sagar Academy of Technology and Management — Computer Science & Engineering
+  </footer>
+</body>
+</html>"""
+    return HTMLResponse(content=html_content)
 
 @app.get("/api/health", tags=["General"])
 def health_check():
