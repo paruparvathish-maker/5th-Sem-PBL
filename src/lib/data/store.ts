@@ -44,6 +44,19 @@ class PBLStore {
             admin.password = '03May@2002@';
           }
 
+          // Restore credentials backup
+          try {
+            const credsBackup = JSON.parse(localStorage.getItem('pbl_user_credentials_backup') || '{}');
+            this.profiles.forEach(p => {
+              const b = credsBackup[p.id] || (p.usn && credsBackup[p.usn]) || credsBackup[p.email];
+              if (b && b.password) {
+                p.password = b.password;
+                p.isFirstLogin = false;
+                p.passwordUpdatedAt = b.passwordUpdatedAt;
+              }
+            });
+          } catch (e) {}
+
           this.teams = parsed.teams || [];
 
           // Synchronize 5th sem project titles from latest RAW_PDF_SEED
@@ -143,6 +156,10 @@ class PBLStore {
         const cleanUsn = s.usn.toUpperCase().trim();
         let studProfile = this.profiles.find(p => p.usn === cleanUsn);
         if (!studProfile) {
+          let hash = 0;
+          for (let i = 0; i < cleanUsn.length; i++) hash = (hash << 5) - hash + cleanUsn.charCodeAt(i);
+          const studentPhone = `98450${Math.abs(hash).toString().padStart(5, '0').slice(-5)}`;
+
           studProfile = {
             id: `stud-${cleanUsn}`,
             email: `${cleanUsn.toLowerCase()}@student.dsatm.edu.in`,
@@ -150,6 +167,7 @@ class PBLStore {
             usn: cleanUsn,
             role: 'student',
             section: seedTeam.section,
+            phone: studentPhone,
             isFirstLogin: true,
             createdAt: new Date().toISOString()
           };
@@ -405,7 +423,48 @@ class PBLStore {
       }
       if (res && res.ok) {
         const data = await res.json();
-        this.profiles = data.profiles || this.profiles;
+        if (data.profiles && Array.isArray(data.profiles)) {
+          let credsBackup: Record<string, any> = {};
+          if (typeof window !== 'undefined') {
+            try {
+              credsBackup = JSON.parse(localStorage.getItem('pbl_user_credentials_backup') || '{}');
+            } catch (e) {}
+          }
+
+          const incomingMap = new Map<string, UserProfile>(data.profiles.map((p: UserProfile) => [p.id, p]));
+          this.profiles = this.profiles.map((localProf) => {
+            const incoming = incomingMap.get(localProf.id);
+            if (!incoming) return localProf;
+
+            const backup = credsBackup[localProf.id] || (localProf.usn && credsBackup[localProf.usn]) || credsBackup[localProf.email];
+            const localHasCustomPass = !!localProf.password && localProf.isFirstLogin === false;
+            const backupHasCustomPass = backup && !!backup.password && backup.isFirstLogin === false;
+
+            let finalPass = incoming.password;
+            let finalIsFirstLogin = incoming.isFirstLogin;
+            let finalUpdatedAt = incoming.passwordUpdatedAt;
+
+            if (localHasCustomPass || backupHasCustomPass) {
+              finalPass = localProf.password || backup?.password;
+              finalIsFirstLogin = false;
+              finalUpdatedAt = localProf.passwordUpdatedAt || backup?.passwordUpdatedAt || new Date().toISOString();
+            }
+
+            return {
+              ...incoming,
+              password: finalPass,
+              isFirstLogin: finalIsFirstLogin !== undefined ? finalIsFirstLogin : localProf.isFirstLogin,
+              phone: localProf.phone || incoming.phone,
+              passwordUpdatedAt: finalUpdatedAt
+            };
+          });
+
+          data.profiles.forEach((p: UserProfile) => {
+            if (!this.profiles.some(local => local.id === p.id)) {
+              this.profiles.push(p);
+            }
+          });
+        }
 
         // Intelligent merge for teams: preserve newer local updates
         if (data.teams && Array.isArray(data.teams)) {
@@ -509,41 +568,96 @@ class PBLStore {
   // --- Auth & Users ---
   public findUserByUsernameOrEmail(identifier: string): UserProfile | undefined {
     const clean = identifier.trim().toLowerCase();
-    return this.profiles.find(p =>
-      p.email.toLowerCase() === clean ||
-      (p.usn && p.usn.toLowerCase() === clean)
-    );
+    const cleanDigits = clean.replace(/\D/g, '');
+
+    return this.profiles.find(p => {
+      const email = p.email?.toLowerCase();
+      const usn = p.usn?.toLowerCase();
+      const uid = p.id?.toLowerCase();
+      const staffCode = p.staffCode?.toLowerCase();
+      const phone = p.phone?.toLowerCase();
+      const phoneDigits = p.phone ? p.phone.replace(/\D/g, '') : '';
+
+      return (
+        email === clean ||
+        usn === clean ||
+        uid === clean ||
+        staffCode === clean ||
+        phone === clean ||
+        (cleanDigits.length >= 7 && phoneDigits === cleanDigits)
+      );
+    });
   }
 
   public verifyPassword(userId: string, inputPassword: string): boolean {
     const user = this.profiles.find(p => p.id === userId);
     if (!user) return false;
 
-    if (user.password) {
+    // Once a custom password has been created, ONLY the new password is valid!
+    if (user.password && !user.isFirstLogin) {
       return user.password === inputPassword;
     }
 
+    if (user.password && user.password === inputPassword) {
+      return true;
+    }
+
+    // Default initial password during first-time login:
+    const cleanPass = inputPassword.trim();
+    const cleanDigits = cleanPass.replace(/\D/g, '');
+
     if (user.role === 'admin') {
-      return inputPassword === '03May@2002@';
+      return cleanPass === '03May@2002@' || cleanPass === (user.password || '');
     } else if (user.role === 'student') {
-      return inputPassword === user.usn;
+      const matchUsn = user.usn && cleanPass.toLowerCase() === user.usn.toLowerCase();
+      const matchPhone = user.phone && (cleanPass === user.phone || (cleanDigits.length >= 7 && user.phone.replace(/\D/g, '') === cleanDigits));
+      if (cleanDigits.length === 10 && user.isFirstLogin && !user.password) {
+        if (!user.phone) user.phone = cleanDigits;
+        return true;
+      }
+      return !!(matchUsn || matchPhone);
     } else if (user.role === 'faculty') {
-      return inputPassword === user.phone;
+      const matchPhone = user.phone && (cleanPass === user.phone || (cleanDigits.length >= 7 && user.phone.replace(/\D/g, '') === cleanDigits));
+      const matchStaff = user.staffCode && cleanPass.toLowerCase() === user.staffCode.toLowerCase();
+      return !!(matchPhone || matchStaff);
     }
     return false;
   }
 
-  public updatePassword(userId: string, newPassword?: string): boolean {
-    const user = this.profiles.find(p => p.id === userId);
+  public async updatePassword(userId: string, newPassword?: string): Promise<boolean> {
+    const user = this.profiles.find(p =>
+      p.id === userId ||
+      p.email.toLowerCase() === userId.toLowerCase() ||
+      (p.usn && p.usn.toLowerCase() === userId.toLowerCase())
+    );
     if (user) {
       user.isFirstLogin = false;
       if (newPassword) {
         user.password = newPassword;
       }
-      this.addAuditLog(userId, user.name, user.role, 'Password Updated', 'UserProfile', userId, { note: 'First-time credentials changed' });
-      this.save();
-      // Immediately sync this change to the cloud so it works on other devices
-      this.syncToSupabase().catch(console.error);
+      user.passwordUpdatedAt = new Date().toISOString();
+      this.addAuditLog(user.id, user.name, user.role, 'Password Updated', 'UserProfile', user.id, { note: 'First-time credentials changed' });
+      
+      // Save locally to store
+      this.save(true);
+
+      // Save to permanent backup key in localStorage
+      if (typeof window !== 'undefined') {
+        try {
+          const credsBackup = JSON.parse(localStorage.getItem('pbl_user_credentials_backup') || '{}');
+          const backupRecord = { password: user.password, isFirstLogin: false, passwordUpdatedAt: user.passwordUpdatedAt };
+          credsBackup[user.id] = backupRecord;
+          if (user.usn) credsBackup[user.usn] = backupRecord;
+          if (user.email) credsBackup[user.email] = backupRecord;
+          if (user.phone) credsBackup[user.phone] = backupRecord;
+          localStorage.setItem('pbl_user_credentials_backup', JSON.stringify(credsBackup));
+        } catch (e) {
+          console.error('Failed to write credentials backup:', e);
+        }
+      }
+
+      // Sync across all cloud APIs
+      await this.syncToSupabase();
       return true;
     }
     return false;

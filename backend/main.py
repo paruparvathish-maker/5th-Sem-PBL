@@ -6,7 +6,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from models import (
     UserProfile, Team, Deadline, Submission, Evaluation, GuideMeeting,
-    LoginRequest, UpdateTeamRequest, UpdateResearchPaperRequest, DatabaseSyncPayload
+    LoginRequest, ChangePasswordRequest, UpdateTeamRequest, UpdateResearchPaperRequest, DatabaseSyncPayload
 )
 
 app = FastAPI(
@@ -230,7 +230,9 @@ def health_check():
 # ----------------- Auth -----------------
 @app.post("/api/auth/login", tags=["Authentication"])
 def login(req: LoginRequest):
+    import re
     identifier = req.identifier.strip().lower()
+    clean_digits = re.sub(r"\D", "", identifier)
     profiles = DB.get("profiles", [])
 
     user = None
@@ -238,23 +240,72 @@ def login(req: LoginRequest):
         email = (p.get("email") or "").lower()
         usn = (p.get("usn") or "").lower()
         uid = (p.get("id") or "").lower()
+        phone = (p.get("phone") or "").lower()
+        phone_digits = re.sub(r"\D", "", phone) if phone else ""
+        staff_code = (p.get("staffCode") or "").lower()
 
-        if identifier in (email, usn, uid):
+        if identifier in (email, usn, uid, staff_code):
+            user = p
+            break
+        if phone and (identifier == phone or (len(clean_digits) >= 7 and clean_digits == phone_digits)):
             user = p
             break
 
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
 
-    expected_password = user.get("password") or user.get("usn") or user.get("phone") or "123456"
-    if req.password and req.password != expected_password:
-        raise HTTPException(status_code=401, detail="Invalid password")
+    is_first_login = user.get("isFirstLogin", True)
+    custom_password = user.get("password")
+
+    # If user has already changed their password, only accept the custom password
+    if custom_password and not is_first_login:
+        if req.password != custom_password:
+            raise HTTPException(status_code=401, detail="Invalid password. Please use your newly created password.")
+    else:
+        # First-time login: accept custom password if set, or initial credentials (phone, USN, admin pass)
+        req_pass = req.password or ""
+        req_digits = re.sub(r"\D", "", req_pass)
+        user_phone = user.get("phone") or ""
+        user_phone_digits = re.sub(r"\D", "", user_phone)
+
+        is_valid = False
+        if custom_password and req_pass == custom_password:
+            is_valid = True
+        elif user.get("role") == "admin" and req_pass == "03May@2002@":
+            is_valid = True
+        elif user.get("role") == "student" and (req_pass.lower() == (user.get("usn") or "").lower() or (user_phone and (req_pass == user_phone or req_digits == user_phone_digits))):
+            is_valid = True
+        elif user.get("role") == "faculty" and (req_pass == user_phone or (user_phone_digits and req_digits == user_phone_digits) or req_pass.lower() == (user.get("staffCode") or "").lower()):
+            is_valid = True
+
+        if not is_valid:
+            raise HTTPException(status_code=401, detail="Invalid password.")
 
     return {
         "success": True,
         "user": user,
-        "requiresPasswordChange": user.get("isFirstLogin", False)
+        "requiresPasswordChange": is_first_login
     }
+
+@app.post("/api/auth/change-password", tags=["Authentication"])
+def change_password(req: ChangePasswordRequest):
+    import datetime
+    profiles = DB.get("profiles", [])
+    target_id = req.userId.strip().lower()
+
+    for p in profiles:
+        uid = (p.get("id") or "").lower()
+        email = (p.get("email") or "").lower()
+        usn = (p.get("usn") or "").lower()
+
+        if target_id in (uid, email, usn):
+            p["password"] = req.newPassword
+            p["isFirstLogin"] = False
+            p["passwordUpdatedAt"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            save_data()
+            return {"success": True, "message": "Password changed successfully", "user": p}
+
+    raise HTTPException(status_code=404, detail="User not found")
 
 # ----------------- Teams -----------------
 @app.get("/api/teams", response_model=List[Team], tags=["Teams"])

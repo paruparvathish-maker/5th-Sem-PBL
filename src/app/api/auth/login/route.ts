@@ -11,21 +11,33 @@ export async function POST(request: Request) {
     }
 
     const cleanId = String(identifier).trim().toLowerCase();
+    const cleanDigits = cleanId.replace(/\D/g, '');
     const profiles = store.getAllProfiles();
 
     const user = profiles.find((p) => {
       const email = p.email?.toLowerCase();
       const usn = p.usn?.toLowerCase();
       const id = p.id?.toLowerCase();
-      return email === cleanId || usn === cleanId || id === cleanId;
+      const phone = p.phone?.toLowerCase();
+      const phoneDigits = p.phone ? p.phone.replace(/\D/g, '') : '';
+      const staffCode = p.staffCode?.toLowerCase();
+
+      return (
+        email === cleanId ||
+        usn === cleanId ||
+        id === cleanId ||
+        staffCode === cleanId ||
+        phone === cleanId ||
+        (cleanDigits.length >= 7 && phoneDigits === cleanDigits)
+      );
     });
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 401 });
     }
 
-    const expectedPassword = user.password || user.usn || user.phone || '123456';
-    if (password && password !== expectedPassword) {
+    const isVerified = store.verifyPassword(user.id, password || '');
+    if (!isVerified) {
       return NextResponse.json({ error: 'Invalid password' }, { status: 401 });
     }
 

@@ -18,7 +18,7 @@ export default function FirstTimePasswordChangePage() {
 
   if (!user) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -39,7 +39,7 @@ export default function FirstTimePasswordChangePage() {
     }
 
     setIsSubmitting(true);
-    const success = changeFirstTimePassword(newPassword);
+    const success = await changeFirstTimePassword(newPassword);
 
     if (success) {
       if (user.role === 'student') router.push('/student/dashboard');

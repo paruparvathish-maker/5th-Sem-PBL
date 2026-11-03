@@ -36,9 +36,6 @@ export default function LoginPage() {
       return;
     }
 
-    // Sync from Supabase so the app has the latest cloud data in memory
-    await store.syncFromSupabase();
-
     if (res.requiresPasswordChange) {
       router.push('/first-time-password-change');
     } else {
@@ -127,7 +124,7 @@ export default function LoginPage() {
           <form className="space-y-5" onSubmit={handleSubmit}>
             <div>
               <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-                {activeTab === 'student' ? 'USN (University Seat Number)' : activeTab === 'faculty' ? 'Faculty Institutional Email' : 'Admin Email'}
+                {activeTab === 'student' ? 'USN / Mobile Number / Email' : activeTab === 'faculty' ? 'Faculty Email / Mobile Number' : 'Admin Email'}
               </label>
               <div className="relative rounded-xl shadow-sm">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
@@ -139,8 +136,8 @@ export default function LoginPage() {
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
                   placeholder={
-                    activeTab === 'student' ? 'e.g. 1DT24CS001' :
-                    activeTab === 'faculty' ? 'e.g. parvathisha-cse@dsatm.edu.in' :
+                    activeTab === 'student' ? 'USN or Registered Mobile' :
+                    activeTab === 'faculty' ? 'Email or Registered Mobile' :
                     'paruparvathish@gmail.com'
                   }
                   className="block w-full pl-10 pr-3 py-2.5 bg-slate-900/90 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"

@@ -12,6 +12,7 @@ class UserProfile(BaseModel):
     staffCode: Optional[str] = None
     password: Optional[str] = None
     isFirstLogin: bool = True
+    passwordUpdatedAt: Optional[str] = None
     createdAt: Optional[str] = None
 
 class Team(BaseModel):
@@ -83,6 +84,10 @@ class GuideMeeting(BaseModel):
 class LoginRequest(BaseModel):
     identifier: str
     password: Optional[str] = None
+
+class ChangePasswordRequest(BaseModel):
+    userId: str
+    newPassword: str
 
 class UpdateTeamRequest(BaseModel):
     projectTitle: Optional[str] = None

@@ -13,6 +13,7 @@ export interface UserProfile {
   staffCode?: string;
   password?: string;
   isFirstLogin: boolean;
+  passwordUpdatedAt?: string;
   createdAt: string;
 }
 

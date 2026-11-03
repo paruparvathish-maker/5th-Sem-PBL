@@ -10,7 +10,7 @@ interface AuthContextType {
   isLoading: boolean;
   login: (identifier: string, password?: string) => { success: boolean; requiresPasswordChange?: boolean; user?: UserProfile; error?: string };
   logout: () => void;
-  changeFirstTimePassword: (newPassword: string) => boolean;
+  changeFirstTimePassword: (newPassword: string) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -82,6 +82,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (password !== undefined && !store.verifyPassword(foundUser.id, password)) {
+      if (foundUser.password && !foundUser.isFirstLogin && (password === foundUser.phone || password === foundUser.usn)) {
+        return { success: false, error: 'Your initial credentials have expired. Please use your newly created password.' };
+      }
       return { success: false, error: 'Invalid credentials. Incorrect password.' };
     }
 
@@ -96,13 +99,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { success: true, requiresPasswordChange: false, user: foundUser };
   };
 
-  const changeFirstTimePassword = (newPassword: string) => {
+  const changeFirstTimePassword = async (newPassword: string): Promise<boolean> => {
     if (!user) return false;
-    const success = store.updatePassword(user.id, newPassword);
+    const success = await store.updatePassword(user.id, newPassword);
     if (success) {
-      const updatedUser = { ...user, isFirstLogin: false, password: newPassword };
+      const updatedUser: UserProfile = { ...user, isFirstLogin: false, password: newPassword };
       setUser(updatedUser);
       localStorage.setItem('pbl_session_user', JSON.stringify(updatedUser));
+
+      // Direct sync to backend authentication APIs
+      try {
+        const getFastApiUrl = () => {
+          if (process.env.NEXT_PUBLIC_FASTAPI_URL) return process.env.NEXT_PUBLIC_FASTAPI_URL;
+          if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+            return 'https://backend-beta-kohl-9pcedk6q96.vercel.app';
+          }
+          return 'http://127.0.0.1:8000';
+        };
+
+        const fastApiUrl = getFastApiUrl();
+        await fetch(`${fastApiUrl}/api/auth/change-password`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: user.id, newPassword }),
+          mode: 'cors'
+        }).catch(() => {});
+
+        await fetch('/api/auth/change-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: user.id, newPassword })
+        }).catch(() => {});
+      } catch (err) {
+        console.error('Remote change password sync error:', err);
+      }
     }
     return success;
   };
