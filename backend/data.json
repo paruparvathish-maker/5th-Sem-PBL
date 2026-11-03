@@ -15671,67 +15671,9 @@
       "status": "open",
       "createdBy": "180881",
       "createdAt": "2026-11-03T05:41:41.008Z"
-    },
-    {
-      "id": "dl-guide-meeting",
-      "title": "1st Guide Meeting Document",
-      "description": "Upload the signed document from your first guide meeting (PDF/DOCX).",
-      "deadlineType": "submission",
-      "dueDate": "2026-09-29T17:00:00",
-      "applicableSections": [
-        "A",
-        "B",
-        "C",
-        "D",
-        "E",
-        "F"
-      ],
-      "submissionRequired": true,
-      "status": "open",
-      "createdBy": "180881",
-      "createdAt": "2026-11-03T05:41:41.008Z"
     }
   ],
-  "submissions": [
-    {
-      "id": "sub-001",
-      "deadlineId": "dl-guide-meeting",
-      "deadlineTitle": "1st Guide Meeting Document",
-      "teamId": "team-5-A-A1",
-      "teamNumber": "A1",
-      "projectTitle": "VisionEdge: An Open Benchmark Suite for Mobile Vision Inference",
-      "submittedBy": "stud-1DT24CS010",
-      "studentName": "ACHUT MALLIKARJUN SULIKERI",
-      "fileName": "Group_A1_Synopsis_V1.pdf",
-      "filePath": "/storage/submissions/Group_A1_Synopsis_V1.pdf",
-      "fileType": "application/pdf",
-      "fileSize": 2450000,
-      "submissionTime": "2026-10-30T05:41:41.008Z",
-      "version": 1,
-      "status": "submitted",
-      "aiSummary": "The document outlines the proposed project methodology, problem formulation, and hardware/software design architecture.",
-      "aiFeedback": {
-        "missingSections": [
-          "Risk Analysis & Mitigation Plan"
-        ],
-        "strengths": [
-          "Clear hardware block diagram",
-          "Well formulated objectives",
-          "Extensive literature survey of 8 IEEE papers"
-        ],
-        "potentialIssues": [
-          "Accuracy might degrade under low lighting conditions in campus bins"
-        ],
-        "suggestedImprovements": [
-          "Add ambient LED lighting to bin entrance",
-          "Detail budget estimation for ultrasonic sensors"
-        ],
-        "facultyQuestions": [
-          "How does the model differentiate wet paper from organic food waste?"
-        ]
-      }
-    }
-  ],
+  "submissions": [],
   "evaluations": [
     {
       "id": "eval-001-0",

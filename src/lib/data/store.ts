@@ -69,8 +69,8 @@ class PBLStore {
               }
             }
           });
-          this.deadlines = parsed.deadlines || [];
-          this.submissions = parsed.submissions || [];
+          this.deadlines = (parsed.deadlines || []).filter((d: any) => d.id !== 'dl-guide-meeting' && !d.title.toLowerCase().includes('guide meeting document'));
+          this.submissions = (parsed.submissions || []).filter((s: any) => s.deadlineId !== 'dl-guide-meeting');
           this.evaluations = parsed.evaluations || [];
           this.guideMeetings = parsed.guideMeetings || [];
           this.notifications = parsed.notifications || [];
@@ -269,20 +269,7 @@ class PBLStore {
       createdAt: new Date().toISOString()
     };
 
-    const dGuideDoc: Deadline = {
-      id: 'dl-guide-meeting',
-      title: '1st Guide Meeting Document',
-      description: 'Upload the signed document from your first guide meeting (PDF/DOCX).',
-      deadlineType: 'submission',
-      dueDate: '2026-09-29T17:00:00',
-      applicableSections: ['A', 'B', 'C', 'D', 'E', 'F'],
-      submissionRequired: true,
-      status: 'open',
-      createdBy: adminUser.id,
-      createdAt: new Date().toISOString()
-    };
-
-    this.deadlines.push(dProjectStmt, dGuideDoc);
+    this.deadlines.push(dProjectStmt);
 
     // Seed Sample Submissions for Team A1
     const teamA1 = this.teams.find(t => t.teamNumber === 'A1');
@@ -290,8 +277,8 @@ class PBLStore {
       const student1 = teamA1.members[0];
       const sub1: Submission = {
         id: 'sub-001',
-        deadlineId: dGuideDoc.id,
-        deadlineTitle: dGuideDoc.title,
+        deadlineId: dProjectStmt.id,
+        deadlineTitle: dProjectStmt.title,
         teamId: teamA1.id,
         teamNumber: teamA1.teamNumber,
         projectTitle: teamA1.projectTitle,
@@ -495,8 +482,8 @@ class PBLStore {
           });
         }
 
-        this.deadlines = data.deadlines || this.deadlines;
-        this.submissions = data.submissions || this.submissions;
+        this.deadlines = (data.deadlines || this.deadlines).filter((d: any) => d.id !== 'dl-guide-meeting' && !d.title.toLowerCase().includes('guide meeting document'));
+        this.submissions = (data.submissions || this.submissions).filter((s: any) => s.deadlineId !== 'dl-guide-meeting');
         this.evaluations = data.evaluations || this.evaluations;
         this.guideMeetings = data.guideMeetings || this.guideMeetings;
         this.notifications = data.notifications || this.notifications;

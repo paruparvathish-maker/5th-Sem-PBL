@@ -416,10 +416,7 @@ export default function FacultyTeamsPage() {
               const evalList = store.getPublishedEvaluationsForTeam(t.id);
 
               const projectStmtSub = submissions.find(s => s.deadlineId === 'dl-project-stmt');
-              const guideDocSub = submissions.find(s => s.deadlineId === 'dl-guide-meeting');
-
               const hasProjectDetails = t.projectTitle && t.projectTitle !== 'To Be Decided (TBD)';
-              const hasGuideDoc = !!guideDocSub;
 
               return (
                 <div key={t.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden hover:border-amber-300 transition-all">
@@ -539,43 +536,7 @@ export default function FacultyTeamsPage() {
                         </div>
                       )}
 
-                      {/* Submission 2: Guide Meeting Doc */}
-                      <div className="flex items-center gap-2 mt-4">
-                        <Upload className="h-4 w-4 text-emerald-600" />
-                        <h4 className="text-sm font-bold text-slate-800 uppercase tracking-wider">1st Guide Meeting Document</h4>
-                        {hasGuideDoc ? (
-                          <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
-                            <Lock className="w-2.5 h-2.5" /> Uploaded & Locked
-                          </span>
-                        ) : (
-                          <span className="flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded">
-                            <AlertCircle className="w-2.5 h-2.5" /> Pending
-                          </span>
-                        )}
-                      </div>
 
-                      {hasGuideDoc ? (
-                        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-center justify-between">
-                          <div>
-                            <p className="text-xs font-bold text-emerald-900">{guideDocSub!.fileName}</p>
-                            <p className="text-[10px] text-emerald-700 mt-0.5">
-                              Uploaded by {guideDocSub!.studentName} • {new Date(guideDocSub!.submissionTime).toLocaleDateString()}
-                            </p>
-                          </div>
-                          <a
-                            href={guideDocSub!.filePath}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-emerald-700 font-bold text-xs hover:underline"
-                          >
-                            View File
-                          </a>
-                        </div>
-                      ) : (
-                        <div className="bg-slate-50 border border-dashed border-slate-200 rounded-xl p-6 text-center text-xs text-slate-400">
-                          Team has not yet uploaded their 1st guide meeting document.
-                        </div>
-                      )}
                     </div>
 
                     {/* Team Members Sidebar */}

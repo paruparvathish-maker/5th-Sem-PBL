@@ -40,13 +40,13 @@ function FacultyEvaluationsContent() {
   if (!user) return null;
 
   // Load assigned teams and deadlines from store
-  const [assignedTeams, setAssignedTeams] = useState(store.getTeamsByGuideId(user.id));
+  const [assignedTeams, setAssignedTeams] = useState(store.getTeamsByGuideId(user.id).filter(t => (t.semester || 5) === 5));
   const [allDeadlines, setAllDeadlines] = useState(store.getAllDeadlines().filter((d) => d.id === 'dl-project-stmt'));
   const [isSyncing, setIsSyncing] = useState(true);
 
   useEffect(() => {
     store.syncFromSupabase().then(() => {
-      setAssignedTeams([...store.getTeamsByGuideId(user.id)]);
+      setAssignedTeams(store.getTeamsByGuideId(user.id).filter(t => (t.semester || 5) === 5));
       setAllDeadlines(store.getAllDeadlines().filter((d) => d.id === 'dl-project-stmt'));
       setIsSyncing(false);
     });
@@ -220,15 +220,15 @@ function FacultyEvaluationsContent() {
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-extrabold text-slate-900">
-              Team &amp; Individual Evaluation Interface
+              5th Semester PBL Evaluation Interface
             </h1>
             <p className="text-sm text-slate-500 mt-1">
-              Grade assigned teams on Problem Statement &amp; Description (5 marks).
+              Grade assigned 5th Sem teams on Problem Statement &amp; Description (5 marks). (4th Sem research papers do not have graded marks).
             </p>
           </div>
           <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200">
             <Lock className="w-4 h-4 text-amber-600" />
-            <span className="text-xs font-bold text-amber-700">Assigned Team Evaluation Only</span>
+            <span className="text-xs font-bold text-amber-700">5th Sem PBL Grading Only</span>
           </div>
         </div>
 

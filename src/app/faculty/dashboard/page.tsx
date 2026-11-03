@@ -21,8 +21,9 @@ export default function FacultyDashboardPage() {
     assignedTeams.some(t => t.id === s.teamId)
   );
 
-  const pendingEvaluationsCount = assignedTeams.length - store.getAllEvaluations().filter(e => 
-    assignedTeams.some(t => t.id === e.teamId) && e.isPublished
+  const assigned5thSemTeams = assignedTeams.filter(t => (t.semester || 5) === 5);
+  const pendingEvaluationsCount = assigned5thSemTeams.length - store.getAllEvaluations().filter(e => 
+    assigned5thSemTeams.some(t => t.id === e.teamId) && e.isPublished
   ).length;
 
   // Sections summary
@@ -143,12 +144,21 @@ export default function FacultyDashboardPage() {
                       {t.members?.map(m => m.name.split(' ')[0]).join(', ')}
                     </td>
                     <td className="py-3 px-4">
-                      <Link
-                        href={`/faculty/evaluations?teamId=${t.id}`}
-                        className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold text-[11px] shadow-sm transition inline-block"
-                      >
-                        Grade Team
-                      </Link>
+                      {(t.semester || 5) === 5 ? (
+                        <Link
+                          href={`/faculty/evaluations?teamId=${t.id}`}
+                          className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold text-[11px] shadow-sm transition inline-block"
+                        >
+                          Grade Team
+                        </Link>
+                      ) : (
+                        <Link
+                          href="/faculty/teams"
+                          className="px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold text-[11px] shadow-sm transition inline-block"
+                        >
+                          Paper Status & Proof
+                        </Link>
+                      )}
                     </td>
                   </tr>
                 ))}
