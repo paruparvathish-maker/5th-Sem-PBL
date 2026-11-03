@@ -1,18 +1,30 @@
 import { PrismaClient } from '@prisma/client';
-// No need for a custom adapter; Prisma will use DATABASE_URL (Turso) automatically
-// If Turso requires auth, include it in the DATABASE_URL env variable
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
 function createPrismaClient(): PrismaClient {
-  // PrismaClient reads the DATABASE_URL env variable (set to Turso URL)
   return new PrismaClient({
     log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
   });
 }
 
-export const prisma = globalForPrisma.prisma ?? createPrismaClient();
+export function getPrisma(): PrismaClient {
+  if (!globalForPrisma.prisma) {
+    globalForPrisma.prisma = createPrismaClient();
+  }
+  return globalForPrisma.prisma;
+}
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+// Lazy proxy so PrismaClient is never instantiated eagerly during Next.js build
+export const prisma = new Proxy({} as PrismaClient, {
+  get(target, prop, receiver) {
+    const client = getPrisma();
+    const value = Reflect.get(client, prop, receiver);
+    if (typeof value === 'function') {
+      return value.bind(client);
+    }
+    return value;
+  },
+});

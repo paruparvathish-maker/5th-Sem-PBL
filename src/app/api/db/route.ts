@@ -1,6 +1,4 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma/client';
-import { seedPrismaDatabase } from '@/lib/prisma/seed';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -13,45 +11,51 @@ export async function GET() {
   try {
     // 1. If Turso or DATABASE_URL is available, attempt Prisma fetch
     if (process.env.TURSO_DATABASE_URL || process.env.DATABASE_URL) {
-      await seedPrismaDatabase().catch(() => {});
+      try {
+        const { prisma } = await import('@/lib/prisma/client');
+        const { seedPrismaDatabase } = await import('@/lib/prisma/seed');
+        await seedPrismaDatabase().catch(() => {});
 
-      const [profiles, teams, deadlines, submissions, evaluations, guideMeetings, notifications, auditLogs] = await Promise.all([
-        prisma.userProfile.findMany(),
-        prisma.team.findMany({
-          include: {
-            members: {
-              include: {
-                user: true,
+        const [profiles, teams, deadlines, submissions, evaluations, guideMeetings, notifications, auditLogs] = await Promise.all([
+          prisma.userProfile.findMany(),
+          prisma.team.findMany({
+            include: {
+              members: {
+                include: {
+                  user: true,
+                },
               },
             },
-          },
-        }),
-        prisma.deadline.findMany(),
-        prisma.submission.findMany(),
-        prisma.evaluation.findMany(),
-        prisma.guideMeeting.findMany(),
-        prisma.notification.findMany(),
-        prisma.auditLog.findMany(),
-      ]);
+          }),
+          prisma.deadline.findMany(),
+          prisma.submission.findMany(),
+          prisma.evaluation.findMany(),
+          prisma.guideMeeting.findMany(),
+          prisma.notification.findMany(),
+          prisma.auditLog.findMany(),
+        ]);
 
-      const formattedTeams = teams.map((t) => ({
-        ...t,
-        members: t.members.map((m) => m.user),
-      }));
+        const formattedTeams = teams.map((t) => ({
+          ...t,
+          members: t.members.map((m) => m.user),
+        }));
 
-      return NextResponse.json({
-        profiles,
-        teams: formattedTeams,
-        deadlines,
-        submissions,
-        evaluations,
-        guideMeetings,
-        notifications,
-        auditLogs,
-      });
+        return NextResponse.json({
+          profiles,
+          teams: formattedTeams,
+          deadlines,
+          submissions,
+          evaluations,
+          guideMeetings,
+          notifications,
+          auditLogs,
+        });
+      } catch (prismaErr) {
+        console.warn('Prisma query failed, falling back to JSON data:', prismaErr);
+      }
     }
 
-    // 2. Try fetching from FastAPI backend
+    // 2. Try fetching from FastAPI backend if available
     try {
       const fastRes = await fetch(`${FASTAPI_URL}/api/db`, { cache: 'no-store' });
       if (fastRes.ok) {
@@ -59,7 +63,7 @@ export async function GET() {
         return NextResponse.json(data);
       }
     } catch {
-      // FastAPI backend not running or unreachable, fallback to data.json
+      // FastAPI offline
     }
 
     // 3. Fallback to local backend/data.json
@@ -91,11 +95,11 @@ export async function POST(request: Request) {
       // FastAPI offline
     }
 
-    // 2. Persist to local backend/data.json
+    // 2. Persist to local backend/data.json if writable
     try {
       fs.writeFileSync(BACKEND_DATA_PATH, JSON.stringify(payload, null, 2), 'utf8');
-    } catch (e) {
-      console.warn('Could not save to backend/data.json:', e);
+    } catch {
+      // Read-only filesystem on serverless
     }
 
     return NextResponse.json({ success: true, message: 'Backend database synced successfully' });
