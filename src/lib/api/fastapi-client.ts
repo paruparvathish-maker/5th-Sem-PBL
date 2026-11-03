@@ -1,6 +1,14 @@
 import { Team, UserProfile, Deadline, Submission, Evaluation, GuideMeeting } from '../types/pbl';
 
-const BASE_URL = process.env.NEXT_PUBLIC_FASTAPI_URL || 'http://127.0.0.1:8000';
+const getFastApiBaseUrl = () => {
+  if (process.env.NEXT_PUBLIC_FASTAPI_URL) return process.env.NEXT_PUBLIC_FASTAPI_URL;
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    return 'https://backend-beta-kohl-9pcedk6q96.vercel.app';
+  }
+  return 'http://127.0.0.1:8000';
+};
+
+const BASE_URL = getFastApiBaseUrl();
 
 export class FastApiClient {
   private baseUrl: string;
