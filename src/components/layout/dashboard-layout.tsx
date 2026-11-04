@@ -9,7 +9,7 @@ import {
   Award, Bot, BookOpen, ShieldAlert, LogOut, Menu, X, Bell, FileSpreadsheet, History, CheckCircle2 
 } from 'lucide-react';
 import { store } from '@/lib/data/store';
-import { isExecutiveViewer } from '@/lib/auth/roles';
+import { isExecutiveViewer, getIndustryPersonAccess } from '@/lib/auth/roles';
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
@@ -24,6 +24,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
 
   // Navigation Links based on user role
   const isExec = isExecutiveViewer(user);
+  const industryAccess = getIndustryPersonAccess(user);
 
   const navItems = user.role === 'student' ? [
     { label: 'Dashboard', href: '/student/dashboard', icon: LayoutDashboard },
@@ -82,18 +83,23 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
           </div>
           <div className="mt-3 flex items-center justify-between pt-2 border-t border-slate-700/40">
             <span className={`px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider ${
+              industryAccess.isIndustry ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30' :
               isExec ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
               user.role === 'admin' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' :
               user.role === 'faculty' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
               'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
             }`}>
-              {isExec ? 'Executive Observer' : user.role === 'admin' ? 'Super Admin' : user.role}
+              {industryAccess.isIndustry ? 'Industry Expert' : isExec ? 'Executive Observer' : user.role === 'admin' ? 'Super Admin' : user.role}
             </span>
-            {user.section && (
+            {industryAccess.isIndustry ? (
+              <span className="text-[11px] font-semibold text-slate-300 bg-slate-700 px-2 py-0.5 rounded">
+                Sec {industryAccess.allAllowedSections.join(', ')}
+              </span>
+            ) : user.section ? (
               <span className="text-xs font-semibold text-slate-300 bg-slate-700 px-2 py-0.5 rounded">
                 Sec {user.section}
               </span>
-            )}
+            ) : null}
           </div>
         </div>
 

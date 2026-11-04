@@ -7,17 +7,26 @@ import { store } from '@/lib/data/store';
 import {
   GraduationCap, BookOpen, Search, Plus, Edit, Users, CheckCircle2,
   RefreshCw, UploadCloud, Download, ExternalLink, FileCheck, Clock,
-  FileX, AlertCircle, Sparkles, Filter, CheckCircle
+  FileX, AlertCircle, Sparkles, Filter, CheckCircle, ShieldAlert
 } from 'lucide-react';
 import { Team, SectionCode, ResearchPaperStatus } from '@/lib/types/pbl';
-import { isExecutiveViewer } from '@/lib/auth/roles';
+import { isExecutiveViewer, getIndustryPersonAccess, getIndustryExpertForTeam } from '@/lib/auth/roles';
+import { downloadSubmissionFile } from '@/lib/utils/download';
 
 export default function AdminTeamsPage() {
   const { user } = useAuth();
   if (!user) return null;
 
   const isReadOnly = isExecutiveViewer(user);
-  const [activeTab, setActiveTab] = useState<4 | 5>(5);
+  const industryAccess = getIndustryPersonAccess(user);
+
+  const initialTab: 4 | 5 = (industryAccess.isIndustry && industryAccess.allowedSemesters.length === 1)
+    ? (industryAccess.allowedSemesters[0] as 4 | 5)
+    : (industryAccess.isIndustry && industryAccess.allowedSemesters.includes(4) && !industryAccess.allowedSemesters.includes(5))
+      ? 4
+      : 5;
+
+  const [activeTab, setActiveTab] = useState<4 | 5>(initialTab);
   const [teams, setTeams] = useState<Team[]>(store.getAllTeams());
   const facultyList = store.getFaculty();
   const [isSyncing, setIsSyncing] = useState(true);
@@ -30,8 +39,10 @@ export default function AdminTeamsPage() {
   }, []);
 
   const handleTabChange = (tab: 4 | 5) => {
+    if (industryAccess.isIndustry && !industryAccess.allowedSemesters.includes(tab)) return;
     setActiveTab(tab);
     setTeams([...store.getAllTeams()]);
+    setSelectedSection('ALL');
     setProofFilter('ALL');
     setFacultyFilter('ALL');
   };
@@ -64,10 +75,22 @@ export default function AdminTeamsPage() {
     setTeams([...store.getAllTeams()]);
   };
 
-  const currentTabTeams = teams.filter(t => (t.semester || 5) === activeTab);
+  const allowedSectionsForActiveTab: string[] = industryAccess.isIndustry
+    ? (industryAccess.allowedSectionsBySemester[activeTab] || [])
+    : ['A', 'B', 'C', 'D', 'E', 'F'];
 
-  // 4th Sem summary metrics
-  const sem4AllTeams = teams.filter(t => (t.semester || 5) === 4);
+  const currentTabTeams = teams.filter(t => {
+    if ((t.semester || 5) !== activeTab) return false;
+    if (industryAccess.isIndustry && !allowedSectionsForActiveTab.includes(t.section)) return false;
+    return true;
+  });
+
+  // 4th Sem summary metrics (scoped to assigned sections for industry experts)
+  const sem4AllowedSections = industryAccess.isIndustry
+    ? (industryAccess.allowedSectionsBySemester[4] || [])
+    : ['A', 'B', 'C', 'D', 'E', 'F'];
+
+  const sem4AllTeams = teams.filter(t => (t.semester || 5) === 4 && (!industryAccess.isIndustry || sem4AllowedSections.includes(t.section)));
   const sem4SubmittedCount = sem4AllTeams.filter(t => Boolean(t.researchPaperProofName || t.researchPaperProofPath)).length;
   const sem4PendingCount = sem4AllTeams.length - sem4SubmittedCount;
 
@@ -229,17 +252,22 @@ export default function AdminTeamsPage() {
       >
         <div className="space-y-3">
           {/* Header Row */}
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-2">
             <span className="px-2.5 py-1 rounded bg-slate-900 text-white font-black text-xs uppercase">
               Sec {t.section} • Group {t.teamNumber}
             </span>
-            <span className={`text-xs font-bold px-2.5 py-1 rounded-lg border ${
-              activeTab === 4 && !isProofSubmitted
-                ? 'text-amber-800 bg-amber-50 border-amber-300'
-                : 'text-slate-700 bg-slate-50 border-slate-200'
-            }`}>
-              Guide: <span className="font-extrabold text-slate-900">{t.guideName || 'Unassigned'}</span>
-            </span>
+            <div className="flex items-center gap-1.5 flex-wrap justify-end">
+              <span className={`text-xs font-bold px-2.5 py-1 rounded-lg border ${
+                activeTab === 4 && !isProofSubmitted
+                  ? 'text-amber-800 bg-amber-50 border-amber-300'
+                  : 'text-slate-700 bg-slate-50 border-slate-200'
+              }`}>
+                Guide: <span className="font-extrabold text-slate-900">{t.guideName || 'Unassigned'}</span>
+              </span>
+              <span className="text-xs font-bold px-2.5 py-1 rounded-lg border text-indigo-800 bg-indigo-50 border-indigo-200">
+                Industry: <span className="font-extrabold text-indigo-950">{t.industryExpertName || getIndustryExpertForTeam(t.semester || 5, t.section)?.name || 'Industry Expert'}</span>
+              </span>
+            </div>
           </div>
 
           {/* 4th Sem Research Paper Details */}
@@ -321,15 +349,20 @@ export default function AdminTeamsPage() {
                   <p className="text-xs text-slate-400 p-2 text-center">No submissions yet.</p>
                 )}
                 {submissions.map(sub => (
-                  <div key={sub.id} className="flex items-center justify-between text-xs bg-slate-50 p-2 rounded-lg border border-slate-100">
-                    <div className="flex flex-col">
-                      <span className="font-bold text-slate-800 truncate max-w-[150px]">{sub.fileName}</span>
+                  <div key={sub.id} className="flex items-center justify-between text-xs bg-slate-50 p-2.5 rounded-lg border border-slate-100 gap-2">
+                    <div className="flex flex-col min-w-0 flex-1">
+                      <span className="font-bold text-slate-800 truncate">{sub.fileName}</span>
                       <span className="text-[10px] text-slate-500">v{sub.version} • {new Date(sub.submissionTime).toLocaleDateString()}</span>
                     </div>
-                    <a href={sub.filePath} target="_blank" rel="noreferrer" className="text-emerald-600 font-bold text-[11px] hover:underline flex items-center space-x-1">
-                      <UploadCloud className="h-3 w-3" />
-                      <span>View</span>
-                    </a>
+                    <button
+                      type="button"
+                      onClick={() => downloadSubmissionFile(sub)}
+                      className="text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-200 font-bold text-[11px] flex items-center space-x-1 transition shrink-0 shadow-sm"
+                      title="Download submission document"
+                    >
+                      <Download className="h-3 w-3" />
+                      <span>Download</span>
+                    </button>
                   </div>
                 ))}
               </div>
@@ -394,8 +427,25 @@ export default function AdminTeamsPage() {
           </div>
         </div>
 
-        {/* Executive Observer Mode Notice */}
-        {isReadOnly && (
+        {/* Executive / Industry Observer Mode Notice */}
+        {industryAccess.isIndustry ? (
+          <div className="p-4 rounded-xl bg-gradient-to-r from-indigo-900 to-slate-900 text-white border border-indigo-700 flex items-start gap-3 shadow-md">
+            <div className="p-2 rounded-lg bg-indigo-700/80 text-amber-300 shrink-0 mt-0.5">
+              <ShieldAlert className="w-5 h-5" />
+            </div>
+            <div className="text-xs">
+              <p className="font-extrabold text-sm text-amber-300">
+                Industry Expert Supervision Portal — {industryAccess.industryName}
+              </p>
+              <p className="text-indigo-100 mt-1 leading-relaxed">
+                Logged in as designated Industry Expert. Assigned Supervision Scope: <span className="font-bold text-white underline">
+                  {Object.entries(industryAccess.allowedSectionsBySemester).map(([sem, secs]) => `${sem}th Sem (Sections ${secs.join(', ')})`).join(' & ')}
+                </span>.
+                You have exclusive access to review submissions, project progress, and faculty verification documents for your assigned sections.
+              </p>
+            </div>
+          </div>
+        ) : isReadOnly ? (
           <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-3 shadow-sm">
             <div className="p-2 rounded-lg bg-amber-100 text-amber-800 shrink-0 mt-0.5">
               <AlertCircle className="w-4 h-4" />
@@ -408,54 +458,79 @@ export default function AdminTeamsPage() {
               </p>
             </div>
           </div>
-        )}
+        ) : null}
 
         {/* Semester Toggle Navigation */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <button
-            onClick={() => handleTabChange(4)}
-            className={`p-5 rounded-2xl border transition-all flex items-center gap-4 text-left ${
-              activeTab === 4
-                ? 'bg-gradient-to-r from-indigo-900 to-indigo-800 border-indigo-700 text-white shadow-lg ring-2 ring-indigo-500/20'
-                : 'bg-white border-slate-200 text-slate-700 hover:border-indigo-300 hover:bg-indigo-50/50'
-            }`}
-          >
-            <div className={`p-3 rounded-xl ${activeTab === 4 ? 'bg-indigo-700/50 text-amber-400' : 'bg-indigo-100 text-indigo-700'}`}>
-              <BookOpen className="h-7 w-7" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-base font-black">4th Semester Research Papers</span>
-                {activeTab === 4 && <span className="text-[10px] uppercase font-bold bg-amber-400 text-slate-900 px-2 py-0.5 rounded-full">Active View</span>}
-              </div>
-              <p className={`text-xs mt-0.5 ${activeTab === 4 ? 'text-indigo-200' : 'text-slate-500'}`}>
-                Audit document/image proof submissions & monitor pending faculty uploads ({sem4SubmittedCount} Uploaded / {sem4PendingCount} Pending)
-              </p>
-            </div>
-          </button>
+        {(!industryAccess.isIndustry || industryAccess.allowedSemesters.length > 1) ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {(!industryAccess.isIndustry || industryAccess.allowedSemesters.includes(4)) && (
+              <button
+                onClick={() => handleTabChange(4)}
+                className={`p-5 rounded-2xl border transition-all flex items-center gap-4 text-left ${
+                  activeTab === 4
+                    ? 'bg-gradient-to-r from-indigo-900 to-indigo-800 border-indigo-700 text-white shadow-lg ring-2 ring-indigo-500/20'
+                    : 'bg-white border-slate-200 text-slate-700 hover:border-indigo-300 hover:bg-indigo-50/50'
+                }`}
+              >
+                <div className={`p-3 rounded-xl ${activeTab === 4 ? 'bg-indigo-700/50 text-amber-400' : 'bg-indigo-100 text-indigo-700'}`}>
+                  <BookOpen className="h-7 w-7" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-base font-black">4th Semester Research Papers</span>
+                    {activeTab === 4 && <span className="text-[10px] uppercase font-bold bg-amber-400 text-slate-900 px-2 py-0.5 rounded-full">Active View</span>}
+                  </div>
+                  <p className={`text-xs mt-0.5 ${activeTab === 4 ? 'text-indigo-200' : 'text-slate-500'}`}>
+                    Audit document/image proof submissions & monitor pending faculty uploads ({sem4SubmittedCount} Uploaded / {sem4PendingCount} Pending)
+                  </p>
+                </div>
+              </button>
+            )}
 
-          <button
-            onClick={() => handleTabChange(5)}
-            className={`p-5 rounded-2xl border transition-all flex items-center gap-4 text-left ${
-              activeTab === 5
-                ? 'bg-gradient-to-r from-slate-900 to-slate-800 border-slate-700 text-white shadow-lg ring-2 ring-slate-500/20'
-                : 'bg-white border-slate-200 text-slate-700 hover:border-amber-300 hover:bg-amber-50/50'
-            }`}
-          >
-            <div className={`p-3 rounded-xl ${activeTab === 5 ? 'bg-slate-700/50 text-amber-400' : 'bg-amber-100 text-amber-700'}`}>
-              <GraduationCap className="h-7 w-7" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-base font-black">5th Semester PBL Projects</span>
-                {activeTab === 5 && <span className="text-[10px] uppercase font-bold bg-amber-400 text-slate-900 px-2 py-0.5 rounded-full">Active View</span>}
+            {(!industryAccess.isIndustry || industryAccess.allowedSemesters.includes(5)) && (
+              <button
+                onClick={() => handleTabChange(5)}
+                className={`p-5 rounded-2xl border transition-all flex items-center gap-4 text-left ${
+                  activeTab === 5
+                    ? 'bg-gradient-to-r from-slate-900 to-slate-800 border-slate-700 text-white shadow-lg ring-2 ring-slate-500/20'
+                    : 'bg-white border-slate-200 text-slate-700 hover:border-amber-300 hover:bg-amber-50/50'
+                }`}
+              >
+                <div className={`p-3 rounded-xl ${activeTab === 5 ? 'bg-slate-700/50 text-amber-400' : 'bg-amber-100 text-amber-700'}`}>
+                  <GraduationCap className="h-7 w-7" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-base font-black">5th Semester PBL Projects</span>
+                    {activeTab === 5 && <span className="text-[10px] uppercase font-bold bg-amber-400 text-slate-900 px-2 py-0.5 rounded-full">Active View</span>}
+                  </div>
+                  <p className={`text-xs mt-0.5 ${activeTab === 5 ? 'text-slate-300' : 'text-slate-500'}`}>
+                    Supervise project titles, guide reviews, deliverables, and student evaluation marks
+                  </p>
+                </div>
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-sm flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-slate-900 text-amber-400">
+                {activeTab === 4 ? <BookOpen className="h-6 w-6" /> : <GraduationCap className="h-6 w-6" />}
               </div>
-              <p className={`text-xs mt-0.5 ${activeTab === 5 ? 'text-slate-300' : 'text-slate-500'}`}>
-                Supervise project titles, guide reviews, deliverables, and student evaluation marks
-              </p>
+              <div>
+                <h3 className="font-extrabold text-slate-900 text-base">
+                  {activeTab === 4 ? '4th Semester Research Papers' : '5th Semester PBL Projects'}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Assigned Sections: <span className="font-bold text-slate-800">{allowedSectionsForActiveTab.map(s => `${activeTab}${s}`).join(', ')}</span>
+                </p>
+              </div>
             </div>
-          </button>
-        </div>
+            <span className="text-[11px] font-bold px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
+              {currentTabTeams.length} Assigned Teams
+            </span>
+          </div>
+        )}
 
         {/* 4th Sem Metric Filter Cards */}
         {activeTab === 4 && (
@@ -542,13 +617,16 @@ export default function AdminTeamsPage() {
               onChange={(e) => setSelectedSection(e.target.value)}
               className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
             >
-              <option value="ALL">All Sections (A-F)</option>
-              <option value="A">Section A</option>
-              <option value="B">Section B</option>
-              <option value="C">Section C</option>
-              <option value="D">Section D</option>
-              <option value="E">Section E</option>
-              <option value="F">Section F</option>
+              <option value="ALL">
+                {industryAccess.isIndustry
+                  ? `All Assigned Sections (${allowedSectionsForActiveTab.map(s => `${activeTab}${s}`).join(', ')})`
+                  : 'All Sections (A-F)'}
+              </option>
+              {allowedSectionsForActiveTab.map(secCode => (
+                <option key={secCode} value={secCode}>
+                  Section {secCode}
+                </option>
+              ))}
             </select>
 
             {/* Individual Faculty Guide Filter */}

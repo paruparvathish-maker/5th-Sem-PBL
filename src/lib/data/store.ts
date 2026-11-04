@@ -4,6 +4,7 @@ import {
 import { RAW_PDF_SEED, getGuideEmail, getGuidePhone } from './seed-dataset';
 import { RAW_4TH_SEM_SEED } from './seed-dataset-4th';
 import { saveFileToIdb } from '../utils/idb-storage';
+import { getIndustryExpertForTeam } from '../auth/roles';
 
 const generateUUID = () => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -14,6 +15,59 @@ const generateUUID = () => {
     return v.toString(16);
   });
 };
+
+export const DEFAULT_INDUSTRY_EXPERTS: UserProfile[] = [
+  {
+    id: 'industry-girish',
+    email: 'girish.industry@dsatm.edu.in',
+    name: 'Mr. Girish (Industry Expert)',
+    role: 'admin',
+    phone: '9986765626',
+    password: '9986765626',
+    isFirstLogin: false,
+    createdAt: '2026-11-04T00:00:00.000Z'
+  },
+  {
+    id: 'industry-raghu',
+    email: 'raghu.industry@dsatm.edu.in',
+    name: 'Mr. Raghu (Industry Expert)',
+    role: 'admin',
+    phone: '8123573747',
+    password: '8123573747',
+    isFirstLogin: false,
+    createdAt: '2026-11-04T00:00:00.000Z'
+  },
+  {
+    id: 'industry-rajashekhar',
+    email: 'rajashekhar.industry@dsatm.edu.in',
+    name: 'Mr. Raja Shekhar (Industry Expert)',
+    role: 'admin',
+    phone: '9964222260',
+    password: '9964222260',
+    isFirstLogin: false,
+    createdAt: '2026-11-04T00:00:00.000Z'
+  },
+  {
+    id: 'industry-manasa',
+    email: 'manasa.industry@dsatm.edu.in',
+    name: 'Ms. Manasa S (Industry Expert)',
+    role: 'admin',
+    phone: '9108932557',
+    password: '9108932557',
+    isFirstLogin: false,
+    createdAt: '2026-11-04T00:00:00.000Z'
+  },
+  {
+    id: 'industry-harshitha',
+    email: 'harshitha.industry@dsatm.edu.in',
+    name: 'Ms. Harshitha R (Industry Expert)',
+    role: 'admin',
+    phone: '9611172433',
+    password: '9611172433',
+    isFirstLogin: false,
+    createdAt: '2026-11-04T00:00:00.000Z'
+  }
+];
 
 class PBLStore {
   private profiles: UserProfile[] = [];
@@ -121,6 +175,27 @@ class PBLStore {
           this.guideMeetings = parsed.guideMeetings || [];
           this.notifications = parsed.notifications || [];
           this.auditLogs = parsed.auditLogs || [];
+
+          // Ensure industry experts exist and have active access credentials
+          DEFAULT_INDUSTRY_EXPERTS.forEach(exp => {
+            const idx = this.profiles.findIndex(p => p.id === exp.id || p.email.toLowerCase() === exp.email.toLowerCase());
+            if (idx >= 0) {
+              this.profiles[idx] = { ...this.profiles[idx], ...exp };
+            } else {
+              this.profiles.push(exp);
+            }
+          });
+
+          // Ensure all teams have assigned industry expert details mapped
+          this.teams.forEach(t => {
+            const expert = getIndustryExpertForTeam(t.semester || 5, t.section);
+            if (expert) {
+              t.industryExpertId = expert.id;
+              t.industryExpertName = expert.name;
+              t.industryExpertEmail = expert.email;
+            }
+          });
+
           this.initialized = true;
           return;
         } catch (e) {
@@ -170,7 +245,7 @@ class PBLStore {
       createdAt: new Date().toISOString()
     };
 
-    this.profiles.push(adminUser, hodAdmin, principalAdmin, industryAdmin);
+    this.profiles.push(adminUser, hodAdmin, principalAdmin, industryAdmin, ...DEFAULT_INDUSTRY_EXPERTS);
 
     const facultyMap = new Map<string, UserProfile>();
 
@@ -222,6 +297,7 @@ class PBLStore {
         teamMembersList.push(studProfile);
       });
 
+      const expert5 = getIndustryExpertForTeam(5, seedTeam.section);
       const teamObj: Team = {
         id: teamId,
         teamNumber: seedTeam.teamNumber,
@@ -232,6 +308,9 @@ class PBLStore {
         guideId: guideObj.id,
         guideName: guideObj.name,
         guideEmail: guideObj.email,
+        industryExpertId: expert5?.id,
+        industryExpertName: expert5?.name,
+        industryExpertEmail: expert5?.email,
         members: teamMembersList,
         createdAt: new Date().toISOString()
       };
@@ -280,6 +359,7 @@ class PBLStore {
         teamMembersList.push(studProfile);
       });
 
+      const expert4 = getIndustryExpertForTeam(4, seedTeam.section);
       const teamObj: Team = {
         id: teamId,
         teamNumber: seedTeam.teamNumber,
@@ -290,6 +370,9 @@ class PBLStore {
         guideId: guideObj.id,
         guideName: guideObj.name,
         guideEmail: guideObj.email,
+        industryExpertId: expert4?.id,
+        industryExpertName: expert4?.name,
+        industryExpertEmail: expert4?.email,
         members: teamMembersList,
         researchPaperStatus: 'submitted',
         createdAt: new Date().toISOString()
@@ -554,6 +637,28 @@ class PBLStore {
           });
         }
 
+        // Ensure industry experts exist and have active access credentials
+        DEFAULT_INDUSTRY_EXPERTS.forEach(exp => {
+          const idx = this.profiles.findIndex(p => p.id === exp.id || p.email.toLowerCase() === exp.email.toLowerCase());
+          if (idx >= 0) {
+            this.profiles[idx] = { ...this.profiles[idx], ...exp };
+          } else {
+            this.profiles.push(exp);
+          }
+        });
+
+        // Ensure all teams have assigned industry expert details mapped
+        this.teams.forEach(t => {
+          if (!t.industryExpertId || !t.industryExpertName) {
+            const expert = getIndustryExpertForTeam(t.semester || 5, t.section);
+            if (expert) {
+              t.industryExpertId = expert.id;
+              t.industryExpertName = expert.name;
+              t.industryExpertEmail = expert.email;
+            }
+          }
+        });
+
         if (typeof window !== 'undefined') {
           const lightweightSubmissions = this.submissions.map(s => {
             if (s.fileData && s.fileData.length > 50000) {
@@ -645,14 +750,22 @@ class PBLStore {
       const staffCode = p.staffCode?.toLowerCase();
       const phone = p.phone?.toLowerCase();
       const phoneDigits = p.phone ? p.phone.replace(/\D/g, '') : '';
+      const emailPrefix = email ? email.split('@')[0] : '';
+      const name = p.name?.toLowerCase();
 
       return (
         email === clean ||
+        emailPrefix === clean ||
         usn === clean ||
         uid === clean ||
         staffCode === clean ||
         phone === clean ||
-        (cleanDigits.length >= 7 && phoneDigits === cleanDigits)
+        (cleanDigits.length >= 7 && phoneDigits === cleanDigits) ||
+        (p.id?.startsWith('industry-') && (
+          uid === `industry-${clean}` ||
+          emailPrefix.startsWith(clean) ||
+          (name && name.includes(clean))
+        ))
       );
     });
   }
@@ -675,7 +788,12 @@ class PBLStore {
     const cleanDigits = cleanPass.replace(/\D/g, '');
 
     if (user.role === 'admin') {
-      return cleanPass === '03May@2002@' || cleanPass === (user.password || '');
+      const phoneDigits = user.phone ? user.phone.replace(/\D/g, '') : '';
+      return (
+        cleanPass === '03May@2002@' ||
+        cleanPass === (user.password || '') ||
+        (cleanDigits.length >= 7 && phoneDigits === cleanDigits)
+      );
     } else if (user.role === 'student') {
       const matchUsn = user.usn && cleanPass.toLowerCase() === user.usn.toLowerCase();
       const matchPhone = user.phone && (cleanPass === user.phone || (cleanDigits.length >= 7 && user.phone.replace(/\D/g, '') === cleanDigits));

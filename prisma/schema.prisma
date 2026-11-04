@@ -49,6 +49,11 @@ model Team {
   researchPaperProofName String?
   researchPaperUpdatedAt DateTime?
 
+  // Industry Expert Assignment
+  industryExpertId       String?
+  industryExpertName     String?
+  industryExpertEmail    String?
+
   // Relations
   guide          UserProfile    @relation("GuideTeams", fields: [guideId], references: [id], onDelete: Cascade)
   members        TeamMember[]

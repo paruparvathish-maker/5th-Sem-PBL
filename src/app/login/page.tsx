@@ -124,7 +124,7 @@ export default function LoginPage() {
           <form className="space-y-5" onSubmit={handleSubmit}>
             <div>
               <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-                {activeTab === 'student' ? 'USN / Mobile Number / Email' : activeTab === 'faculty' ? 'Faculty Email / Mobile Number' : 'Admin Email'}
+                {activeTab === 'student' ? 'USN / Mobile Number / Email' : activeTab === 'faculty' ? 'Faculty Email / Mobile Number' : 'Admin / Industry Email, Username or Phone'}
               </label>
               <div className="relative rounded-xl shadow-sm">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
@@ -138,7 +138,7 @@ export default function LoginPage() {
                   placeholder={
                     activeTab === 'student' ? 'USN or Registered Mobile' :
                     activeTab === 'faculty' ? 'Email or Registered Mobile' :
-                    'paruparvathish@gmail.com'
+                    'Email (e.g. raghu.industry@dsatm.edu.in) or Phone'
                   }
                   className="block w-full pl-10 pr-3 py-2.5 bg-slate-900/90 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
                 />
@@ -146,7 +146,7 @@ export default function LoginPage() {
               <p className="mt-1 text-[11px] text-slate-400">
                 {activeTab === 'student' && 'Initial password is your USN (e.g. 1DT24CS001)'}
                 {activeTab === 'faculty' && 'Initial password is your registered 10-digit mobile number'}
-                {activeTab === 'admin' && 'Secure administrator account credentials'}
+                {activeTab === 'admin' && 'Main Admin & designated Industry Experts (login with email, username or phone)'}
               </p>
             </div>
 
@@ -218,6 +218,17 @@ export default function LoginPage() {
                   <span className="text-slate-400">Email: mr.-gajendra-l-cse@dsatm.edu.in</span>
                 </div>
                 <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold text-[10px]">Autofill</span>
+              </button>
+
+              <button
+                onClick={() => fillDemo('raghu.industry@dsatm.edu.in', '8123573747', 'admin')}
+                className="w-full text-left p-2.5 rounded-xl bg-slate-900/60 border border-slate-700/50 hover:border-indigo-500/50 transition-all flex items-center justify-between text-xs"
+              >
+                <div>
+                  <span className="font-semibold text-slate-200 block">Industry Expert: Mr. Raghu (4th Sem: 4B &amp; 4E)</span>
+                  <span className="text-slate-400">raghu.industry@dsatm.edu.in • Pass: 8123573747</span>
+                </div>
+                <span className="px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-bold text-[10px]">Autofill</span>
               </button>
 
               <button

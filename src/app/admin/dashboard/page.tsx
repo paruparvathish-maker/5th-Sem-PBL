@@ -5,7 +5,7 @@ import { useAuth } from '@/lib/auth/auth-context';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { store } from '@/lib/data/store';
 import Link from 'next/link';
-import { isExecutiveViewer } from '@/lib/auth/roles';
+import { isExecutiveViewer, getIndustryPersonAccess } from '@/lib/auth/roles';
 import {
   Users, BookOpen, GraduationCap, UploadCloud,
   Award, Calendar, FileSpreadsheet, History, ShieldAlert, ArrowUpRight
@@ -16,12 +16,32 @@ export default function AdminDashboardPage() {
   if (!user) return null;
 
   const isExec = isExecutiveViewer(user);
-  const students = store.getStudents();
-  const faculty = store.getFaculty();
-  const teams = store.getAllTeams();
-  const submissions = store.getAllSubmissions();
+  const industryAccess = getIndustryPersonAccess(user);
+
+  const rawStudents = store.getStudents();
+  const rawFaculty = store.getFaculty();
+  const rawTeams = store.getAllTeams();
+  const rawSubmissions = store.getAllSubmissions();
   const deadlines = store.getAllDeadlines();
   const auditLogs = store.getAuditLogs();
+
+  const teams = industryAccess.isIndustry
+    ? rawTeams.filter(t => industryAccess.allAllowedSections.includes(t.section) && industryAccess.allowedSemesters.includes(t.semester || 5))
+    : rawTeams;
+
+  const scopedTeamIds = new Set(teams.map(t => t.id));
+
+  const students = industryAccess.isIndustry
+    ? rawStudents.filter(s => s.section && industryAccess.allAllowedSections.includes(s.section))
+    : rawStudents;
+
+  const faculty = industryAccess.isIndustry
+    ? Array.from(new Set(teams.map(t => t.guideId).filter(Boolean)))
+    : rawFaculty;
+
+  const submissions = industryAccess.isIndustry
+    ? rawSubmissions.filter(s => scopedTeamIds.has(s.teamId))
+    : rawSubmissions;
 
   return (
     <DashboardLayout>
@@ -29,22 +49,36 @@ export default function AdminDashboardPage() {
 
         {/* Welcome Header */}
         <div className={`text-white rounded-2xl p-6 md:p-8 shadow-xl relative overflow-hidden ${
-          isExec
+          industryAccess.isIndustry
+            ? 'bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900'
+            : isExec
             ? 'bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900'
             : 'bg-gradient-to-r from-rose-950 via-rose-900 to-slate-900'
         }`}>
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <div className={`inline-flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-bold mb-3 border ${
-                isExec
+                industryAccess.isIndustry
+                  ? 'bg-indigo-500/20 text-amber-300 border-indigo-500/30'
+                  : isExec
                   ? 'bg-amber-500/20 text-amber-200 border-amber-500/30'
                   : 'bg-rose-500/20 text-rose-200 border border-rose-500/30'
               }`}>
                 <ShieldAlert className="h-3.5 w-3.5" />
-                <span>{isExec ? 'Executive Leadership Supervision • Read-Only Review Mode' : 'System Administration • Full System Access'}</span>
+                <span>
+                  {industryAccess.isIndustry
+                    ? `Industry Expert Supervision • Scope: ${Object.entries(industryAccess.allowedSectionsBySemester).map(([sem, secs]) => `${sem}th Sem (${secs.join(', ')})`).join(' | ')}`
+                    : isExec
+                    ? 'Executive Leadership Supervision • Read-Only Review Mode'
+                    : 'System Administration • Full System Access'}
+                </span>
               </div>
               <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight">
-                {isExec ? 'PBL & Research Supervision Portal' : 'PBL Portal Control Center'}
+                {industryAccess.isIndustry
+                  ? `${industryAccess.industryName} — Industry Portal`
+                  : isExec
+                  ? 'PBL & Research Supervision Portal'
+                  : 'PBL Portal Control Center'}
               </h1>
               <p className={`text-xs mt-1 ${isExec ? 'text-indigo-200' : 'text-rose-200'}`}>
                 Dayananda Sagar Academy of Technology &amp; Management — CSE Department
@@ -58,7 +92,7 @@ export default function AdminDashboardPage() {
                   className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg shadow-indigo-600/30 flex items-center space-x-2"
                 >
                   <GraduationCap className="h-4 w-4" />
-                  <span>View 4th &amp; 5th Sem Projects</span>
+                  <span>View Assigned Projects</span>
                 </Link>
               ) : (
                 <Link
@@ -73,30 +107,63 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* Executive Leadership Credentials Quick Reference (Super Admin Only) */}
+        {/* Executive & Industry Personnel Credentials Quick Reference (Super Admin Only) */}
         {!isExec && (
           <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 shadow-sm space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <h3 className="text-sm font-extrabold text-amber-950 flex items-center gap-2">
-                <ShieldAlert className="w-4 h-4 text-amber-600" /> Executive Leadership &amp; Administration Access Accounts
+                <ShieldAlert className="w-4 h-4 text-amber-600" /> Executive Leadership &amp; Industry Expert Credentials
               </h3>
-              <span className="text-[10px] font-bold uppercase bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full">Official Credentials</span>
+              <span className="text-[10px] font-bold uppercase bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full">Official Accounts</span>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
               <div className="bg-white p-3 rounded-xl border border-amber-200">
                 <p className="font-extrabold text-slate-800">HOD (Dr. C Nandini)</p>
-                <p className="text-slate-500 text-[11px] mt-0.5">Email: <span className="font-mono text-slate-700">hod.cse@dsatm.edu.in</span></p>
+                <p className="text-slate-500 text-[11px] mt-0.5">Scope: <span className="font-bold text-slate-700">All Sem 4 &amp; 5</span></p>
+                <p className="text-slate-500 text-[11px]">Email: <span className="font-mono text-slate-700">hod.cse@dsatm.edu.in</span></p>
                 <p className="text-slate-500 text-[11px]">Pass: <span className="font-mono font-bold text-indigo-700">HOD@CSE#2026</span></p>
               </div>
               <div className="bg-white p-3 rounded-xl border border-amber-200">
                 <p className="font-extrabold text-slate-800">Principal Office</p>
-                <p className="text-slate-500 text-[11px] mt-0.5">Email: <span className="font-mono text-slate-700">principal@dsatm.edu.in</span></p>
+                <p className="text-slate-500 text-[11px] mt-0.5">Scope: <span className="font-bold text-slate-700">All Sem 4 &amp; 5</span></p>
+                <p className="text-slate-500 text-[11px]">Email: <span className="font-mono text-slate-700">principal@dsatm.edu.in</span></p>
                 <p className="text-slate-500 text-[11px]">Pass: <span className="font-mono font-bold text-indigo-700">DSATM@PRIN#984</span></p>
               </div>
               <div className="bg-white p-3 rounded-xl border border-amber-200">
-                <p className="font-extrabold text-slate-800">Industry Partner</p>
-                <p className="text-slate-500 text-[11px] mt-0.5">Email: <span className="font-mono text-slate-700">industry.expert@dsatm.edu.in</span></p>
-                <p className="text-slate-500 text-[11px]">Pass: <span className="font-mono font-bold text-indigo-700">IND@EXPERT#451</span></p>
+                <p className="font-extrabold text-slate-800">Mr. Girish (Industry)</p>
+                <p className="text-slate-500 text-[11px] mt-0.5">Scope: <span className="font-bold text-indigo-700">4th Sem (4A, 4D)</span></p>
+                <p className="text-slate-500 text-[11px]">Email: <span className="font-mono text-slate-700">girish.industry@dsatm.edu.in</span></p>
+                <p className="text-slate-500 text-[11px]">Pass: <span className="font-mono font-bold text-indigo-700">9986765626</span></p>
+              </div>
+              <div className="bg-white p-3 rounded-xl border border-amber-200">
+                <p className="font-extrabold text-slate-800">Mr. Raghu (Industry)</p>
+                <p className="text-slate-500 text-[11px] mt-0.5">Scope: <span className="font-bold text-indigo-700">4th Sem (4B, 4E)</span></p>
+                <p className="text-slate-500 text-[11px]">Email: <span className="font-mono text-slate-700">raghu.industry@dsatm.edu.in</span></p>
+                <p className="text-slate-500 text-[11px]">Pass: <span className="font-mono font-bold text-indigo-700">8123573747</span></p>
+              </div>
+              <div className="bg-white p-3 rounded-xl border border-amber-200">
+                <p className="font-extrabold text-slate-800">Mr. Raja Shekhar (Industry)</p>
+                <p className="text-slate-500 text-[11px] mt-0.5">Scope: <span className="font-bold text-indigo-700">4C, 4F &amp; 5B, 5E</span></p>
+                <p className="text-slate-500 text-[11px]">Email: <span className="font-mono text-slate-700">rajashekhar.industry@dsatm.edu.in</span></p>
+                <p className="text-slate-500 text-[11px]">Pass: <span className="font-mono font-bold text-indigo-700">9964222260</span></p>
+              </div>
+              <div className="bg-white p-3 rounded-xl border border-amber-200">
+                <p className="font-extrabold text-slate-800">Ms. Manasa S (Industry)</p>
+                <p className="text-slate-500 text-[11px] mt-0.5">Scope: <span className="font-bold text-indigo-700">5th Sem (5A, 5D)</span></p>
+                <p className="text-slate-500 text-[11px]">Email: <span className="font-mono text-slate-700">manasa.industry@dsatm.edu.in</span></p>
+                <p className="text-slate-500 text-[11px]">Pass: <span className="font-mono font-bold text-indigo-700">9108932557</span></p>
+              </div>
+              <div className="bg-white p-3 rounded-xl border border-amber-200">
+                <p className="font-extrabold text-slate-800">Ms. Harshitha R (Industry)</p>
+                <p className="text-slate-500 text-[11px] mt-0.5">Scope: <span className="font-bold text-indigo-700">5th Sem (5C, 5F)</span></p>
+                <p className="text-slate-500 text-[11px]">Email: <span className="font-mono text-slate-700">harshitha.industry@dsatm.edu.in</span></p>
+                <p className="text-slate-500 text-[11px]">Pass: <span className="font-mono font-bold text-indigo-700">9611172433</span></p>
+              </div>
+              <div className="bg-white p-3 rounded-xl border border-amber-200">
+                <p className="font-extrabold text-slate-800">Main Admin</p>
+                <p className="text-slate-500 text-[11px] mt-0.5">Scope: <span className="font-bold text-rose-700">Full Access</span></p>
+                <p className="text-slate-500 text-[11px]">Email: <span className="font-mono text-slate-700">paruparvathish@gmail.com</span></p>
+                <p className="text-slate-500 text-[11px]">Pass: <span className="font-mono font-bold text-rose-700">03May@2002@</span></p>
               </div>
             </div>
           </div>

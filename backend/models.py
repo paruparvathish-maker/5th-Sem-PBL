@@ -31,6 +31,9 @@ class Team(BaseModel):
     researchPaperProofPath: Optional[str] = None
     researchPaperProofName: Optional[str] = None
     researchPaperUpdatedAt: Optional[str] = None
+    industryExpertId: Optional[str] = None
+    industryExpertName: Optional[str] = None
+    industryExpertEmail: Optional[str] = None
 
 class Deadline(BaseModel):
     id: str

@@ -37,6 +37,11 @@ export interface Team {
   researchPaperProofPath?: string;
   researchPaperProofName?: string;
   researchPaperUpdatedAt?: string;
+
+  // Industry Expert Mapping
+  industryExpertId?: string;
+  industryExpertName?: string;
+  industryExpertEmail?: string;
 }
 
 export type DeadlineType = 'meeting' | 'review' | 'submission';
