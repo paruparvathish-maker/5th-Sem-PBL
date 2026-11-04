@@ -60,10 +60,32 @@ class PBLStore {
 
           this.teams = parsed.teams || [];
 
-          // Synchronize 5th sem project titles from latest RAW_PDF_SEED
+          // Synchronize 5th sem project titles and guides from latest RAW_PDF_SEED
           RAW_PDF_SEED.forEach(seedTeam => {
+            const guideEmail = getGuideEmail(seedTeam.guideName);
+            const guidePhone = getGuidePhone(seedTeam.guideName);
+            let guideProfile = this.profiles.find(p => p.email.toLowerCase() === guideEmail.toLowerCase());
+            if (!guideProfile) {
+              guideProfile = {
+                id: `fac-${this.profiles.filter(p => p.role === 'faculty').length + 1}`,
+                email: guideEmail,
+                name: seedTeam.guideName,
+                role: 'faculty',
+                phone: guidePhone,
+                staffCode: `F${1000 + this.profiles.filter(p => p.role === 'faculty').length + 1}`,
+                isFirstLogin: true,
+                createdAt: new Date().toISOString()
+              };
+              this.profiles.push(guideProfile);
+            }
+
             const existing = this.teams.find(t => (t.semester || 5) === 5 && t.teamNumber === seedTeam.teamNumber && t.section === seedTeam.section);
             if (existing) {
+              if (existing.guideName !== seedTeam.guideName) {
+                existing.guideName = seedTeam.guideName;
+                existing.guideEmail = guideEmail;
+                existing.guideId = guideProfile.id;
+              }
               if (!existing.projectTitle || existing.projectTitle === 'To Be Decided (TBD)' || existing.projectTitle.startsWith('4th Sem')) {
                 existing.projectTitle = seedTeam.projectTitle;
                 existing.projectDescription = seedTeam.projectDescription;

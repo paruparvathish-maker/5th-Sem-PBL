@@ -28,3 +28,4 @@ export function isFullAdmin(user?: { id?: string; email?: string; role?: string 
   if (!user || user.role !== 'admin') return false;
   return !isExecutiveViewer(user);
 }
+

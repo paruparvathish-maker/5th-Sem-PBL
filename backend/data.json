@@ -4705,6 +4705,16 @@
       "section": "F",
       "isFirstLogin": true,
       "createdAt": "2026-11-03T05:41:41.008Z"
+    },
+    {
+      "id": "fac-57",
+      "email": "nethra-cse@dsatm.edu.in",
+      "name": "Ms. Nethra H L",
+      "role": "faculty",
+      "phone": "9606409077",
+      "staffCode": "F1057",
+      "isFirstLogin": true,
+      "createdAt": "2026-11-04T09:01:28.751Z"
     }
   ],
   "teams": [
@@ -5353,9 +5363,9 @@
       "semester": 5,
       "projectTitle": "GovFlow AI: Predictive Queue Intelligence for Smarter Public Service Management",
       "projectDescription": "5th Semester PBL Project: GovFlow AI: Predictive Queue Intelligence for Smarter Public Service Management",
-      "guideId": "fac-13",
-      "guideName": "Mr. Rahul Samanta",
-      "guideEmail": "rahulsamanta-cse@dsatm.edu.in",
+      "guideId": "fac-57",
+      "guideName": "Ms. Nethra H L",
+      "guideEmail": "nethra-cse@dsatm.edu.in",
       "members": [
         {
           "id": "stud-1DT25CS408",
@@ -7315,9 +7325,9 @@
       "semester": 5,
       "projectTitle": "To Be Decided (TBD)",
       "projectDescription": "Project topic and description to be finalized by team members and assigned guide.",
-      "guideId": "fac-24",
-      "guideName": "Mr. Rahul Maity",
-      "guideEmail": "rahul-cse@dsatm.edu.in",
+      "guideId": "fac-57",
+      "guideName": "Ms. Nethra H L",
+      "guideEmail": "nethra-cse@dsatm.edu.in",
       "members": [
         {
           "id": "stud-1DT24CS148",
@@ -8743,9 +8753,9 @@
       "semester": 5,
       "projectTitle": "CityPulse: Ai powered Real time city intelligense and alert system platform",
       "projectDescription": "5th Semester PBL Project: CityPulse: Ai powered Real time city intelligense and alert system platform",
-      "guideId": "fac-33",
-      "guideName": "Ms. Kuheli Manna",
-      "guideEmail": "kuheli-cse@dsatm.edu.in",
+      "guideId": "fac-57",
+      "guideName": "Ms. Nethra H L",
+      "guideEmail": "nethra-cse@dsatm.edu.in",
       "members": [
         {
           "id": "stud-1DT24CS257",

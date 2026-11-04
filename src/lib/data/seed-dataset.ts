@@ -172,7 +172,7 @@ export const RAW_PDF_SEED: RawTeamSeed[] = [
   {
     teamNumber: 'A13',
     section: 'A',
-    guideName: 'Mr. Rahul Samanta',
+    guideName: 'Ms. Nethra H L',
     projectTitle: "GovFlow AI: Predictive Queue Intelligence for Smarter Public Service Management",
     projectDescription: "5th Semester PBL Project: GovFlow AI: Predictive Queue Intelligence for Smarter Public Service Management",
     students: [
@@ -661,7 +661,7 @@ export const RAW_PDF_SEED: RawTeamSeed[] = [
   {
     teamNumber: 'C16',
     section: 'C',
-    guideName: 'Mr. Rahul Maity',
+    guideName: 'Ms. Nethra H L',
     projectTitle: "To Be Decided (TBD)",
     projectDescription: "Project topic and description to be finalized by team members and assigned guide.",
     students: [
@@ -1013,7 +1013,7 @@ export const RAW_PDF_SEED: RawTeamSeed[] = [
   {
     teamNumber: 'E10',
     section: 'E',
-    guideName: 'Ms. Kuheli Manna',
+    guideName: 'Ms. Nethra H L',
     projectTitle: "CityPulse: Ai powered Real time city intelligense and alert system platform",
     projectDescription: "5th Semester PBL Project: CityPulse: Ai powered Real time city intelligense and alert system platform",
     students: [
@@ -1382,7 +1382,8 @@ const FACULTY_DATA = [
   { name: "Mrs. USHA C R", mobile: "9972737259", email: "usha-cse@dsatm.edu.in" },
   { name: "Dr. VIJAYLAXMI INAMDAR", mobile: "9845180180", email: "Vijaylaxmi-cse@dsatm.edu.in" },
   { name: "Mrs. Yamini G", mobile: "9886770763", email: "yamini-cse@dsatm.edu.in" },
-  { name: "Ms. ASHALATHA N S", mobile: "8197556888", email: "ashalatha-cse@dsatm.edu.in" }
+  { name: "Ms. ASHALATHA N S", mobile: "8197556888", email: "ashalatha-cse@dsatm.edu.in" },
+  { name: "Ms. NETHRA H L", mobile: "9606409077", email: "nethra-cse@dsatm.edu.in" }
 ];
 
 function normalizeName(name: string) {
@@ -1396,7 +1397,7 @@ function normalizeName(name: string) {
     'mrs. a manusha reddy': 'Ms. MANUSHA A',
     'dr. nagaraj lutimath': 'Dr. NAGARAJ M LUTIMATH'
   };
-  
+
   const mapped = ALIASES[lower] || name;
   return mapped.toLowerCase()
     .replace(/^(dr\.|mr\.|mrs\.|ms\.)\s*/, '')
