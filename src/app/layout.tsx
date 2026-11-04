@@ -6,8 +6,8 @@ import { AuthProvider } from '@/lib/auth/auth-context';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'PBL— DSATM CSE',
-  description: 'Project Based Learning Portal for 5th Semester',
+  title: 'Industrial PBL - DSATM CSE',
+  description: 'Industrial Project-Based Learning Portal for DSATM CSE',
 };
 
 export default function RootLayout({

@@ -393,9 +393,9 @@ export default function AdminTeamsPage() {
         {/* Top Header */}
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-extrabold text-slate-900">PBL & Research Paper Control Center</h1>
+            <h1 className="text-2xl font-extrabold text-slate-900">Industrial PBL & Research Paper Control Center</h1>
             <p className="text-sm text-slate-600 mt-1">
-              Audit 4th Sem faculty proof submissions and supervise 5th Sem PBL project milestones.
+              Audit 4th Sem faculty proof submissions and supervise 5th Sem Industrial PBL project milestones.
             </p>
           </div>
           <div className="flex items-center gap-2">

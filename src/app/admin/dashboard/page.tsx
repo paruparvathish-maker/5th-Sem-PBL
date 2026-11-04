@@ -75,10 +75,10 @@ export default function AdminDashboardPage() {
               </div>
               <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight">
                 {industryAccess.isIndustry
-                  ? `${industryAccess.industryName} — Industry Portal`
+                  ? `${industryAccess.industryName} — Industrial PBL Portal`
                   : isExec
-                  ? 'PBL & Research Supervision Portal'
-                  : 'PBL Portal Control Center'}
+                  ? 'Industrial PBL & Research Supervision Portal'
+                  : 'Industrial PBL Control Center'}
               </h1>
               <p className={`text-xs mt-1 ${isExec ? 'text-indigo-200' : 'text-rose-200'}`}>
                 Dayananda Sagar Academy of Technology &amp; Management — CSE Department

@@ -4765,6 +4765,26 @@
       "password": "9611172433",
       "isFirstLogin": false,
       "createdAt": "2026-11-04T00:00:00.000Z"
+    },
+    {
+      "id": "fac-58",
+      "email": "priyag-cse@dsatm.edu.in",
+      "name": "Ms. Priya G",
+      "role": "faculty",
+      "phone": "9845012301",
+      "staffCode": "F1058",
+      "isFirstLogin": true,
+      "createdAt": "2026-11-04T10:34:48.480Z"
+    },
+    {
+      "id": "fac-59",
+      "email": "debabrata-cse@dsatm.edu.in",
+      "name": "Mr. Debabrata Borah",
+      "role": "faculty",
+      "phone": "9845012302",
+      "staffCode": "F1059",
+      "isFirstLogin": true,
+      "createdAt": "2026-11-04T10:34:48.517Z"
     }
   ],
   "teams": [
@@ -6274,9 +6294,9 @@
       "semester": 5,
       "projectTitle": "Privacy guard: An On-Device Privacy Scanner for AI Sharing",
       "projectDescription": "5th Semester PBL Project: Privacy guard: An On-Device Privacy Scanner for AI Sharing",
-      "guideId": "fac-26",
-      "guideName": "Ms. Lithu Mathew",
-      "guideEmail": "lithu-cse@dsatm.edu.in",
+      "guideId": "fac-58",
+      "guideName": "Ms. Priya G",
+      "guideEmail": "priyag-cse@dsatm.edu.in",
       "members": [
         {
           "id": "stud-1DT24CS059",
@@ -6926,10 +6946,10 @@
       "teamNumber": "C5",
       "section": "C",
       "semester": 5,
-      "projectTitle": "AI-Based Road Hazard Detection and Accessible Navigation System",
-      "projectDescription": "5th Semester PBL Project: AI-Based Road Hazard Detection and Accessible Navigation System",
+      "projectTitle": "An Intelligent Airport Ride-Sharing System",
+      "projectDescription": "5th Semester PBL Project: An Intelligent Airport Ride-Sharing System",
       "guideId": "fac-22",
-      "guideName": "Mrs. kavyashree L",
+      "guideName": "Mrs. Kavyashree L",
       "guideEmail": "kavyashree-cse@dsatm.edu.in",
       "members": [
         {
@@ -7307,9 +7327,9 @@
       "semester": 5,
       "projectTitle": "QR code phishing checker and protection shield",
       "projectDescription": "5th Semester PBL Project: QR code phishing checker and protection shield",
-      "guideId": "fac-26",
-      "guideName": "Ms. Lithu Mathew",
-      "guideEmail": "lithu-cse@dsatm.edu.in",
+      "guideId": "fac-58",
+      "guideName": "Ms. Priya G",
+      "guideEmail": "priyag-cse@dsatm.edu.in",
       "members": [
         {
           "id": "stud-1DT24CS117",
@@ -7421,9 +7441,9 @@
       "semester": 5,
       "projectTitle": "An Integrated GIS-based Digital Public Infrastructure for Land Governance",
       "projectDescription": "5th Semester PBL Project: An Integrated GIS-based Digital Public Infrastructure for Land Governance",
-      "guideId": "fac-26",
-      "guideName": "Ms. Lithu Mathew",
-      "guideEmail": "lithu-cse@dsatm.edu.in",
+      "guideId": "fac-59",
+      "guideName": "Mr. Debabrata Borah",
+      "guideEmail": "debabrata-cse@dsatm.edu.in",
       "members": [
         {
           "id": "stud-1DT24CS163",
@@ -7982,7 +8002,7 @@
       "projectTitle": "PackGuard: AI-Driven Fraud and Risk Detection with Visualization for Open-Source Packages",
       "projectDescription": "5th Semester PBL Project: PackGuard: AI-Driven Fraud and Risk Detection with Visualization for Open-Source Packages",
       "guideId": "fac-21",
-      "guideName": "Mrs. Apoorva Busad",
+      "guideName": "Ms. Apoorva Busad",
       "guideEmail": "apoorvabusad-cse@dsatm.edu.in",
       "members": [
         {
@@ -8636,7 +8656,7 @@
       "projectTitle": "Autonomous IT Infrastrutcure Digital Twin",
       "projectDescription": "5th Semester PBL Project: Autonomous IT Infrastrutcure Digital Twin",
       "guideId": "fac-32",
-      "guideName": "Dr. Seema J K",
+      "guideName": "Mrs. Seema J K",
       "guideEmail": "seema-cse@dsatm.edu.in",
       "members": [
         {
@@ -9096,14 +9116,14 @@
       "guideEmail": "manasa-cs@dsatm.edu.in",
       "members": [
         {
-          "id": "stud-1DT24CS258",
-          "email": "1dt24cs258@student.dsatm.edu.in",
-          "name": "Shree Ganesh K",
-          "usn": "1DT24CS258",
+          "id": "stud-1DT24CS276",
+          "email": "1dt24cs276@student.dsatm.edu.in",
+          "name": "Sneha Bidari",
+          "usn": "1DT24CS276",
           "role": "student",
           "section": "E",
           "isFirstLogin": true,
-          "createdAt": "2026-11-03T05:41:40.996Z"
+          "createdAt": "2026-11-03T05:41:40.997Z"
         },
         {
           "id": "stud-1DT24CS261",
@@ -9146,8 +9166,8 @@
       "teamNumber": "E12",
       "section": "E",
       "semester": 5,
-      "projectTitle": "To Be Decided (TBD)",
-      "projectDescription": "Project topic and description to be finalized by team members and assigned guide.",
+      "projectTitle": "CampusTwin AI: An Agentic AI-Powered Campus Digital Twin for Intelligent Operations and Sustainable Resource Optimization",
+      "projectDescription": "5th Semester PBL Project: CampusTwin AI: An Agentic AI-Powered Campus Digital Twin for Intelligent Operations and Sustainable Resource Optimization",
       "guideId": "fac-44",
       "guideName": "Mr. Jyothis K P",
       "guideEmail": "jyothis-cse@dsatm.edu.in",
@@ -9401,14 +9421,14 @@
           "createdAt": "2026-11-03T05:41:40.997Z"
         },
         {
-          "id": "stud-1DT24CS276",
-          "email": "1dt24cs276@student.dsatm.edu.in",
-          "name": "Sneha Bidari",
-          "usn": "1DT24CS276",
+          "id": "stud-1DT24CS258",
+          "email": "1dt24cs258@student.dsatm.edu.in",
+          "name": "Shree Ganesh K",
+          "usn": "1DT24CS258",
           "role": "student",
           "section": "E",
           "isFirstLogin": true,
-          "createdAt": "2026-11-03T05:41:40.997Z"
+          "createdAt": "2026-11-03T05:41:40.996Z"
         }
       ],
       "createdAt": "2026-11-03T05:41:40.997Z",
@@ -9595,7 +9615,7 @@
       "projectTitle": "Gym Workout assistant AR Based app",
       "projectDescription": "5th Semester PBL Project: Gym Workout assistant AR Based app",
       "guideId": "fac-41",
-      "guideName": "Dr. Nagaraj M Lutimath",
+      "guideName": "Dr. Nagaraj Lutimath",
       "guideEmail": "Nagarajml-cse@dsatm.edu.in",
       "members": [
         {
@@ -10098,7 +10118,7 @@
       "projectTitle": "Early Sepsis Risk Prediction Using LSTM/Transformer-Based Time-Series Analysis",
       "projectDescription": "5th Semester PBL Project: Early Sepsis Risk Prediction Using LSTM/Transformer-Based Time-Series Analysis",
       "guideId": "fac-41",
-      "guideName": "Dr. Nagaraj M Lutimath",
+      "guideName": "Dr. Nagaraj Lutimath",
       "guideEmail": "Nagarajml-cse@dsatm.edu.in",
       "members": [
         {
@@ -10326,7 +10346,7 @@
       "projectTitle": "FoodVision – AI-Based Personalized Diet Monitoring System",
       "projectDescription": "5th Semester PBL Project: FoodVision – AI-Based Personalized Diet Monitoring System",
       "guideId": "fac-42",
-      "guideName": "Ms. Mamatha A ",
+      "guideName": "Ms. Mamatha A",
       "guideEmail": "mamatha-cse@dsatm.edu.in",
       "members": [
         {

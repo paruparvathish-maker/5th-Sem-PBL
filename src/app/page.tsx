@@ -12,7 +12,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white font-bold text-sm">
-      Redirecting to PBL Portal...
+      Redirecting to Industrial PBL Portal...
     </div>
   );
 }

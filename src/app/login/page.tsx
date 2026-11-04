@@ -65,12 +65,12 @@ export default function LoginPage() {
             <GraduationCap className="h-7 w-7" />
           </div>
           <div>
-            <h2 className="text-2xl font-extrabold text-white tracking-tight">PBL Portal</h2>
+            <h2 className="text-2xl font-extrabold text-white tracking-tight">Industrial PBL</h2>
             <p className="text-xs text-indigo-300 font-medium">Dayananda Sagar Academy of Technology & Management</p>
           </div>
         </div>
         <p className="mt-3 text-center text-sm text-slate-400">
-          Project-Based Learning Activity & Evaluation System
+          Industrial Project-Based Learning Activity & Evaluation System
         </p>
       </div>
 

@@ -366,7 +366,7 @@ export const RAW_PDF_SEED: RawTeamSeed[] = [
   {
     teamNumber: 'B11',
     section: 'B',
-    guideName: 'Ms. Lithu Mathew',
+    guideName: 'Ms. Priya G',
     projectTitle: "Privacy guard: An On-Device Privacy Scanner for AI Sharing",
     projectDescription: "5th Semester PBL Project: Privacy guard: An On-Device Privacy Scanner for AI Sharing",
     students: [
@@ -522,8 +522,8 @@ export const RAW_PDF_SEED: RawTeamSeed[] = [
     teamNumber: 'C5',
     section: 'C',
     guideName: 'Mrs. Kavyashree L',
-    projectTitle: "AI-Based Road Hazard Detection and Accessible Navigation System",
-    projectDescription: "5th Semester PBL Project: AI-Based Road Hazard Detection and Accessible Navigation System",
+    projectTitle: "An Intelligent Airport Ride-Sharing System",
+    projectDescription: "5th Semester PBL Project: An Intelligent Airport Ride-Sharing System",
     students: [
       { usn: '1DT24CS122', name: 'Keerthi Devadiga' },
       { usn: '1DT24CS129', name: 'Kushi JR' },
@@ -610,7 +610,7 @@ export const RAW_PDF_SEED: RawTeamSeed[] = [
   {
     teamNumber: 'C12',
     section: 'C',
-    guideName: 'Ms. Lithu Mathew',
+    guideName: 'Ms. Priya G',
     projectTitle: "QR code phishing checker and protection shield",
     projectDescription: "5th Semester PBL Project: QR code phishing checker and protection shield",
     students: [
@@ -636,7 +636,7 @@ export const RAW_PDF_SEED: RawTeamSeed[] = [
   {
     teamNumber: 'C14',
     section: 'C',
-    guideName: 'Ms. Lithu Mathew',
+    guideName: 'Mr. Debabrata Borah',
     projectTitle: "An Integrated GIS-based Digital Public Infrastructure for Land Governance",
     projectDescription: "5th Semester PBL Project: An Integrated GIS-based Digital Public Infrastructure for Land Governance",
     students: [
@@ -1030,7 +1030,7 @@ export const RAW_PDF_SEED: RawTeamSeed[] = [
     projectTitle: "AI-Powered Mental Health Screening and Support for Homeless Children",
     projectDescription: "5th Semester PBL Project: AI-Powered Mental Health Screening and Support for Homeless Children",
     students: [
-      { usn: '1DT24CS258', name: 'Shree Ganesh K' },
+      { usn: '1DT24CS276', name: 'Sneha Bidari' },
       { usn: '1DT24CS261', name: 'Shreyas Harvili' },
       { usn: '1DT24CS278', name: 'Sneha Sudhakar' },
       { usn: '1DT24CS286', name: 'Sreelakshmi MR' },
@@ -1040,8 +1040,8 @@ export const RAW_PDF_SEED: RawTeamSeed[] = [
     teamNumber: 'E12',
     section: 'E',
     guideName: 'Mr. Jyothis K P',
-    projectTitle: "To Be Decided (TBD)",
-    projectDescription: "Project topic and description to be finalized by team members and assigned guide.",
+    projectTitle: "CampusTwin AI: An Agentic AI-Powered Campus Digital Twin for Intelligent Operations and Sustainable Resource Optimization",
+    projectDescription: "5th Semester PBL Project: CampusTwin AI: An Agentic AI-Powered Campus Digital Twin for Intelligent Operations and Sustainable Resource Optimization",
     students: [
       { usn: '1DT24CS248', name: 'Shailendra Kumar N' },
       { usn: '1DT24CS262', name: 'Shreyas S Trikannavar' },
@@ -1097,7 +1097,7 @@ export const RAW_PDF_SEED: RawTeamSeed[] = [
       { usn: '1DT24CS238', name: 'Sanjana' },
       { usn: '1DT24CS269', name: 'Shwetha V Katewal' },
       { usn: '1DT24CS274', name: 'Sneha' },
-      { usn: '1DT24CS276', name: 'Sneha Bidari' },
+      { usn: '1DT24CS258', name: 'Shree Ganesh K' },
     ]
   },
   {
@@ -1383,7 +1383,9 @@ const FACULTY_DATA = [
   { name: "Dr. VIJAYLAXMI INAMDAR", mobile: "9845180180", email: "Vijaylaxmi-cse@dsatm.edu.in" },
   { name: "Mrs. Yamini G", mobile: "9886770763", email: "yamini-cse@dsatm.edu.in" },
   { name: "Ms. ASHALATHA N S", mobile: "8197556888", email: "ashalatha-cse@dsatm.edu.in" },
-  { name: "Ms. NETHRA H L", mobile: "9606409077", email: "nethra-cse@dsatm.edu.in" }
+  { name: "Ms. NETHRA H L", mobile: "9606409077", email: "nethra-cse@dsatm.edu.in" },
+  { name: "Ms. PRIYA G", mobile: "9845012301", email: "priyag-cse@dsatm.edu.in" },
+  { name: "Mr. DEBABRATA BORAH", mobile: "9845012302", email: "debabrata-cse@dsatm.edu.in" }
 ];
 
 function normalizeName(name: string) {
@@ -1395,7 +1397,9 @@ function normalizeName(name: string) {
     'mr. kondeti dilip kumar': 'Mr. DILIP KUMAR K',
     'mrs. k deepashree': 'Mrs. DEEPASHREE K',
     'mrs. a manusha reddy': 'Ms. MANUSHA A',
-    'dr. nagaraj lutimath': 'Dr. NAGARAJ M LUTIMATH'
+    'dr. nagaraj lutimath': 'Dr. NAGARAJ M LUTIMATH',
+    'ms. priya g': 'Ms. PRIYA G',
+    'mr. debabrata borah': 'Mr. DEBABRATA BORAH'
   };
 
   const mapped = ALIASES[lower] || name;

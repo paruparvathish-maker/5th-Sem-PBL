@@ -63,7 +63,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
             <GraduationCap className="h-6 w-6" />
           </div>
           <div>
-            <h1 className="font-bold text-base text-white leading-tight">PBL Portal</h1>
+            <h1 className="font-bold text-base text-white leading-tight">Industrial PBL</h1>
             <p className="text-xs text-slate-400 font-medium">DSATM CSE Dept</p>
           </div>
         </div>

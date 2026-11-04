@@ -140,9 +140,30 @@ class PBLStore {
                 existing.guideEmail = guideEmail;
                 existing.guideId = guideProfile.id;
               }
-              if (!existing.projectTitle || existing.projectTitle === 'To Be Decided (TBD)' || existing.projectTitle.startsWith('4th Sem')) {
+              if (!existing.projectTitle || existing.projectTitle === 'To Be Decided (TBD)' || existing.projectTitle.startsWith('4th Sem') || existing.projectTitle !== seedTeam.projectTitle) {
                 existing.projectTitle = seedTeam.projectTitle;
                 existing.projectDescription = seedTeam.projectDescription;
+              }
+              // Synchronize team members
+              if (seedTeam.students && seedTeam.students.length > 0) {
+                existing.members = seedTeam.students.map(s => {
+                  const cleanUsn = s.usn.toUpperCase().trim();
+                  let studProfile = this.profiles.find(p => p.usn === cleanUsn);
+                  if (!studProfile) {
+                    studProfile = {
+                      id: `stud-${cleanUsn}`,
+                      email: `${cleanUsn.toLowerCase()}@student.dsatm.edu.in`,
+                      name: s.name,
+                      usn: cleanUsn,
+                      role: 'student',
+                      section: seedTeam.section,
+                      isFirstLogin: true,
+                      createdAt: new Date().toISOString()
+                    };
+                    this.profiles.push(studProfile);
+                  }
+                  return studProfile;
+                });
               }
             }
           });
