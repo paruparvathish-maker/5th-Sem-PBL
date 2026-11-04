@@ -131,12 +131,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         };
 
         const fastApiUrl = getFastApiUrl();
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3500);
         await fetch(`${fastApiUrl}/api/auth/change-password`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ userId: user.id, newPassword }),
-          mode: 'cors'
-        }).catch(() => {});
+          mode: 'cors',
+          signal: controller.signal
+        }).catch(() => {}).finally(() => clearTimeout(timeoutId));
 
         await fetch('/api/auth/change-password', {
           method: 'POST',

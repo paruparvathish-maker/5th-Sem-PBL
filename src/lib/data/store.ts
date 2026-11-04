@@ -480,7 +480,10 @@ class PBLStore {
       const fastApiUrl = getFastApiUrl();
       let res: Response | null = null;
       try {
-        res = await fetch(`${fastApiUrl}/api/db`, { mode: 'cors' });
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3500);
+        res = await fetch(`${fastApiUrl}/api/db`, { mode: 'cors', signal: controller.signal });
+        clearTimeout(timeoutId);
       } catch {
         // Fallback to internal /api/db proxy
       }
@@ -737,12 +740,16 @@ class PBLStore {
 
       const fastApiUrl = getFastApiUrl();
       try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3500);
         await fetch(`${fastApiUrl}/api/db`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: payload,
-          mode: 'cors'
+          mode: 'cors',
+          signal: controller.signal
         });
+        clearTimeout(timeoutId);
       } catch {
         // Fallback to Next.js /api/db
       }

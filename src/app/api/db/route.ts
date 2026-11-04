@@ -102,7 +102,7 @@ export async function POST(request: Request) {
       // FastAPI offline
     }
 
-    // 2. Persist to local backend/data.json or /tmp fallback with intelligent merge
+    // 2. Persist to local backend/data.json or /tmp fallback with intelligent non-destructive merge
     let currentData: any = {};
     if (fs.existsSync(TMP_DATA_PATH)) {
       try { currentData = JSON.parse(fs.readFileSync(TMP_DATA_PATH, 'utf8')); } catch {}
@@ -110,15 +110,134 @@ export async function POST(request: Request) {
       try { currentData = JSON.parse(fs.readFileSync(BACKEND_DATA_PATH, 'utf8')); } catch {}
     }
 
+    // Non-destructive ID-based merging to safely handle 500+ concurrent users
+
+    // 1. Submissions: Merge by ID, preserving existing submissions from all teams
+    const subMap = new Map<string, any>((currentData.submissions || []).map((s: any) => [s.id, s]));
+    if (payload.submissions && Array.isArray(payload.submissions)) {
+      payload.submissions.forEach((s: any) => {
+        if (s && s.id) {
+          const existing = subMap.get(s.id);
+          subMap.set(s.id, { ...existing, ...s });
+        }
+      });
+    }
+
+    // 2. Evaluations: Merge by ID
+    const evalMap = new Map<string, any>((currentData.evaluations || []).map((e: any) => [e.id, e]));
+    if (payload.evaluations && Array.isArray(payload.evaluations)) {
+      payload.evaluations.forEach((e: any) => {
+        if (e && e.id) {
+          const existing = evalMap.get(e.id);
+          evalMap.set(e.id, { ...existing, ...e });
+        }
+      });
+    }
+
+    // 3. Guide Meetings: Merge by ID
+    const meetingMap = new Map<string, any>((currentData.guideMeetings || []).map((m: any) => [m.id, m]));
+    if (payload.guideMeetings && Array.isArray(payload.guideMeetings)) {
+      payload.guideMeetings.forEach((m: any) => {
+        if (m && m.id) {
+          const existing = meetingMap.get(m.id);
+          meetingMap.set(m.id, { ...existing, ...m });
+        }
+      });
+    }
+
+    // 4. Profiles: Merge by ID, protecting custom passwords from stale overwrite
+    const profMap = new Map<string, any>((currentData.profiles || []).map((p: any) => [p.id, p]));
+    if (payload.profiles && Array.isArray(payload.profiles)) {
+      payload.profiles.forEach((p: any) => {
+        if (p && p.id) {
+          const existing = profMap.get(p.id);
+          if (!existing) {
+            profMap.set(p.id, p);
+          } else {
+            const hasCustomPass = !existing.isFirstLogin && !!existing.password;
+            const incomingHasCustomPass = !p.isFirstLogin && !!p.password;
+            const finalPass = incomingHasCustomPass ? p.password : (hasCustomPass ? existing.password : (p.password || existing.password));
+            const finalIsFirstLogin = (hasCustomPass || incomingHasCustomPass) ? false : (p.isFirstLogin !== undefined ? p.isFirstLogin : existing.isFirstLogin);
+            profMap.set(p.id, {
+              ...existing,
+              ...p,
+              password: finalPass,
+              isFirstLogin: finalIsFirstLogin,
+              phone: p.phone || existing.phone,
+              passwordUpdatedAt: p.passwordUpdatedAt || existing.passwordUpdatedAt,
+            });
+          }
+        }
+      });
+    }
+
+    // 5. Teams: Merge by ID, protecting research paper proofs
+    const teamMap = new Map<string, any>((currentData.teams || []).map((t: any) => [t.id, t]));
+    if (payload.teams && Array.isArray(payload.teams)) {
+      payload.teams.forEach((t: any) => {
+        if (t && t.id) {
+          const existing = teamMap.get(t.id);
+          if (!existing) {
+            teamMap.set(t.id, t);
+          } else {
+            const existingTime = existing.researchPaperUpdatedAt ? new Date(existing.researchPaperUpdatedAt).getTime() : 0;
+            const incomingTime = t.researchPaperUpdatedAt ? new Date(t.researchPaperUpdatedAt).getTime() : 0;
+            const useIncomingProof = incomingTime >= existingTime && Boolean(t.researchPaperProofName || t.researchPaperProofPath);
+            teamMap.set(t.id, {
+              ...existing,
+              ...t,
+              researchPaperStatus: useIncomingProof ? (t.researchPaperStatus || existing.researchPaperStatus) : (existing.researchPaperStatus || t.researchPaperStatus),
+              researchPaperProofName: useIncomingProof ? t.researchPaperProofName : (existing.researchPaperProofName || t.researchPaperProofName),
+              researchPaperProofPath: useIncomingProof ? t.researchPaperProofPath : (existing.researchPaperProofPath || t.researchPaperProofPath),
+              researchPaperUpdatedAt: useIncomingProof ? t.researchPaperUpdatedAt : (existing.researchPaperUpdatedAt || t.researchPaperUpdatedAt),
+            });
+          }
+        }
+      });
+    }
+
+    // 6. Deadlines
+    const deadlineMap = new Map<string, any>((currentData.deadlines || []).map((d: any) => [d.id, d]));
+    if (payload.deadlines && Array.isArray(payload.deadlines)) {
+      payload.deadlines.forEach((d: any) => {
+        if (d && d.id) {
+          const existing = deadlineMap.get(d.id);
+          deadlineMap.set(d.id, { ...existing, ...d });
+        }
+      });
+    }
+
+    // 7. Notifications
+    const notifMap = new Map<string, any>((currentData.notifications || []).map((n: any) => [n.id, n]));
+    if (payload.notifications && Array.isArray(payload.notifications)) {
+      payload.notifications.forEach((n: any) => {
+        if (n && n.id) {
+          const existing = notifMap.get(n.id);
+          notifMap.set(n.id, { ...existing, ...n });
+        }
+      });
+    }
+
+    // 8. Audit Logs
+    const auditMap = new Map<string, any>((currentData.auditLogs || []).map((a: any) => [a.id, a]));
+    if (payload.auditLogs && Array.isArray(payload.auditLogs)) {
+      payload.auditLogs.forEach((a: any) => {
+        if (a && a.id) {
+          const existing = auditMap.get(a.id);
+          auditMap.set(a.id, { ...existing, ...a });
+        }
+      });
+    }
+
     const merged = {
-      profiles: (payload.profiles && payload.profiles.length > 0) ? payload.profiles : (currentData.profiles || []),
-      teams: (payload.teams && payload.teams.length > 0) ? payload.teams : (currentData.teams || []),
-      deadlines: (payload.deadlines && payload.deadlines.length > 0) ? payload.deadlines : (currentData.deadlines || []),
-      submissions: (payload.submissions && payload.submissions.length > 0) ? payload.submissions : (currentData.submissions || []),
-      evaluations: (payload.evaluations && payload.evaluations.length > 0) ? payload.evaluations : (currentData.evaluations || []),
-      guideMeetings: (payload.guideMeetings && payload.guideMeetings.length > 0) ? payload.guideMeetings : (currentData.guideMeetings || []),
-      notifications: (payload.notifications && payload.notifications.length > 0) ? payload.notifications : (currentData.notifications || []),
-      auditLogs: (payload.auditLogs && payload.auditLogs.length > 0) ? payload.auditLogs : (currentData.auditLogs || []),
+      profiles: Array.from(profMap.values()),
+      teams: Array.from(teamMap.values()),
+      deadlines: Array.from(deadlineMap.values()),
+      submissions: Array.from(subMap.values()),
+      evaluations: Array.from(evalMap.values()),
+      guideMeetings: Array.from(meetingMap.values()),
+      notifications: Array.from(notifMap.values()),
+      auditLogs: Array.from(auditMap.values()),
     };
 
     try {
