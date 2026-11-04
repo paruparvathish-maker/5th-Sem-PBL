@@ -9,7 +9,7 @@ const generateUUID = () => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
     return crypto.randomUUID();
   }
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
     const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
     return v.toString(16);
   });
@@ -56,7 +56,7 @@ class PBLStore {
                 p.passwordUpdatedAt = b.passwordUpdatedAt;
               }
             });
-          } catch (e) {}
+          } catch (e) { }
 
           this.teams = parsed.teams || [];
 
@@ -70,10 +70,10 @@ class PBLStore {
               }
             }
           });
-          this.deadlines = (parsed.deadlines || []).filter((d: any) => 
-            d.id !== 'dl-guide-meeting' && 
+          this.deadlines = (parsed.deadlines || []).filter((d: any) =>
+            d.id !== 'dl-guide-meeting' &&
             !d.title.toLowerCase().includes('guide meeting') &&
-            d.id !== 'dl-project-stmt' && 
+            d.id !== 'dl-project-stmt' &&
             !d.title.toLowerCase().includes('problem statement')
           );
           if (!this.deadlines.some(d => d.id === 'dl-review-1' || d.title.toLowerCase().includes('1st review'))) {
@@ -90,9 +90,9 @@ class PBLStore {
               createdAt: new Date().toISOString()
             });
           }
-          this.submissions = (parsed.submissions || []).filter((s: any) => 
-            s.deadlineId !== 'dl-guide-meeting' && 
-            s.deadlineId !== 'dl-project-stmt' && 
+          this.submissions = (parsed.submissions || []).filter((s: any) =>
+            s.deadlineId !== 'dl-guide-meeting' &&
+            s.deadlineId !== 'dl-project-stmt' &&
             !s.deadlineTitle?.toLowerCase().includes('problem statement')
           );
           this.evaluations = parsed.evaluations || [];
@@ -330,7 +330,7 @@ class PBLStore {
           notifications: this.notifications,
           auditLogs: this.auditLogs
         }));
-        
+
         // Fire-and-forget sync to cloud
         if (!skipCloudSync) {
           this.syncToSupabase().catch(console.error);
@@ -368,7 +368,7 @@ class PBLStore {
           if (typeof window !== 'undefined') {
             try {
               credsBackup = JSON.parse(localStorage.getItem('pbl_user_credentials_backup') || '{}');
-            } catch (e) {}
+            } catch (e) { }
           }
 
           const incomingMap = new Map<string, UserProfile>(data.profiles.map((p: UserProfile) => [p.id, p]));
@@ -436,10 +436,10 @@ class PBLStore {
         }
 
         if (data.deadlines && Array.isArray(data.deadlines) && data.deadlines.length > 0) {
-          const filteredIncoming = data.deadlines.filter((d: any) => 
-            d.id !== 'dl-guide-meeting' && 
+          const filteredIncoming = data.deadlines.filter((d: any) =>
+            d.id !== 'dl-guide-meeting' &&
             !d.title?.toLowerCase().includes('guide meeting') &&
-            d.id !== 'dl-project-stmt' && 
+            d.id !== 'dl-project-stmt' &&
             !d.title?.toLowerCase().includes('problem statement')
           );
           if (filteredIncoming.length > 0) {
@@ -531,7 +531,7 @@ class PBLStore {
             }
           });
         }
-        
+
         if (typeof window !== 'undefined') {
           const lightweightSubmissions = this.submissions.map(s => {
             if (s.fileData && s.fileData.length > 50000) {
@@ -603,7 +603,7 @@ class PBLStore {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: payload
-      }).catch(() => {});
+      }).catch(() => { });
     } catch (err) {
       console.error('Sync to backend API failed', err);
     }
@@ -683,7 +683,7 @@ class PBLStore {
       }
       user.passwordUpdatedAt = new Date().toISOString();
       this.addAuditLog(user.id, user.name, user.role, 'Password Updated', 'UserProfile', user.id, { note: 'First-time credentials changed' });
-      
+
       // Save locally to store
       this.save(true);
 
@@ -828,9 +828,9 @@ class PBLStore {
   }
 
   public getDeadlinesForStudent(section?: SectionCode): Deadline[] {
-    const valid = this.deadlines.filter(d => 
-      d.id !== 'dl-project-stmt' && 
-      d.id !== 'dl-guide-meeting' && 
+    const valid = this.deadlines.filter(d =>
+      d.id !== 'dl-project-stmt' &&
+      d.id !== 'dl-guide-meeting' &&
       !d.title.toLowerCase().includes('problem statement') &&
       !d.title.toLowerCase().includes('guide meeting')
     );
@@ -949,7 +949,7 @@ class PBLStore {
         saveFileToIdb(newSub.id, fileData).catch(err => {
           console.warn('[Store] Could not cache file to IndexedDB:', err);
         });
-      } catch (err) {}
+      } catch (err) { }
     }
 
     this.addAuditLog(

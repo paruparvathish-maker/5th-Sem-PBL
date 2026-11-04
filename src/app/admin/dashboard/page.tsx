@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/auth/auth-context';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { store } from '@/lib/data/store';
 import Link from 'next/link';
+import { isExecutiveViewer } from '@/lib/auth/roles';
 import {
   Users, BookOpen, GraduationCap, UploadCloud,
   Award, Calendar, FileSpreadsheet, History, ShieldAlert, ArrowUpRight
@@ -14,6 +15,7 @@ export default function AdminDashboardPage() {
   const { user } = useAuth();
   if (!user) return null;
 
+  const isExec = isExecutiveViewer(user);
   const students = store.getStudents();
   const faculty = store.getFaculty();
   const teams = store.getAllTeams();
@@ -26,59 +28,79 @@ export default function AdminDashboardPage() {
       <div className="space-y-6">
 
         {/* Welcome Header */}
-        <div className="bg-gradient-to-r from-rose-950 via-rose-900 to-slate-900 text-white rounded-2xl p-6 md:p-8 shadow-xl relative overflow-hidden">
+        <div className={`text-white rounded-2xl p-6 md:p-8 shadow-xl relative overflow-hidden ${
+          isExec
+            ? 'bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900'
+            : 'bg-gradient-to-r from-rose-950 via-rose-900 to-slate-900'
+        }`}>
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-rose-500/20 text-rose-200 text-xs font-bold mb-3 border border-rose-500/30">
+              <div className={`inline-flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-bold mb-3 border ${
+                isExec
+                  ? 'bg-amber-500/20 text-amber-200 border-amber-500/30'
+                  : 'bg-rose-500/20 text-rose-200 border border-rose-500/30'
+              }`}>
                 <ShieldAlert className="h-3.5 w-3.5" />
-                <span>System Administration • Full System Access</span>
+                <span>{isExec ? 'Executive Leadership Supervision • Read-Only Review Mode' : 'System Administration • Full System Access'}</span>
               </div>
               <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight">
-                PBL Portal Control Center
+                {isExec ? 'PBL & Research Supervision Portal' : 'PBL Portal Control Center'}
               </h1>
-              <p className="text-xs text-rose-200 mt-1">
-                Dayananda Sagar Academy of Technology & Management — CSE Department
+              <p className={`text-xs mt-1 ${isExec ? 'text-indigo-200' : 'text-rose-200'}`}>
+                Dayananda Sagar Academy of Technology &amp; Management — CSE Department
               </p>
             </div>
 
             <div className="flex items-center space-x-3">
-              <Link
-                href="/admin/import"
-                className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-lg shadow-rose-600/30 flex items-center space-x-2"
-              >
-                <FileSpreadsheet className="h-4 w-4" />
-                <span>Import Excel Dataset</span>
-              </Link>
+              {isExec ? (
+                <Link
+                  href="/admin/teams"
+                  className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg shadow-indigo-600/30 flex items-center space-x-2"
+                >
+                  <GraduationCap className="h-4 w-4" />
+                  <span>View 4th &amp; 5th Sem Projects</span>
+                </Link>
+              ) : (
+                <Link
+                  href="/admin/import"
+                  className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-lg shadow-rose-600/30 flex items-center space-x-2"
+                >
+                  <FileSpreadsheet className="h-4 w-4" />
+                  <span>Import Excel Dataset</span>
+                </Link>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Executive Leadership Credentials Quick Reference */}
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 shadow-sm space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-extrabold text-amber-950 flex items-center gap-2">
-              <ShieldAlert className="w-4 h-4 text-amber-600" /> Executive Leadership & Administration Access Accounts
-            </h3>
-            <span className="text-[10px] font-bold uppercase bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full">Official Credentials</span>
+        {/* Executive Leadership Credentials Quick Reference (Super Admin Only) */}
+        {!isExec && (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 shadow-sm space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-extrabold text-amber-950 flex items-center gap-2">
+                <ShieldAlert className="w-4 h-4 text-amber-600" /> Executive Leadership &amp; Administration Access Accounts
+              </h3>
+              <span className="text-[10px] font-bold uppercase bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full">Official Credentials</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+              <div className="bg-white p-3 rounded-xl border border-amber-200">
+                <p className="font-extrabold text-slate-800">HOD (Dr. C Nandini)</p>
+                <p className="text-slate-500 text-[11px] mt-0.5">Email: <span className="font-mono text-slate-700">hod.cse@dsatm.edu.in</span></p>
+                <p className="text-slate-500 text-[11px]">Pass: <span className="font-mono font-bold text-indigo-700">HOD@CSE#2026</span></p>
+              </div>
+              <div className="bg-white p-3 rounded-xl border border-amber-200">
+                <p className="font-extrabold text-slate-800">Principal Office</p>
+                <p className="text-slate-500 text-[11px] mt-0.5">Email: <span className="font-mono text-slate-700">principal@dsatm.edu.in</span></p>
+                <p className="text-slate-500 text-[11px]">Pass: <span className="font-mono font-bold text-indigo-700">DSATM@PRIN#984</span></p>
+              </div>
+              <div className="bg-white p-3 rounded-xl border border-amber-200">
+                <p className="font-extrabold text-slate-800">Industry Partner</p>
+                <p className="text-slate-500 text-[11px] mt-0.5">Email: <span className="font-mono text-slate-700">industry.expert@dsatm.edu.in</span></p>
+                <p className="text-slate-500 text-[11px]">Pass: <span className="font-mono font-bold text-indigo-700">IND@EXPERT#451</span></p>
+              </div>
+            </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
-            <div className="bg-white p-3 rounded-xl border border-amber-200">
-              <p className="font-extrabold text-slate-800">HOD (Dr. C Nandini)</p>
-              <p className="text-slate-500 text-[11px] mt-0.5">Email: <span className="font-mono text-slate-700">hod.cse@dsatm.edu.in</span></p>
-              <p className="text-slate-500 text-[11px]">Pass: <span className="font-mono font-bold text-indigo-700">HOD@CSE#2026</span></p>
-            </div>
-            <div className="bg-white p-3 rounded-xl border border-amber-200">
-              <p className="font-extrabold text-slate-800">Principal Office</p>
-              <p className="text-slate-500 text-[11px] mt-0.5">Email: <span className="font-mono text-slate-700">principal@dsatm.edu.in</span></p>
-              <p className="text-slate-500 text-[11px]">Pass: <span className="font-mono font-bold text-indigo-700">DSATM@PRIN#984</span></p>
-            </div>
-            <div className="bg-white p-3 rounded-xl border border-amber-200">
-              <p className="font-extrabold text-slate-800">Industry Partner</p>
-              <p className="text-slate-500 text-[11px] mt-0.5">Email: <span className="font-mono text-slate-700">industry.expert@dsatm.edu.in</span></p>
-              <p className="text-slate-500 text-[11px]">Pass: <span className="font-mono font-bold text-indigo-700">IND@EXPERT#451</span></p>
-            </div>
-          </div>
-        </div>
+        )}
 
         {/* 4 Stats Cards Row 1 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -127,84 +149,122 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* Quick Management Links */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Link
-            href="/admin/students"
-            className="p-6 bg-white rounded-2xl border border-slate-200 shadow-sm hover:border-indigo-300 hover:shadow-md transition space-y-3 group"
-          >
-            <div className="flex items-center justify-between">
-              <div className="h-10 w-10 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold">
-                <Users className="h-5 w-5" />
+        {/* Quick Management / Supervision Links */}
+        {isExec ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Link
+              href="/admin/teams"
+              className="p-6 bg-white rounded-2xl border border-slate-200 shadow-sm hover:border-indigo-300 hover:shadow-md transition space-y-3 group"
+            >
+              <div className="flex items-center justify-between">
+                <div className="h-10 w-10 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold">
+                  <GraduationCap className="h-5 w-5" />
+                </div>
+                <ArrowUpRight className="h-5 w-5 text-slate-400 group-hover:text-indigo-600 transition" />
               </div>
-              <ArrowUpRight className="h-5 w-5 text-slate-400 group-hover:text-indigo-600 transition" />
-            </div>
-            <h3 className="font-extrabold text-slate-900 text-base">Student Management</h3>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              Create, edit, reset passwords, change sections, and assign student team memberships.
-            </p>
-          </Link>
+              <h3 className="font-extrabold text-slate-900 text-base">5th Semester PBL Projects</h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Supervise project registrations, titles, faculty guides, student team rosters, and submitted deliverables across all sections.
+              </p>
+            </Link>
 
-          <Link
-            href="/admin/faculty"
-            className="p-6 bg-white rounded-2xl border border-slate-200 shadow-sm hover:border-amber-300 hover:shadow-md transition space-y-3 group"
-          >
-            <div className="flex items-center justify-between">
-              <div className="h-10 w-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center font-bold">
-                <BookOpen className="h-5 w-5" />
+            <Link
+              href="/admin/teams"
+              className="p-6 bg-white rounded-2xl border border-slate-200 shadow-sm hover:border-amber-300 hover:shadow-md transition space-y-3 group"
+            >
+              <div className="flex items-center justify-between">
+                <div className="h-10 w-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center font-bold">
+                  <BookOpen className="h-5 w-5" />
+                </div>
+                <ArrowUpRight className="h-5 w-5 text-slate-400 group-hover:text-amber-600 transition" />
               </div>
-              <ArrowUpRight className="h-5 w-5 text-slate-400 group-hover:text-amber-600 transition" />
-            </div>
-            <h3 className="font-extrabold text-slate-900 text-base">Faculty Allocation</h3>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              Manage faculty credentials, guide allocations, and monitor workload across sections.
-            </p>
-          </Link>
-
-          <Link
-            href="/admin/teams"
-            className="p-6 bg-white rounded-2xl border border-slate-200 shadow-sm hover:border-emerald-300 hover:shadow-md transition space-y-3 group"
-          >
-            <div className="flex items-center justify-between">
-              <div className="h-10 w-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold">
-                <GraduationCap className="h-5 w-5" />
-              </div>
-              <ArrowUpRight className="h-5 w-5 text-slate-400 group-hover:text-emerald-600 transition" />
-            </div>
-            <h3 className="font-extrabold text-slate-900 text-base">Team Configuration</h3>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              Create teams, assign guides, change project titles, and re-allocate members.
-            </p>
-          </Link>
-        </div>
-
-        {/* Audit Logs Summary */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center space-x-2">
-              <History className="h-5 w-5 text-rose-600" />
-              <h3 className="font-bold text-slate-900 text-base">Recent Audit Log Events</h3>
-            </div>
-            <Link href="/admin/audit-logs" className="text-xs font-bold text-rose-600 hover:text-rose-800 flex items-center space-x-1">
-              <span>View Full Audit Log</span>
-              <ArrowUpRight className="h-3.5 w-3.5" />
+              <h3 className="font-extrabold text-slate-900 text-base">4th Semester Research Papers</h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Audit faculty research paper proof document/image uploads, check submitted vs pending groups, and inspect publication proofs.
+              </p>
             </Link>
           </div>
-
-          <div className="divide-y divide-slate-100">
-            {auditLogs.slice(0, 5).map(log => (
-              <div key={log.id} className="py-3 flex items-center justify-between text-xs">
-                <div>
-                  <span className="font-bold text-slate-800">{log.action}</span>
-                  <span className="text-slate-500 ml-2">by {log.userName} ({log.userRole})</span>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Link
+              href="/admin/students"
+              className="p-6 bg-white rounded-2xl border border-slate-200 shadow-sm hover:border-indigo-300 hover:shadow-md transition space-y-3 group"
+            >
+              <div className="flex items-center justify-between">
+                <div className="h-10 w-10 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold">
+                  <Users className="h-5 w-5" />
                 </div>
-                <span className="text-slate-400 font-mono text-[11px]">
-                  {new Date(log.createdAt).toLocaleTimeString()}
-                </span>
+                <ArrowUpRight className="h-5 w-5 text-slate-400 group-hover:text-indigo-600 transition" />
               </div>
-            ))}
+              <h3 className="font-extrabold text-slate-900 text-base">Student Management</h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Create, edit, reset passwords, change sections, and assign student team memberships.
+              </p>
+            </Link>
+
+            <Link
+              href="/admin/faculty"
+              className="p-6 bg-white rounded-2xl border border-slate-200 shadow-sm hover:border-amber-300 hover:shadow-md transition space-y-3 group"
+            >
+              <div className="flex items-center justify-between">
+                <div className="h-10 w-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center font-bold">
+                  <BookOpen className="h-5 w-5" />
+                </div>
+                <ArrowUpRight className="h-5 w-5 text-slate-400 group-hover:text-amber-600 transition" />
+              </div>
+              <h3 className="font-extrabold text-slate-900 text-base">Faculty Allocation</h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Manage faculty credentials, guide allocations, and monitor workload across sections.
+              </p>
+            </Link>
+
+            <Link
+              href="/admin/teams"
+              className="p-6 bg-white rounded-2xl border border-slate-200 shadow-sm hover:border-emerald-300 hover:shadow-md transition space-y-3 group"
+            >
+              <div className="flex items-center justify-between">
+                <div className="h-10 w-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold">
+                  <GraduationCap className="h-5 w-5" />
+                </div>
+                <ArrowUpRight className="h-5 w-5 text-slate-400 group-hover:text-emerald-600 transition" />
+              </div>
+              <h3 className="font-extrabold text-slate-900 text-base">Team Configuration</h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Create teams, assign guides, change project titles, and re-allocate members.
+              </p>
+            </Link>
           </div>
-        </div>
+        )}
+
+        {/* Audit Logs Summary (Super Admin Only) */}
+        {!isExec && (
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-2">
+                <History className="h-5 w-5 text-rose-600" />
+                <h3 className="font-bold text-slate-900 text-base">Recent Audit Log Events</h3>
+              </div>
+              <Link href="/admin/audit-logs" className="text-xs font-bold text-rose-600 hover:text-rose-800 flex items-center space-x-1">
+                <span>View Full Audit Log</span>
+                <ArrowUpRight className="h-3.5 w-3.5" />
+              </Link>
+            </div>
+
+            <div className="divide-y divide-slate-100">
+              {auditLogs.slice(0, 5).map(log => (
+                <div key={log.id} className="py-3 flex items-center justify-between text-xs">
+                  <div>
+                    <span className="font-bold text-slate-800">{log.action}</span>
+                    <span className="text-slate-500 ml-2">by {log.userName} ({log.userRole})</span>
+                  </div>
+                  <span className="text-slate-400 font-mono text-[11px]">
+                    {new Date(log.createdAt).toLocaleTimeString()}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
       </div>
     </DashboardLayout>

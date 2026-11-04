@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { UserProfile, UserRole } from '../types/pbl';
 import { store } from '../data/store';
 import { useRouter, usePathname } from 'next/navigation';
+import { isExecutiveViewer } from './roles';
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -71,6 +72,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         router.push(user.role === 'student' ? '/student/dashboard' : '/admin/dashboard');
       } else if (pathname.startsWith('/admin') && user.role !== 'admin') {
         router.push(user.role === 'student' ? '/student/dashboard' : '/faculty/dashboard');
+      } else if (user.role === 'admin' && isExecutiveViewer(user)) {
+        // Executive leadership (HOD, Principal, Industry Expert) can view 4th sem papers & 5th sem projects only
+        const restrictedAdminPaths = [
+          '/admin/deadlines',
+          '/admin/students',
+          '/admin/faculty',
+          '/admin/import',
+          '/admin/audit-logs'
+        ];
+        if (restrictedAdminPaths.some(p => pathname.startsWith(p))) {
+          router.push('/admin/teams');
+        }
       }
     }
   }, [user, isLoading, pathname, router]);

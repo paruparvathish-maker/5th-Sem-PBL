@@ -10,11 +10,13 @@ import {
   FileX, AlertCircle, Sparkles, Filter, CheckCircle
 } from 'lucide-react';
 import { Team, SectionCode, ResearchPaperStatus } from '@/lib/types/pbl';
+import { isExecutiveViewer } from '@/lib/auth/roles';
 
 export default function AdminTeamsPage() {
   const { user } = useAuth();
   if (!user) return null;
 
+  const isReadOnly = isExecutiveViewer(user);
   const [activeTab, setActiveTab] = useState<4 | 5>(5);
   const [teams, setTeams] = useState<Team[]>(store.getAllTeams());
   const facultyList = store.getFaculty();
@@ -104,6 +106,7 @@ export default function AdminTeamsPage() {
   const pendingFiltered = filteredTeams.filter(t => !t.researchPaperProofName && !t.researchPaperProofPath);
 
   const handleOpenAddModal = () => {
+    if (isReadOnly) return;
     setEditingTeam(null);
     setTeamNumber('A18');
     setSection('A');
@@ -114,6 +117,7 @@ export default function AdminTeamsPage() {
   };
 
   const handleOpenEditModal = (t: Team) => {
+    if (isReadOnly) return;
     setEditingTeam(t);
     setTeamNumber(t.teamNumber);
     setSection(t.section);
@@ -125,6 +129,7 @@ export default function AdminTeamsPage() {
 
   const handleSaveTeam = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isReadOnly) return;
     const guideObj = facultyList.find(f => f.id === guideId);
 
     if (editingTeam) {
@@ -332,16 +337,18 @@ export default function AdminTeamsPage() {
           )}
         </div>
 
-        {/* Card Footer Actions */}
-        <div className="pt-4 border-t border-slate-100 flex items-center justify-end">
-          <button
-            onClick={() => handleOpenEditModal(t)}
-            className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs border border-slate-200 flex items-center space-x-1 transition"
-          >
-            <Edit className="h-3.5 w-3.5" />
-            <span>Edit Team Details</span>
-          </button>
-        </div>
+        {/* Card Footer Actions - Admin only */}
+        {!isReadOnly && (
+          <div className="pt-4 border-t border-slate-100 flex items-center justify-end">
+            <button
+              onClick={() => handleOpenEditModal(t)}
+              className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs border border-slate-200 flex items-center space-x-1 transition"
+            >
+              <Edit className="h-3.5 w-3.5" />
+              <span>Edit Team Details</span>
+            </button>
+          </div>
+        )}
       </div>
     );
   };
@@ -375,15 +382,33 @@ export default function AdminTeamsPage() {
               <Download className="h-4 w-4" />
               <span>Export Audit Excel</span>
             </button>
-            <button
-              onClick={handleOpenAddModal}
-              className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md flex items-center space-x-2 transition"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Create Team</span>
-            </button>
+            {!isReadOnly && (
+              <button
+                onClick={handleOpenAddModal}
+                className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md flex items-center space-x-2 transition"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Create Team</span>
+              </button>
+            )}
           </div>
         </div>
+
+        {/* Executive Observer Mode Notice */}
+        {isReadOnly && (
+          <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-3 shadow-sm">
+            <div className="p-2 rounded-lg bg-amber-100 text-amber-800 shrink-0 mt-0.5">
+              <AlertCircle className="w-4 h-4" />
+            </div>
+            <div className="text-xs">
+              <p className="font-extrabold text-amber-950">Executive Observer Access ({user.name})</p>
+              <p className="text-amber-800 mt-0.5 leading-relaxed">
+                You have read-only supervision access to 4th Semester Research Papers and 5th Semester PBL Projects.
+                Data modifications, deletions, and deadline configurations are strictly restricted to the Main Administrator account.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Semester Toggle Navigation */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

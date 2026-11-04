@@ -9,6 +9,7 @@ import {
   Award, Bot, BookOpen, ShieldAlert, LogOut, Menu, X, Bell, FileSpreadsheet, History, CheckCircle2 
 } from 'lucide-react';
 import { store } from '@/lib/data/store';
+import { isExecutiveViewer } from '@/lib/auth/roles';
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
@@ -22,6 +23,8 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
   // Navigation Links based on user role
+  const isExec = isExecutiveViewer(user);
+
   const navItems = user.role === 'student' ? [
     { label: 'Dashboard', href: '/student/dashboard', icon: LayoutDashboard },
     { label: 'My Team', href: '/student/team', icon: Users },
@@ -35,7 +38,12 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     { label: 'Submissions & Docs', href: '/faculty/documents', icon: UploadCloud },
     { label: 'Evaluations & Grading', href: '/faculty/evaluations', icon: Award },
     { label: 'Guide Meetings', href: '/faculty/meetings', icon: Calendar },
+  ] : isExec ? [
+    // Executive Leadership (HOD, Principal, Industry Expert) - Read-only view for 4th Sem papers & 5th Sem projects only
+    { label: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
+    { label: '4th & 5th Sem Projects', href: '/admin/teams', icon: GraduationCap },
   ] : [
+    // Main Admin - Full administrative control
     { label: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
     { label: 'Student Management', href: '/admin/students', icon: Users },
     { label: 'Faculty Allocation', href: '/admin/faculty', icon: BookOpen },
@@ -74,11 +82,12 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
           </div>
           <div className="mt-3 flex items-center justify-between pt-2 border-t border-slate-700/40">
             <span className={`px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider ${
+              isExec ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
               user.role === 'admin' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' :
               user.role === 'faculty' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
               'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
             }`}>
-              {user.role}
+              {isExec ? 'Executive Observer' : user.role === 'admin' ? 'Super Admin' : user.role}
             </span>
             {user.section && (
               <span className="text-xs font-semibold text-slate-300 bg-slate-700 px-2 py-0.5 rounded">

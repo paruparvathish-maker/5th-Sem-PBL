@@ -9,7 +9,10 @@ import {
   FileText, ArrowRight, ShieldAlert, Sparkles, Download, Check 
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import Link from 'next/link';
 import { getGuideEmail, getGuidePhone } from '@/lib/data/seed-dataset';
+import { isExecutiveViewer } from '@/lib/auth/roles';
+import { Lock } from 'lucide-react';
 
 interface ParsedRecord {
   rowNum: number;
@@ -26,6 +29,29 @@ interface ParsedRecord {
 export default function AdminImportPage() {
   const { user } = useAuth();
   if (!user) return null;
+
+  if (isExecutiveViewer(user)) {
+    return (
+      <DashboardLayout>
+        <div className="bg-white p-12 rounded-2xl border border-slate-200 text-center max-w-lg mx-auto space-y-4 my-12 shadow-sm">
+          <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto">
+            <Lock className="w-7 h-7" />
+          </div>
+          <h2 className="text-xl font-extrabold text-slate-900">Access Restricted</h2>
+          <p className="text-xs text-slate-500 leading-relaxed">
+            Excel batch data importing and dataset management are strictly restricted to the Main Administrator.
+            Executive leadership accounts have access to supervise 4th Sem Research Papers and 5th Sem PBL Projects.
+          </p>
+          <Link
+            href="/admin/teams"
+            className="inline-flex items-center px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md transition"
+          >
+            Go to 4th &amp; 5th Sem Projects
+          </Link>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   const [fileName, setFileName] = useState<string | null>(null);
   const [parsedRecords, setParsedRecords] = useState<ParsedRecord[]>([]);
