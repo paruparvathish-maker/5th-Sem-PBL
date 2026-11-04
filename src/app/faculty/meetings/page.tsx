@@ -1,17 +1,34 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth/auth-context';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { store } from '@/lib/data/store';
 import { Calendar, Plus, MapPin, Clock, Users, CheckCircle2 } from 'lucide-react';
+import { GuideMeeting, Team } from '@/lib/types/pbl';
 
 export default function FacultyMeetingsPage() {
   const { user } = useAuth();
   if (!user) return null;
 
-  const assignedTeams = store.getTeamsByGuideId(user.id);
-  const meetings = store.getMeetingsForFaculty(user.id);
+  const [assignedTeams, setAssignedTeams] = useState<Team[]>(store.getTeamsByGuideId(user.id));
+  const [meetings, setMeetings] = useState<GuideMeeting[]>(store.getMeetingsForFaculty(user.id));
+
+  const loadData = () => {
+    const teams = store.getTeamsByGuideId(user.id);
+    setAssignedTeams(teams);
+    setMeetings(store.getMeetingsForFaculty(user.id));
+    if (teams.length > 0 && !selectedTeamId) {
+      setSelectedTeamId(teams[0].id);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+    store.syncFromSupabase().then(() => {
+      loadData();
+    });
+  }, [user.id]);
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedTeamId, setSelectedTeamId] = useState(assignedTeams[0]?.id || '');
@@ -40,6 +57,7 @@ export default function FacultyMeetingsPage() {
       status: 'scheduled'
     });
 
+    setMeetings(store.getMeetingsForFaculty(user.id));
     setMessage(`Guide meeting "${title}" scheduled successfully for Group ${team?.teamNumber}!`);
     setShowCreateModal(false);
     setTitle('');

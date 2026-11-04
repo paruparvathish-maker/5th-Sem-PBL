@@ -1,11 +1,13 @@
 /**
  * Robust file downloader for student submissions and review reports.
- * If a base64 dataUrl or web URL is available, triggers direct download.
- * Otherwise, generates a valid downloadable PDF document so faculty & students
- * can always download and view the submission on disk.
+ * Checks for base64 dataUrl, IndexedDB cached files, remote URLs,
+ * and falls back to generating a valid downloadable PDF document.
  */
 
-export function downloadSubmissionFile(sub: {
+import { getFileFromIdb } from './idb-storage';
+
+export async function downloadSubmissionFile(sub: {
+  id?: string;
   fileName?: string;
   filePath?: string;
   fileData?: string;
@@ -18,7 +20,15 @@ export function downloadSubmissionFile(sub: {
   remarks?: string;
 }) {
   const fileName = sub.fileName || 'project_details.pdf';
-  const data = sub.fileData || sub.filePath;
+  let data = sub.fileData || sub.filePath;
+
+  // Check IndexedDB if fileData is not in memory
+  if ((!data || !data.startsWith('data:')) && sub.id) {
+    const idbData = await getFileFromIdb(sub.id);
+    if (idbData) {
+      data = idbData;
+    }
+  }
 
   // 1. If base64 data URI, blob URL, or remote URL is present
   if (data && (data.startsWith('data:') || data.startsWith('blob:') || data.startsWith('http://') || data.startsWith('https://'))) {

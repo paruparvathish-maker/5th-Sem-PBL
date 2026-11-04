@@ -6,6 +6,7 @@ export const dynamic = 'force-dynamic';
 
 const FASTAPI_URL = process.env.NEXT_PUBLIC_FASTAPI_URL || 'https://backend-beta-kohl-9pcedk6q96.vercel.app';
 const BACKEND_DATA_PATH = path.join(process.cwd(), 'backend', 'data.json');
+const TMP_DATA_PATH = '/tmp/pbl_backend_data.json';
 
 export async function GET() {
   try {
@@ -66,7 +67,13 @@ export async function GET() {
       // FastAPI offline
     }
 
-    // 3. Fallback to local backend/data.json
+    // 3. Fallback to /tmp or local backend/data.json
+    if (fs.existsSync(TMP_DATA_PATH)) {
+      try {
+        const raw = fs.readFileSync(TMP_DATA_PATH, 'utf8');
+        return NextResponse.json(JSON.parse(raw));
+      } catch {}
+    }
     if (fs.existsSync(BACKEND_DATA_PATH)) {
       const raw = fs.readFileSync(BACKEND_DATA_PATH, 'utf8');
       const data = JSON.parse(raw);
@@ -95,11 +102,31 @@ export async function POST(request: Request) {
       // FastAPI offline
     }
 
-    // 2. Persist to local backend/data.json if writable
+    // 2. Persist to local backend/data.json or /tmp fallback with intelligent merge
+    let currentData: any = {};
+    if (fs.existsSync(TMP_DATA_PATH)) {
+      try { currentData = JSON.parse(fs.readFileSync(TMP_DATA_PATH, 'utf8')); } catch {}
+    } else if (fs.existsSync(BACKEND_DATA_PATH)) {
+      try { currentData = JSON.parse(fs.readFileSync(BACKEND_DATA_PATH, 'utf8')); } catch {}
+    }
+
+    const merged = {
+      profiles: (payload.profiles && payload.profiles.length > 0) ? payload.profiles : (currentData.profiles || []),
+      teams: (payload.teams && payload.teams.length > 0) ? payload.teams : (currentData.teams || []),
+      deadlines: (payload.deadlines && payload.deadlines.length > 0) ? payload.deadlines : (currentData.deadlines || []),
+      submissions: (payload.submissions && payload.submissions.length > 0) ? payload.submissions : (currentData.submissions || []),
+      evaluations: (payload.evaluations && payload.evaluations.length > 0) ? payload.evaluations : (currentData.evaluations || []),
+      guideMeetings: (payload.guideMeetings && payload.guideMeetings.length > 0) ? payload.guideMeetings : (currentData.guideMeetings || []),
+      notifications: (payload.notifications && payload.notifications.length > 0) ? payload.notifications : (currentData.notifications || []),
+      auditLogs: (payload.auditLogs && payload.auditLogs.length > 0) ? payload.auditLogs : (currentData.auditLogs || []),
+    };
+
     try {
-      fs.writeFileSync(BACKEND_DATA_PATH, JSON.stringify(payload, null, 2), 'utf8');
+      fs.writeFileSync(BACKEND_DATA_PATH, JSON.stringify(merged, null, 2), 'utf8');
     } catch {
-      // Read-only filesystem on serverless
+      try {
+        fs.writeFileSync(TMP_DATA_PATH, JSON.stringify(merged, null, 2), 'utf8');
+      } catch {}
     }
 
     return NextResponse.json({ success: true, message: 'Backend database synced successfully' });

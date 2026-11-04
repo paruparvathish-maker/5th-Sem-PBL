@@ -9,8 +9,9 @@ import {
   Upload, FileCheck, ArrowDownToLine, Users, ShieldAlert,
   Clock, AlertCircle, Info, Sparkles, ExternalLink
 } from 'lucide-react';
-import { Deadline, Submission } from '@/lib/types/pbl';
+import { Deadline, Submission, Team } from '@/lib/types/pbl';
 import { downloadSubmissionFile } from '@/lib/utils/download';
+import { saveFileToIdb } from '@/lib/utils/idb-storage';
 
 export default function StudentSubmissionsPage() {
   const { user } = useAuth();
@@ -18,7 +19,7 @@ export default function StudentSubmissionsPage() {
 
   if (!user) return null;
 
-  const team = store.getTeamByStudentId(user.id);
+  const [team, setTeam] = useState<Team | undefined>(store.getTeamByStudentId(user.id));
   const [activeDeadline, setActiveDeadline] = useState<Deadline | undefined>(undefined);
   const [teamSubmissions, setTeamSubmissions] = useState<Submission[]>([]);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -28,14 +29,16 @@ export default function StudentSubmissionsPage() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const loadData = () => {
+    const currentTeam = store.getTeamByStudentId(user.id);
+    setTeam(currentTeam);
     // Deadlines applicable to student
     const deadlines = store.getDeadlinesForStudent(user.section);
     // Find 1st review deadline or first active deadline
     const rev1 = deadlines.find(d => d.id === 'dl-review-1' || d.title.toLowerCase().includes('1st review')) || deadlines[0];
     setActiveDeadline(rev1);
 
-    if (team) {
-      const subs = store.getSubmissionsForTeam(team.id);
+    if (currentTeam) {
+      const subs = store.getSubmissionsForTeam(currentTeam.id);
       setTeamSubmissions(subs);
     }
   };
@@ -45,7 +48,7 @@ export default function StudentSubmissionsPage() {
     store.syncFromSupabase().then(() => {
       loadData();
     });
-  }, [user.id, team?.id]);
+  }, [user.id]);
 
   // Existing submission for 1st Review
   const currentSubmission = teamSubmissions.find(s => 
@@ -112,6 +115,9 @@ export default function StudentSubmissionsPage() {
       );
 
       if (res.success && res.submission) {
+        if (fileDataUrl) {
+          saveFileToIdb(res.submission.id, fileDataUrl).catch(console.error);
+        }
         setMessage({
           type: 'success',
           text: `Document "${selectedFile.name}" successfully saved and locked for Team Group ${team.teamNumber}!`

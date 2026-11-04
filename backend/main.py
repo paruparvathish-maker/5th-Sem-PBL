@@ -32,6 +32,7 @@ app.add_middleware(
 )
 
 DATA_FILE = os.path.join(os.path.dirname(__file__), "data.json")
+TMP_DATA_FILE = "/tmp/pbl_backend_data.json"
 
 # In-memory storage loaded from data.json
 DB: Dict[str, Any] = {
@@ -47,20 +48,26 @@ DB: Dict[str, Any] = {
 
 def load_data():
     global DB
-    if os.path.exists(DATA_FILE):
+    target_file = TMP_DATA_FILE if os.path.exists(TMP_DATA_FILE) else DATA_FILE
+    if os.path.exists(target_file):
         try:
-            with open(DATA_FILE, "r", encoding="utf-8") as f:
+            with open(target_file, "r", encoding="utf-8") as f:
                 DB = json.load(f)
-                print(f"[FastAPI] Loaded DB from {DATA_FILE}: {len(DB.get('teams', []))} teams, {len(DB.get('profiles', []))} profiles.")
+                print(f"[FastAPI] Loaded DB from {target_file}: {len(DB.get('teams', []))} teams, {len(DB.get('profiles', []))} profiles.")
         except Exception as e:
-            print(f"[FastAPI] Error loading {DATA_FILE}: {e}")
+            print(f"[FastAPI] Error loading {target_file}: {e}")
 
 def save_data():
     try:
         with open(DATA_FILE, "w", encoding="utf-8") as f:
             json.dump(DB, f, indent=2)
     except Exception as e:
-        print(f"[FastAPI] Error saving {DATA_FILE}: {e}")
+        try:
+            with open(TMP_DATA_FILE, "w", encoding="utf-8") as f:
+                json.dump(DB, f, indent=2)
+            print(f"[FastAPI] Persisted DB to fallback {TMP_DATA_FILE}")
+        except Exception as tmp_err:
+            print(f"[FastAPI] Error saving to fallback {TMP_DATA_FILE}: {tmp_err}")
 
 @app.on_event("startup")
 def startup_event():
@@ -550,23 +557,32 @@ def get_full_database():
 
 @app.post("/api/db", tags=["Database Sync"])
 def sync_full_database(payload: DatabaseSyncPayload):
-    """Receives full database state synced from the Next.js frontend."""
+    """Receives full database state synced from the Next.js frontend with intelligent merging."""
     global DB
-    if payload.profiles is not None:
+    if payload.profiles is not None and len(payload.profiles) > 0:
         DB["profiles"] = payload.profiles
-    if payload.teams is not None:
+    if payload.teams is not None and len(payload.teams) > 0:
         DB["teams"] = payload.teams
-    if payload.deadlines is not None:
+    if payload.deadlines is not None and len(payload.deadlines) > 0:
         DB["deadlines"] = payload.deadlines
-    if payload.submissions is not None:
-        DB["submissions"] = payload.submissions
-    if payload.evaluations is not None:
-        DB["evaluations"] = payload.evaluations
-    if payload.guideMeetings is not None:
-        DB["guideMeetings"] = payload.guideMeetings
-    if payload.notifications is not None:
+    if payload.submissions is not None and len(payload.submissions) > 0:
+        existing_subs = {s.get("id"): s for s in DB.get("submissions", [])}
+        for sub in payload.submissions:
+            existing_subs[sub.get("id")] = sub
+        DB["submissions"] = list(existing_subs.values())
+    if payload.evaluations is not None and len(payload.evaluations) > 0:
+        existing_evals = {e.get("id"): e for e in DB.get("evaluations", [])}
+        for ev in payload.evaluations:
+            existing_evals[ev.get("id")] = ev
+        DB["evaluations"] = list(existing_evals.values())
+    if payload.guideMeetings is not None and len(payload.guideMeetings) > 0:
+        existing_meetings = {m.get("id"): m for m in DB.get("guideMeetings", [])}
+        for mt in payload.guideMeetings:
+            existing_meetings[mt.get("id")] = mt
+        DB["guideMeetings"] = list(existing_meetings.values())
+    if payload.notifications is not None and len(payload.notifications) > 0:
         DB["notifications"] = payload.notifications
-    if payload.auditLogs is not None:
+    if payload.auditLogs is not None and len(payload.auditLogs) > 0:
         DB["auditLogs"] = payload.auditLogs
 
     save_data()

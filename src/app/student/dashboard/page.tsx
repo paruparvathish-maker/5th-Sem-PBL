@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth/auth-context';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { store } from '@/lib/data/store';
@@ -9,17 +9,43 @@ import {
   Users, Calendar, UploadCloud, Award, Clock, ArrowUpRight, 
   CheckCircle2, AlertTriangle, ShieldCheck, UserCheck, Bot 
 } from 'lucide-react';
+import { Team, Deadline, GuideMeeting, Submission, Evaluation } from '@/lib/types/pbl';
 
 export default function StudentDashboardPage() {
   const { user } = useAuth();
   if (!user) return null;
 
-  const team = store.getTeamByStudentId(user.id);
-  const deadlines = store.getDeadlinesForStudent(user.section);
+  const [team, setTeam] = useState<Team | undefined>(store.getTeamByStudentId(user.id));
+  const [deadlines, setDeadlines] = useState<Deadline[]>(store.getDeadlinesForStudent(user.section));
+  const [meetings, setMeetings] = useState<GuideMeeting[]>([]);
+  const [submissions, setSubmissions] = useState<Submission[]>([]);
+  const [publishedEvaluations, setPublishedEvaluations] = useState<Evaluation[]>([]);
+
+  const loadDashboardData = () => {
+    const currentTeam = store.getTeamByStudentId(user.id);
+    const currentDeadlines = store.getDeadlinesForStudent(user.section);
+    setTeam(currentTeam);
+    setDeadlines(currentDeadlines);
+
+    if (currentTeam) {
+      setMeetings(store.getMeetingsForTeam(currentTeam.id));
+      setSubmissions(store.getSubmissionsForTeam(currentTeam.id));
+      setPublishedEvaluations(store.getPublishedEvaluationsForStudent(user.id, currentTeam.id, user.usn));
+    } else {
+      setMeetings([]);
+      setSubmissions([]);
+      setPublishedEvaluations([]);
+    }
+  };
+
+  useEffect(() => {
+    loadDashboardData();
+    store.syncFromSupabase().then(() => {
+      loadDashboardData();
+    });
+  }, [user.id, user.section, user.usn]);
+
   const upcomingDeadlines = deadlines.filter(d => d.status === 'open' || d.status === 'upcoming');
-  const meetings = team ? store.getMeetingsForTeam(team.id) : [];
-  const submissions = team ? store.getSubmissionsForTeam(team.id) : [];
-  const publishedEvaluations = team ? store.getPublishedEvaluationsForStudent(user.id, team.id) : [];
 
   return (
     <DashboardLayout>

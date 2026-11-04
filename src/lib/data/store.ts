@@ -3,6 +3,7 @@ import {
 } from '../types/pbl';
 import { RAW_PDF_SEED, getGuideEmail, getGuidePhone } from './seed-dataset';
 import { RAW_4TH_SEM_SEED } from './seed-dataset-4th';
+import { saveFileToIdb } from '../utils/idb-storage';
 
 const generateUUID = () => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -309,11 +310,21 @@ class PBLStore {
   private save(skipCloudSync: boolean = false) {
     if (typeof window !== 'undefined') {
       try {
+        // Strip large base64 file data before persisting to localStorage
+        // Large files are safely cached in IndexedDB via idb-storage.ts
+        const lightweightSubmissions = this.submissions.map(s => {
+          if (s.fileData && s.fileData.length > 50000) {
+            const { fileData, ...rest } = s;
+            return rest;
+          }
+          return s;
+        });
+
         localStorage.setItem('pbl_portal_store_v7', JSON.stringify({
           profiles: this.profiles,
           teams: this.teams,
           deadlines: this.deadlines,
-          submissions: this.submissions,
+          submissions: lightweightSubmissions,
           evaluations: this.evaluations,
           guideMeetings: this.guideMeetings,
           notifications: this.notifications,
@@ -424,12 +435,17 @@ class PBLStore {
           });
         }
 
-        this.deadlines = (data.deadlines || this.deadlines).filter((d: any) => 
-          d.id !== 'dl-guide-meeting' && 
-          !d.title.toLowerCase().includes('guide meeting') &&
-          d.id !== 'dl-project-stmt' && 
-          !d.title.toLowerCase().includes('problem statement')
-        );
+        if (data.deadlines && Array.isArray(data.deadlines) && data.deadlines.length > 0) {
+          const filteredIncoming = data.deadlines.filter((d: any) => 
+            d.id !== 'dl-guide-meeting' && 
+            !d.title?.toLowerCase().includes('guide meeting') &&
+            d.id !== 'dl-project-stmt' && 
+            !d.title?.toLowerCase().includes('problem statement')
+          );
+          if (filteredIncoming.length > 0) {
+            this.deadlines = filteredIncoming;
+          }
+        }
         if (!this.deadlines.some(d => d.id === 'dl-review-1' || d.title.toLowerCase().includes('1st review'))) {
           this.deadlines.push({
             id: 'dl-review-1',
@@ -444,22 +460,92 @@ class PBLStore {
             createdAt: new Date().toISOString()
           });
         }
-        this.submissions = (data.submissions || this.submissions).filter((s: any) => 
-          s.deadlineId !== 'dl-guide-meeting' && 
-          s.deadlineId !== 'dl-project-stmt' && 
-          !s.deadlineTitle?.toLowerCase().includes('problem statement')
-        );
-        this.evaluations = data.evaluations || this.evaluations;
-        this.guideMeetings = data.guideMeetings || this.guideMeetings;
-        this.notifications = data.notifications || this.notifications;
-        this.auditLogs = data.auditLogs || this.auditLogs;
+
+        // Intelligent non-destructive merge for submissions: NEVER let remote empty arrays wipe out local submissions
+        if (data.submissions && Array.isArray(data.submissions) && data.submissions.length > 0) {
+          const incomingSubMap = new Map<string, Submission>(
+            data.submissions
+              .filter((s: any) => s.deadlineId !== 'dl-guide-meeting' && s.deadlineId !== 'dl-project-stmt')
+              .map((s: Submission) => [s.id, s])
+          );
+
+          this.submissions = this.submissions.map(localSub => {
+            const incoming = incomingSubMap.get(localSub.id);
+            if (!incoming) return localSub;
+            return {
+              ...incoming,
+              fileData: localSub.fileData || incoming.fileData,
+              isLocked: localSub.isLocked !== undefined ? localSub.isLocked : incoming.isLocked,
+            };
+          });
+
+          data.submissions.forEach((s: Submission) => {
+            if (s.deadlineId !== 'dl-guide-meeting' && s.deadlineId !== 'dl-project-stmt') {
+              if (!this.submissions.some(local => local.id === s.id)) {
+                this.submissions.push(s);
+              }
+            }
+          });
+        }
+
+        // Intelligent non-destructive merge for evaluations
+        if (data.evaluations && Array.isArray(data.evaluations) && data.evaluations.length > 0) {
+          const incomingEvalMap = new Map<string, Evaluation>(data.evaluations.map((e: Evaluation) => [e.id, e]));
+          this.evaluations = this.evaluations.map(localEval => {
+            const incoming = incomingEvalMap.get(localEval.id);
+            return incoming || localEval;
+          });
+          data.evaluations.forEach((e: Evaluation) => {
+            if (!this.evaluations.some(local => local.id === e.id)) {
+              this.evaluations.push(e);
+            }
+          });
+        }
+
+        // Intelligent non-destructive merge for guide meetings
+        if (data.guideMeetings && Array.isArray(data.guideMeetings) && data.guideMeetings.length > 0) {
+          const incomingMeetingMap = new Map<string, GuideMeeting>(data.guideMeetings.map((m: GuideMeeting) => [m.id, m]));
+          this.guideMeetings = this.guideMeetings.map(localMeeting => {
+            const incoming = incomingMeetingMap.get(localMeeting.id);
+            return incoming || localMeeting;
+          });
+          data.guideMeetings.forEach((m: GuideMeeting) => {
+            if (!this.guideMeetings.some(local => local.id === m.id)) {
+              this.guideMeetings.push(m);
+            }
+          });
+        }
+
+        if (data.notifications && Array.isArray(data.notifications) && data.notifications.length > 0) {
+          data.notifications.forEach((n: NotificationItem) => {
+            if (!this.notifications.some(local => local.id === n.id)) {
+              this.notifications.push(n);
+            }
+          });
+        }
+
+        if (data.auditLogs && Array.isArray(data.auditLogs) && data.auditLogs.length > 0) {
+          data.auditLogs.forEach((a: AuditLogItem) => {
+            if (!this.auditLogs.some(local => local.id === a.id)) {
+              this.auditLogs.push(a);
+            }
+          });
+        }
         
         if (typeof window !== 'undefined') {
+          const lightweightSubmissions = this.submissions.map(s => {
+            if (s.fileData && s.fileData.length > 50000) {
+              const { fileData, ...rest } = s;
+              return rest;
+            }
+            return s;
+          });
+
           localStorage.setItem('pbl_portal_store_v7', JSON.stringify({
             profiles: this.profiles,
             teams: this.teams,
             deadlines: this.deadlines,
-            submissions: this.submissions,
+            submissions: lightweightSubmissions,
             evaluations: this.evaluations,
             guideMeetings: this.guideMeetings,
             notifications: this.notifications,
@@ -474,11 +560,19 @@ class PBLStore {
 
   public async syncToSupabase() {
     try {
+      const lightweightSubmissions = this.submissions.map(s => {
+        if (s.fileData && s.fileData.length > 100000) {
+          const { fileData, ...rest } = s;
+          return rest;
+        }
+        return s;
+      });
+
       const payload = JSON.stringify({
         profiles: this.profiles,
         teams: this.teams,
         deadlines: this.deadlines,
-        submissions: this.submissions,
+        submissions: lightweightSubmissions,
         evaluations: this.evaluations,
         guideMeetings: this.guideMeetings,
         notifications: this.notifications,
@@ -849,6 +943,15 @@ class PBLStore {
       this.submissions.push(newSub);
     }
 
+    // Safely persist full document data into IndexedDB so it survives refreshes & downloads
+    if (fileData && typeof window !== 'undefined') {
+      try {
+        saveFileToIdb(newSub.id, fileData).catch(err => {
+          console.warn('[Store] Could not cache file to IndexedDB:', err);
+        });
+      } catch (err) {}
+    }
+
     this.addAuditLog(
       submittedBy,
       student?.name || 'Student',
@@ -904,13 +1007,23 @@ class PBLStore {
     return this.evaluations.filter(e => e.teamId === teamId && e.isPublished);
   }
 
-  public getPublishedEvaluationsForStudent(studentId: string, teamId: string): Evaluation[] {
-    return this.evaluations.filter(e =>
-      e.isPublished && (
-        (e.evaluationType === 'individual' && e.studentId === studentId) ||
-        (e.evaluationType === 'team' && e.teamId === teamId)
-      )
-    );
+  public getPublishedEvaluationsForStudent(studentIdOrUsn: string, teamId?: string, studentUsn?: string): Evaluation[] {
+    const cleanId = (studentIdOrUsn || '').trim().toLowerCase();
+    const cleanUsn = (studentUsn || '').trim().toLowerCase();
+
+    return this.evaluations.filter(e => {
+      if (!e.isPublished) return false;
+      const evalStudentId = (e.studentId || '').trim().toLowerCase();
+      const evalStudentUsn = (e.studentUsn || '').trim().toLowerCase();
+
+      // STRICT PRIVACY: Match only the specific student's own ID or USN.
+      // NEVER match by teamId so a student never sees any teammate's marks.
+      const isMatch = (
+        (evalStudentId && (evalStudentId === cleanId || (cleanUsn && evalStudentId === cleanUsn))) ||
+        (evalStudentUsn && (evalStudentUsn === cleanId || (cleanUsn && evalStudentUsn === cleanUsn)))
+      );
+      return isMatch;
+    });
   }
 
   public saveEvaluation(evalData: Omit<Evaluation, 'id' | 'evaluatedAt'>): Evaluation {

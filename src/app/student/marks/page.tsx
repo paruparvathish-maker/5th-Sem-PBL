@@ -1,17 +1,37 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth/auth-context';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { store } from '@/lib/data/store';
 import { Award, CheckCircle2, ShieldCheck, UserCheck } from 'lucide-react';
+import { Evaluation } from '@/lib/types/pbl';
 
 export default function StudentMarksPage() {
   const { user } = useAuth();
   if (!user) return null;
 
-  const team = store.getTeamByStudentId(user.id);
-  const evaluations = team ? store.getPublishedEvaluationsForStudent(user.id, team.id) : [];
+  const [team, setTeam] = useState(store.getTeamByStudentId(user.id));
+  const [evaluations, setEvaluations] = useState<Evaluation[]>(
+    team ? store.getPublishedEvaluationsForStudent(user.id, team.id, user.usn) : []
+  );
+
+  const loadData = () => {
+    const t = store.getTeamByStudentId(user.id);
+    setTeam(t);
+    if (t) {
+      setEvaluations(store.getPublishedEvaluationsForStudent(user.id, t.id, user.usn));
+    } else {
+      setEvaluations([]);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+    store.syncFromSupabase().then(() => {
+      loadData();
+    });
+  }, [user.id, user.usn]);
 
   return (
     <DashboardLayout>
