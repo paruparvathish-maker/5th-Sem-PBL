@@ -148,17 +148,17 @@ export default function LoginPage() {
                   spellCheck={false}
                   autoComplete="username"
                   placeholder={
-                    activeTab === 'student' ? 'USN or Registered Mobile' :
-                    activeTab === 'faculty' ? 'Email or Registered Mobile' :
-                    'Email (e.g. raghu.industry@dsatm.edu.in) or Phone'
+                    activeTab === 'student' ? 'USN (e.g. 1DT24CS010), Name or Mobile' :
+                    activeTab === 'faculty' ? 'Faculty Name (e.g. Gajendra), Email or Mobile' :
+                    'Username (e.g. admin, raghu, girish) or Email'
                   }
                   className="block w-full pl-10 pr-3 py-2.5 bg-slate-900/90 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
                 />
               </div>
               <p className="mt-1 text-[11px] text-slate-400">
-                {activeTab === 'student' && 'Initial password is your USN (e.g. 1DT24CS001)'}
-                {activeTab === 'faculty' && 'Initial password is your registered 10-digit mobile number'}
-                {activeTab === 'admin' && 'Main Admin & designated Industry Experts (login with email, username or phone)'}
+                {activeTab === 'student' && 'Login with USN or Name. Initial password is your USN (e.g. 1DT24CS001)'}
+                {activeTab === 'faculty' && 'Login with Name, Email or Mobile. Initial password is your registered 10-digit mobile number'}
+                {activeTab === 'admin' && 'Main Admin (admin/parvathish) & Industry Experts (girish, raghu, rajashekhar, manasa, harshitha)'}
               </p>
             </div>
 
@@ -226,12 +226,12 @@ export default function LoginPage() {
               </button>
 
               <button
-                onClick={() => fillDemo('mr.-gajendra-l-cse@dsatm.edu.in', '9550095500', 'faculty')}
+                onClick={() => fillDemo('gajendra-cse@dsatm.edu.in', '8494875135', 'faculty')}
                 className="w-full text-left p-2.5 rounded-xl bg-slate-900/60 border border-slate-700/50 hover:border-amber-500/50 transition-all flex items-center justify-between text-xs"
               >
                 <div>
                   <span className="font-semibold text-slate-200 block">Faculty: Mr. Gajendra L (Guide for A1, D12, F9)</span>
-                  <span className="text-slate-400">Email: mr.-gajendra-l-cse@dsatm.edu.in</span>
+                  <span className="text-slate-400">Email: gajendra-cse@dsatm.edu.in • Pass: 8494875135</span>
                 </div>
                 <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold text-[10px]">Autofill</span>
               </button>

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { store } from '@/lib/data/store';
+import { fetchCloudCredentials } from '@/lib/data/cloud-sync';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -51,9 +52,11 @@ export async function POST(request: Request) {
 
     const cleanId = String(identifier).trim().toLowerCase();
     const cleanDigits = cleanId.replace(/\D/g, '');
+    const cleanAlpha = cleanId.replace(/[^a-z0-9]/g, '');
+    const cleanEmailPrefix = cleanId.includes('@') ? cleanId.split('@')[0].replace(/[^a-z0-9]/g, '') : cleanAlpha;
     const cleanPass = password !== undefined ? String(password).trim() : '';
 
-    // 1. Read profiles from disk to get latest saved credentials
+    // 1. Read profiles from disk to get seed data
     let profiles: any[] = [];
     const targetPath = fs.existsSync(TMP_DATA_PATH) ? TMP_DATA_PATH : (fs.existsSync(BACKEND_DATA_PATH) ? BACKEND_DATA_PATH : null);
     if (targetPath) {
@@ -70,8 +73,36 @@ export async function POST(request: Request) {
       profiles = store.getAllProfiles();
     }
 
-    // 2. Comprehensive identifier matching
-    const user = profiles.find((p: any) => {
+    // 2. Fetch and merge cloud credentials (ensures passwords changed on laptops are instantly available to phones)
+    try {
+      const cloudCreds = await fetchCloudCredentials();
+      if (cloudCreds && typeof cloudCreds === 'object' && Object.keys(cloudCreds).length > 0) {
+        profiles.forEach((p: any) => {
+          const uLower = (p.id || '').toLowerCase();
+          const usnLower = (p.usn || '').toLowerCase();
+          const emailLower = (p.email || '').toLowerCase();
+          const phoneClean = p.phone || '';
+
+          const record = cloudCreds[p.id] ||
+            cloudCreds[uLower] ||
+            (usnLower && cloudCreds[usnLower]) ||
+            (emailLower && cloudCreds[emailLower]) ||
+            (phoneClean && cloudCreds[phoneClean]);
+
+          if (record && record.password) {
+            p.password = record.password;
+            p.isFirstLogin = record.isFirstLogin ?? false;
+            p.passwordUpdatedAt = record.passwordUpdatedAt || record.updatedAt || p.passwordUpdatedAt;
+          }
+        });
+      }
+    } catch (e) {
+      console.warn('Cloud creds merge in login route non-blocking warning:', e);
+    }
+
+    // 3. Smart Identifier Matching
+    // Step 3a: Direct matching (email, email prefix, USN, ID, staff code, phone, industry ID)
+    let user = profiles.find((p: any) => {
       const email = p.email?.toLowerCase();
       const usn = p.usn?.toLowerCase();
       const id = p.id?.toLowerCase();
@@ -79,7 +110,6 @@ export async function POST(request: Request) {
       const phoneDigits = p.phone ? p.phone.replace(/\D/g, '') : '';
       const staffCode = p.staffCode?.toLowerCase();
       const emailPrefix = email ? email.split('@')[0] : '';
-      const name = p.name?.toLowerCase();
 
       return (
         email === cleanId ||
@@ -89,19 +119,54 @@ export async function POST(request: Request) {
         staffCode === cleanId ||
         phone === cleanId ||
         (cleanDigits.length >= 7 && phoneDigits === cleanDigits) ||
-        (p.id?.startsWith('industry-') && (
-          id === `industry-${cleanId}` ||
-          emailPrefix.startsWith(cleanId) ||
-          (name && name.includes(cleanId))
-        ))
+        (p.id?.startsWith('industry-') && (id === `industry-${cleanId}` || id === cleanId))
       );
     });
+
+    // Step 3b: Special administrative & leadership aliases
+    if (!user) {
+      if (['admin', 'administrator', 'mainadmin', 'main admin', 'parvathish', 'parvathisha', 'paru'].includes(cleanId)) {
+        user = profiles.find((p: any) => p.id === '180881' || p.email === 'paruparvathish@gmail.com');
+      } else if (['hod', 'hodcse', 'hod_cse', 'hod cse', 'nandini'].includes(cleanId)) {
+        user = profiles.find((p: any) => p.id === 'admin-hod' || p.email === 'hod.cse@dsatm.edu.in');
+      } else if (['principal', 'prin', 'principal office', 'principaldsatm'].includes(cleanId)) {
+        user = profiles.find((p: any) => p.id === 'admin-principal' || p.email === 'principal@dsatm.edu.in');
+      } else if (cleanId.includes('raghu')) {
+        user = profiles.find((p: any) => p.id === 'industry-raghu');
+      } else if (cleanId.includes('girish')) {
+        user = profiles.find((p: any) => p.id === 'industry-girish');
+      } else if (cleanId.includes('raja') || cleanId.includes('shekhar')) {
+        user = profiles.find((p: any) => p.id === 'industry-rajashekhar');
+      } else if (cleanId.includes('manasa')) {
+        user = profiles.find((p: any) => p.id === 'industry-manasa');
+      } else if (cleanId.includes('harshitha')) {
+        user = profiles.find((p: any) => p.id === 'industry-harshitha');
+      } else {
+        // Step 3c: Fuzzy Name & Email prefix matching across all students & faculty
+        user = profiles.find((p: any) => {
+          const name = (p.name || '').toLowerCase();
+          const nameAlpha = name.replace(/[^a-z0-9]/g, '');
+          const cleanNameOnly = name.replace(/^(mr\.|mrs\.|ms\.|dr\.)\s*/i, '').replace(/[^a-z0-9]/g, '');
+          const email = (p.email || '').toLowerCase();
+          const emailPrefix = email ? email.split('@')[0] : '';
+          const emailAlpha = emailPrefix.replace(/[^a-z0-9]/g, '');
+
+          if (nameAlpha === cleanAlpha || emailAlpha === cleanAlpha || cleanNameOnly === cleanAlpha) return true;
+          if (cleanAlpha.length >= 4) {
+            if (nameAlpha.includes(cleanAlpha) || cleanAlpha.includes(nameAlpha)) return true;
+            if (cleanNameOnly.length >= 4 && (cleanNameOnly.includes(cleanAlpha) || cleanAlpha.includes(cleanNameOnly))) return true;
+            if (emailAlpha.includes(cleanEmailPrefix) || cleanEmailPrefix.includes(emailAlpha)) return true;
+          }
+          return false;
+        });
+      }
+    }
 
     if (!user) {
       return NextResponse.json({ error: 'Invalid credentials. User not found in system.' }, { status: 401 });
     }
 
-    // 3. Check if initial default credentials have expired
+    // 4. Check if initial default credentials have expired (user already created a custom password)
     if (user.password && !user.isFirstLogin) {
       const isDefaultStudent = user.usn && cleanPass.toLowerCase() === user.usn.toLowerCase();
       const isDefaultPhone = user.phone && (cleanPass === user.phone || (cleanPass.replace(/\D/g, '').length >= 7 && user.phone.replace(/\D/g, '') === cleanPass.replace(/\D/g, '')));
@@ -112,7 +177,7 @@ export async function POST(request: Request) {
       }
     }
 
-    // 4. Verify password
+    // 5. Verify password
     const isVerified = verifyPassword(user, cleanPass);
     if (!isVerified) {
       return NextResponse.json({ error: 'Invalid credentials. Incorrect password.' }, { status: 401 });

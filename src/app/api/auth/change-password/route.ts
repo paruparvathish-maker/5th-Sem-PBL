@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { store } from '@/lib/data/store';
+import { saveCloudCredentials } from '@/lib/data/cloud-sync';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -18,54 +19,85 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'userId and newPassword are required' }, { status: 400 });
     }
 
+    const cleanPass = String(newPassword).trim();
+
     // 1. Update in-memory store
-    const success = await store.updatePassword(userId, newPassword);
+    const success = await store.updatePassword(userId, cleanPass);
 
-    // 2. Persist directly into disk backend/data.json
+    // 2. Persist directly into disk backend/data.json or /tmp with automatic fallback
     let persisted = false;
-    let targetPath = fs.existsSync(BACKEND_DATA_PATH) ? BACKEND_DATA_PATH : (fs.existsSync(TMP_DATA_PATH) ? TMP_DATA_PATH : null);
-    
-    if (targetPath) {
+    let data: any = null;
+    let sourcePath = fs.existsSync(TMP_DATA_PATH) ? TMP_DATA_PATH : (fs.existsSync(BACKEND_DATA_PATH) ? BACKEND_DATA_PATH : null);
+    if (sourcePath) {
       try {
-        const raw = fs.readFileSync(targetPath, 'utf8');
-        const data = JSON.parse(raw);
-        if (Array.isArray(data.profiles)) {
-          const uLower = userId.toLowerCase();
-          const prof = data.profiles.find((p: any) =>
-            p.id === userId ||
-            (p.email && p.email.toLowerCase() === uLower) ||
-            (p.usn && p.usn.toLowerCase() === uLower) ||
-            (p.phone && p.phone === userId)
-          );
-          if (prof) {
-            prof.password = newPassword;
-            prof.isFirstLogin = false;
-            prof.passwordUpdatedAt = new Date().toISOString();
-            
-            // Add audit log entry
-            if (!Array.isArray(data.auditLogs)) data.auditLogs = [];
-            data.auditLogs.unshift({
-              id: 'audit_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
-              timestamp: new Date().toISOString(),
-              userId: prof.id,
-              userName: prof.name,
-              userRole: prof.role,
-              action: 'Password Updated',
-              entityType: 'UserProfile',
-              entityId: prof.id,
-              details: { note: 'Password updated via auth API' }
-            });
+        const raw = fs.readFileSync(sourcePath, 'utf8');
+        data = JSON.parse(raw);
+      } catch {}
+    }
+    if (!data && fs.existsSync(BACKEND_DATA_PATH)) {
+      try {
+        const raw = fs.readFileSync(BACKEND_DATA_PATH, 'utf8');
+        data = JSON.parse(raw);
+      } catch {}
+    }
 
-            fs.writeFileSync(targetPath, JSON.stringify(data, null, 2), 'utf8');
+    let targetProf: any = null;
+
+    if (data && Array.isArray(data.profiles)) {
+      const uLower = userId.toLowerCase();
+      targetProf = data.profiles.find((p: any) =>
+        p.id === userId ||
+        (p.email && p.email.toLowerCase() === uLower) ||
+        (p.usn && p.usn.toLowerCase() === uLower) ||
+        (p.phone && p.phone === userId)
+      );
+      if (targetProf) {
+        targetProf.password = cleanPass;
+        targetProf.isFirstLogin = false;
+        targetProf.passwordUpdatedAt = new Date().toISOString();
+        
+        // Add audit log entry
+        if (!Array.isArray(data.auditLogs)) data.auditLogs = [];
+        data.auditLogs.unshift({
+          id: 'audit_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+          timestamp: new Date().toISOString(),
+          userId: targetProf.id,
+          userName: targetProf.name,
+          userRole: targetProf.role,
+          action: 'Password Updated',
+          entityType: 'UserProfile',
+          entityId: targetProf.id,
+          details: { note: 'Password updated via auth API' }
+        });
+
+        // Try writing to BACKEND_DATA_PATH (works on localhost), fallback to TMP_DATA_PATH (works on Vercel)
+        try {
+          fs.writeFileSync(BACKEND_DATA_PATH, JSON.stringify(data, null, 2), 'utf8');
+          persisted = true;
+        } catch {
+          try {
+            fs.writeFileSync(TMP_DATA_PATH, JSON.stringify(data, null, 2), 'utf8');
             persisted = true;
+          } catch (tmpErr) {
+            console.error('Failed to write password to /tmp fallback:', tmpErr);
           }
         }
-      } catch (fsErr) {
-        console.error('Failed to persist changed password to file:', fsErr);
       }
     }
 
-    // 3. Best-effort async notification to cloud backend if running
+    // 3. Persist to high-availability serverless cloud KV for 100% cross-device mobile/laptop sync
+    const aliases = targetProf ? [targetProf.id, targetProf.usn, targetProf.email, targetProf.phone].filter(Boolean) : [userId];
+    await saveCloudCredentials(
+      userId,
+      {
+        password: cleanPass,
+        isFirstLogin: false,
+        passwordUpdatedAt: new Date().toISOString()
+      },
+      aliases
+    ).catch(() => {});
+
+    // 4. Best-effort async notification to cloud backend if running
     if (FASTAPI_URL) {
       try {
         const controller = new AbortController();
@@ -73,13 +105,13 @@ export async function POST(request: Request) {
         fetch(`${FASTAPI_URL}/api/auth/change-password`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId, newPassword }),
+          body: JSON.stringify({ userId, newPassword: cleanPass }),
           signal: controller.signal
         }).catch(() => {}).finally(() => clearTimeout(timeoutId));
       } catch {}
     }
 
-    if (!success && !persisted) {
+    if (!success && !persisted && !targetProf) {
       return NextResponse.json({ error: 'User not found or password update failed' }, { status: 404 });
     }
 

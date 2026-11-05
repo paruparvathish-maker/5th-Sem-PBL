@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { fetchCloudCredentials, fetchCloudDynamicStore, saveCloudDynamicStore, saveCloudCredentials } from '@/lib/data/cloud-sync';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -74,20 +75,75 @@ export async function GET() {
       }
     }
 
-    // 3. Fallback to /tmp or local backend/data.json
+    // 3. Read base data from /tmp or local backend/data.json
+    let baseData: any = null;
     if (fs.existsSync(TMP_DATA_PATH)) {
       try {
         const raw = fs.readFileSync(TMP_DATA_PATH, 'utf8');
-        return NextResponse.json(JSON.parse(raw));
+        baseData = JSON.parse(raw);
       } catch {}
     }
-    if (fs.existsSync(BACKEND_DATA_PATH)) {
-      const raw = fs.readFileSync(BACKEND_DATA_PATH, 'utf8');
-      const data = JSON.parse(raw);
-      return NextResponse.json(data);
+    if (!baseData && fs.existsSync(BACKEND_DATA_PATH)) {
+      try {
+        const raw = fs.readFileSync(BACKEND_DATA_PATH, 'utf8');
+        baseData = JSON.parse(raw);
+      } catch {}
     }
 
-    return NextResponse.json({ error: 'Backend data not initialized' }, { status: 404 });
+    if (!baseData) {
+      return NextResponse.json({ error: 'Backend data not initialized' }, { status: 404 });
+    }
+
+    // 4. Merge serverless cloud KV credentials & dynamic records (ensures all devices see the latest state)
+    try {
+      const [cloudCreds, cloudDynamic] = await Promise.all([
+        fetchCloudCredentials(),
+        fetchCloudDynamicStore()
+      ]);
+
+      if (cloudCreds && typeof cloudCreds === 'object' && Array.isArray(baseData.profiles)) {
+        baseData.profiles.forEach((p: any) => {
+          const uLower = (p.id || '').toLowerCase();
+          const usnLower = (p.usn || '').toLowerCase();
+          const emailLower = (p.email || '').toLowerCase();
+          const phoneClean = p.phone || '';
+
+          const record = cloudCreds[p.id] ||
+            cloudCreds[uLower] ||
+            (usnLower && cloudCreds[usnLower]) ||
+            (emailLower && cloudCreds[emailLower]) ||
+            (phoneClean && cloudCreds[phoneClean]);
+
+          if (record && record.password) {
+            p.password = record.password;
+            p.isFirstLogin = record.isFirstLogin ?? false;
+            p.passwordUpdatedAt = record.passwordUpdatedAt || record.updatedAt || p.passwordUpdatedAt;
+          }
+        });
+      }
+
+      if (cloudDynamic && typeof cloudDynamic === 'object') {
+        if (Array.isArray(cloudDynamic.submissions) && cloudDynamic.submissions.length > 0) {
+          const subMap = new Map<string, any>((baseData.submissions || []).map((s: any) => [s.id, s]));
+          cloudDynamic.submissions.forEach((s: any) => subMap.set(s.id, { ...(subMap.get(s.id) || {}), ...s }));
+          baseData.submissions = Array.from(subMap.values());
+        }
+        if (Array.isArray(cloudDynamic.evaluations) && cloudDynamic.evaluations.length > 0) {
+          const evalMap = new Map<string, any>((baseData.evaluations || []).map((e: any) => [e.id, e]));
+          cloudDynamic.evaluations.forEach((e: any) => evalMap.set(e.id, { ...(evalMap.get(e.id) || {}), ...e }));
+          baseData.evaluations = Array.from(evalMap.values());
+        }
+        if (Array.isArray(cloudDynamic.guideMeetings) && cloudDynamic.guideMeetings.length > 0) {
+          const meetMap = new Map<string, any>((baseData.guideMeetings || []).map((m: any) => [m.id, m]));
+          cloudDynamic.guideMeetings.forEach((m: any) => meetMap.set(m.id, { ...(meetMap.get(m.id) || {}), ...m }));
+          baseData.guideMeetings = Array.from(meetMap.values());
+        }
+      }
+    } catch (kvErr) {
+      console.warn('Cloud KV merge warning:', kvErr);
+    }
+
+    return NextResponse.json(baseData);
   } catch (err: any) {
     console.error('Database query error:', err);
     return NextResponse.json({ error: 'Database query failed', message: err?.message }, { status: 500 });
@@ -179,6 +235,12 @@ export async function POST(request: Request) {
               phone: p.phone || existing.phone,
               passwordUpdatedAt: p.passwordUpdatedAt || existing.passwordUpdatedAt,
             });
+
+            // If a profile had its custom password updated, sync to serverless cloud KV
+            if (incomingHasCustomPass) {
+              const aliases = [p.id, p.usn, p.email, p.phone].filter(Boolean);
+              saveCloudCredentials(p.id, { password: p.password, isFirstLogin: false, passwordUpdatedAt: p.passwordUpdatedAt }, aliases).catch(() => {});
+            }
           }
         }
       });
@@ -260,6 +322,13 @@ export async function POST(request: Request) {
         fs.writeFileSync(TMP_DATA_PATH, JSON.stringify(merged, null, 2), 'utf8');
       } catch {}
     }
+
+    // Best-effort async backup to cloud dynamic store
+    saveCloudDynamicStore({
+      submissions: merged.submissions.slice(0, 500),
+      evaluations: merged.evaluations.slice(0, 500),
+      guideMeetings: merged.guideMeetings.slice(0, 500),
+    }).catch(() => {});
 
     return NextResponse.json({ success: true, message: 'Backend database synced successfully' });
   } catch (err: any) {

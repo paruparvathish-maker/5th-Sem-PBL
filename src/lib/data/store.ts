@@ -788,10 +788,13 @@ class PBLStore {
 
   // --- Auth & Users ---
   public findUserByUsernameOrEmail(identifier: string): UserProfile | undefined {
+    if (!identifier) return undefined;
     const clean = identifier.trim().toLowerCase();
     const cleanDigits = clean.replace(/\D/g, '');
+    const cleanAlpha = clean.replace(/[^a-z0-9]/g, '');
 
-    return this.profiles.find(p => {
+    // 1. Direct matches (email, USN, ID, staff code, phone, exact industry ID)
+    let found = this.profiles.find(p => {
       const email = p.email?.toLowerCase();
       const usn = p.usn?.toLowerCase();
       const uid = p.id?.toLowerCase();
@@ -799,7 +802,6 @@ class PBLStore {
       const phone = p.phone?.toLowerCase();
       const phoneDigits = p.phone ? p.phone.replace(/\D/g, '') : '';
       const emailPrefix = email ? email.split('@')[0] : '';
-      const name = p.name?.toLowerCase();
 
       return (
         email === clean ||
@@ -809,13 +811,65 @@ class PBLStore {
         staffCode === clean ||
         phone === clean ||
         (cleanDigits.length >= 7 && phoneDigits === cleanDigits) ||
-        (p.id?.startsWith('industry-') && (
-          uid === `industry-${clean}` ||
-          emailPrefix.startsWith(clean) ||
-          (name && name.includes(clean))
-        ))
+        (p.id?.startsWith('industry-') && uid === `industry-${clean}`)
       );
     });
+
+    if (found) return found;
+
+    // 2. Special Admin aliases (Main Admin, HOD, Principal)
+    if (['admin', 'administrator', 'mainadmin', 'main admin', 'parvathish', 'parvathisha', 'paru'].includes(clean)) {
+      return this.profiles.find(p => p.id === '180881' || p.email === 'paruparvathish@gmail.com');
+    }
+    if (['hod', 'hodcse', 'hod_cse', 'hod cse', 'nandini'].includes(clean)) {
+      return this.profiles.find(p => p.id === 'admin-hod' || p.email === 'hod.cse@dsatm.edu.in');
+    }
+    if (['principal', 'prin', 'principal office', 'principaldsatm'].includes(clean)) {
+      return this.profiles.find(p => p.id === 'admin-principal' || p.email === 'principal@dsatm.edu.in');
+    }
+
+    // 3. Industry Expert Aliases (Girish, Raghu, Raja Shekhar, Manasa, Harshitha)
+    if (clean.includes('raghu')) {
+      const exp = this.profiles.find(p => p.id === 'industry-raghu');
+      if (exp) return exp;
+    }
+    if (clean.includes('girish')) {
+      const exp = this.profiles.find(p => p.id === 'industry-girish');
+      if (exp) return exp;
+    }
+    if (clean.includes('raja') || clean.includes('shekhar')) {
+      const exp = this.profiles.find(p => p.id === 'industry-rajashekhar');
+      if (exp) return exp;
+    }
+    if (clean.includes('manasa')) {
+      const exp = this.profiles.find(p => p.id === 'industry-manasa');
+      if (exp) return exp;
+    }
+    if (clean.includes('harshitha')) {
+      const exp = this.profiles.find(p => p.id === 'industry-harshitha');
+      if (exp) return exp;
+    }
+
+    // 4. Fuzzy Name & Email prefix matching across all faculty and students (bi-directional substring)
+    const cleanEmailPrefix = clean.includes('@') ? clean.split('@')[0].replace(/[^a-z0-9]/g, '') : cleanAlpha;
+    found = this.profiles.find(p => {
+      const name = (p.name || '').toLowerCase();
+      const nameAlpha = name.replace(/[^a-z0-9]/g, '');
+      const cleanNameOnly = name.replace(/^(mr\.|mrs\.|ms\.|dr\.)\s*/i, '').replace(/[^a-z0-9]/g, '');
+      const email = (p.email || '').toLowerCase();
+      const emailPrefix = email ? email.split('@')[0] : '';
+      const emailAlpha = emailPrefix.replace(/[^a-z0-9]/g, '');
+
+      if (nameAlpha === cleanAlpha || emailAlpha === cleanAlpha || cleanNameOnly === cleanAlpha) return true;
+      if (cleanAlpha.length >= 4) {
+        if (nameAlpha.includes(cleanAlpha) || cleanAlpha.includes(nameAlpha)) return true;
+        if (cleanNameOnly.length >= 4 && (cleanNameOnly.includes(cleanAlpha) || cleanAlpha.includes(cleanNameOnly))) return true;
+        if (emailAlpha.includes(cleanEmailPrefix) || cleanEmailPrefix.includes(emailAlpha)) return true;
+      }
+      return false;
+    });
+
+    return found;
   }
 
   public verifyPassword(userId: string, inputPassword: string): boolean {
