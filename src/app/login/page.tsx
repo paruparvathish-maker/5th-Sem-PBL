@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth/auth-context';
 import { useRouter } from 'next/navigation';
 import { store } from '@/lib/data/store';
@@ -18,18 +18,26 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  useEffect(() => {
+    // When visiting login page (especially on mobile phone browsers), immediately sync latest database
+    store.syncFromSupabase().catch(() => {});
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsSubmitting(true);
 
-    if (!identifier.trim() || !password.trim()) {
+    const cleanIdentifier = identifier.trim();
+    const cleanPassword = password.trim();
+
+    if (!cleanIdentifier || !cleanPassword) {
       setError('Please enter both identifier and password.');
       setIsSubmitting(false);
       return;
     }
 
-    const res = login(identifier.trim(), password);
+    const res = await login(cleanIdentifier, cleanPassword);
     if (!res.success) {
       setError(res.error || 'Authentication failed. Please check your credentials.');
       setIsSubmitting(false);
@@ -135,6 +143,10 @@ export default function LoginPage() {
                   required
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  autoComplete="username"
                   placeholder={
                     activeTab === 'student' ? 'USN or Registered Mobile' :
                     activeTab === 'faculty' ? 'Email or Registered Mobile' :
@@ -163,6 +175,10 @@ export default function LoginPage() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  autoComplete="current-password"
                   placeholder="••••••••"
                   className="block w-full pl-10 pr-10 py-2.5 bg-slate-900/90 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
                 />

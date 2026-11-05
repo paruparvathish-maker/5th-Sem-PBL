@@ -433,7 +433,7 @@ class PBLStore {
     this.initialized = true;
   }
 
-  private save(skipCloudSync: boolean = false) {
+  public save(skipCloudSync: boolean = false) {
     if (typeof window !== 'undefined') {
       try {
         // Strip large base64 file data before persisting to localStorage
@@ -470,22 +470,23 @@ class PBLStore {
   public async syncFromSupabase() {
     try {
       const getFastApiUrl = () => {
-        if (process.env.NEXT_PUBLIC_FASTAPI_URL) return process.env.NEXT_PUBLIC_FASTAPI_URL;
-        if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-          return 'https://backend-beta-kohl-9pcedk6q96.vercel.app';
+        if (process.env.NEXT_PUBLIC_FASTAPI_URL && !process.env.NEXT_PUBLIC_FASTAPI_URL.includes('backend-beta-kohl-9pcedk6q96.vercel.app')) {
+          return process.env.NEXT_PUBLIC_FASTAPI_URL;
         }
-        return 'http://127.0.0.1:8000';
+        return '';
       };
 
       const fastApiUrl = getFastApiUrl();
       let res: Response | null = null;
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3500);
-        res = await fetch(`${fastApiUrl}/api/db`, { mode: 'cors', signal: controller.signal });
-        clearTimeout(timeoutId);
-      } catch {
-        // Fallback to internal /api/db proxy
+      if (fastApiUrl) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 2000);
+          res = await fetch(`${fastApiUrl}/api/db`, { mode: 'cors', signal: controller.signal });
+          clearTimeout(timeoutId);
+        } catch {
+          // Fallback to internal /api/db proxy
+        }
       }
       if (!res || !res.ok) {
         res = await fetch('/api/db');
@@ -508,6 +509,7 @@ class PBLStore {
             const backup = credsBackup[localProf.id] || (localProf.usn && credsBackup[localProf.usn]) || credsBackup[localProf.email];
             const localHasCustomPass = !!localProf.password && localProf.isFirstLogin === false;
             const backupHasCustomPass = backup && !!backup.password && backup.isFirstLogin === false;
+            const incomingHasCustomPass = !!incoming.password && incoming.isFirstLogin === false;
 
             let finalPass = incoming.password;
             let finalIsFirstLogin = incoming.isFirstLogin;
@@ -517,6 +519,16 @@ class PBLStore {
               finalPass = localProf.password || backup?.password;
               finalIsFirstLogin = false;
               finalUpdatedAt = localProf.passwordUpdatedAt || backup?.passwordUpdatedAt || new Date().toISOString();
+            } else if (incomingHasCustomPass) {
+              finalPass = incoming.password;
+              finalIsFirstLogin = false;
+              finalUpdatedAt = incoming.passwordUpdatedAt || new Date().toISOString();
+              if (typeof window !== 'undefined') {
+                const bRec = { password: finalPass, isFirstLogin: false, passwordUpdatedAt: finalUpdatedAt };
+                credsBackup[localProf.id] = bRec;
+                if (localProf.usn) credsBackup[localProf.usn] = bRec;
+                if (localProf.email) credsBackup[localProf.email] = bRec;
+              }
             }
 
             return {
@@ -533,6 +545,13 @@ class PBLStore {
               this.profiles.push(p);
             }
           });
+
+          if (typeof window !== 'undefined') {
+            try {
+              localStorage.setItem('pbl_user_credentials_backup', JSON.stringify(credsBackup));
+            } catch (e) {}
+            this.save(true);
+          }
         }
 
         // Intelligent merge for teams: preserve newer local updates
@@ -731,27 +750,28 @@ class PBLStore {
       });
 
       const getFastApiUrl = () => {
-        if (process.env.NEXT_PUBLIC_FASTAPI_URL) return process.env.NEXT_PUBLIC_FASTAPI_URL;
-        if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-          return 'https://backend-beta-kohl-9pcedk6q96.vercel.app';
+        if (process.env.NEXT_PUBLIC_FASTAPI_URL && !process.env.NEXT_PUBLIC_FASTAPI_URL.includes('backend-beta-kohl-9pcedk6q96.vercel.app')) {
+          return process.env.NEXT_PUBLIC_FASTAPI_URL;
         }
-        return 'http://127.0.0.1:8000';
+        return '';
       };
 
       const fastApiUrl = getFastApiUrl();
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3500);
-        await fetch(`${fastApiUrl}/api/db`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: payload,
-          mode: 'cors',
-          signal: controller.signal
-        });
-        clearTimeout(timeoutId);
-      } catch {
-        // Fallback to Next.js /api/db
+      if (fastApiUrl) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 2000);
+          await fetch(`${fastApiUrl}/api/db`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: payload,
+            mode: 'cors',
+            signal: controller.signal
+          });
+          clearTimeout(timeoutId);
+        } catch {
+          // Fallback to Next.js /api/db
+        }
       }
 
       await fetch('/api/db', {

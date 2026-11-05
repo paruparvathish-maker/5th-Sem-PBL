@@ -22,24 +22,27 @@ export default function FirstTimePasswordChangePage() {
     e.preventDefault();
     setError('');
 
-    if (newPassword.length < 8) {
+    const cleanPass = newPassword.trim();
+    const cleanConfirm = confirmPassword.trim();
+
+    if (cleanPass.length < 8) {
       setError('Password must be at least 8 characters long.');
       return;
     }
 
-    if (newPassword !== confirmPassword) {
+    if (cleanPass !== cleanConfirm) {
       setError('Passwords do not match.');
       return;
     }
 
     // Invalidate initial password (USN or Mobile phone)
-    if (newPassword === user.usn || newPassword === user.phone) {
+    if (cleanPass.toLowerCase() === (user.usn || '').toLowerCase() || cleanPass === user.phone) {
       setError('New password cannot be your initial USN or Mobile number.');
       return;
     }
 
     setIsSubmitting(true);
-    const success = await changeFirstTimePassword(newPassword);
+    const success = await changeFirstTimePassword(cleanPass);
 
     if (success) {
       if (user.role === 'student') router.push('/student/dashboard');
@@ -93,6 +96,9 @@ export default function FirstTimePasswordChangePage() {
                   required
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
                   placeholder="At least 8 characters"
                   className="block w-full pl-10 pr-10 py-2.5 bg-slate-900/90 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all"
                 />
@@ -119,6 +125,9 @@ export default function FirstTimePasswordChangePage() {
                   required
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
                   placeholder="Re-enter new password"
                   className="block w-full pl-10 pr-10 py-2.5 bg-slate-900/90 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all"
                 />

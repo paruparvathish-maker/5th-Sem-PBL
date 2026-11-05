@@ -9,7 +9,7 @@ import { isExecutiveViewer } from './roles';
 interface AuthContextType {
   user: UserProfile | null;
   isLoading: boolean;
-  login: (identifier: string, password?: string) => { success: boolean; requiresPasswordChange?: boolean; user?: UserProfile; error?: string };
+  login: (identifier: string, password?: string) => Promise<{ success: boolean; requiresPasswordChange?: boolean; user?: UserProfile; error?: string }>;
   logout: () => void;
   changeFirstTimePassword: (newPassword: string) => Promise<boolean>;
 }
@@ -35,14 +35,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } else {
           setUser(parsed);
         }
-        
-        // Background sync to ensure we have the latest data across devices
-        store.syncFromSupabase().catch(e => console.error("Background sync failed", e));
-        
       } catch (e) {
         console.error("Session restore failed", e);
       }
     }
+
+    // Always sync database in background so mobile phones have latest credentials
+    store.syncFromSupabase().catch(e => console.error("Initial background sync failed", e));
     setIsLoading(false);
   }, []);
 
@@ -88,63 +87,135 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user, isLoading, pathname, router]);
 
-  const login = (identifier: string, password?: string) => {
-    const foundUser = store.findUserByUsernameOrEmail(identifier);
+  const login = async (identifier: string, password?: string): Promise<{ success: boolean; requiresPasswordChange?: boolean; user?: UserProfile; error?: string }> => {
+    const cleanId = (identifier || '').trim();
+    const cleanPass = password !== undefined ? (password || '').trim() : undefined;
+
+    let foundUser = store.findUserByUsernameOrEmail(cleanId);
+
+    // 1. Fast local verification if user profile is already cached with valid credentials
+    if (foundUser && cleanPass !== undefined && store.verifyPassword(foundUser.id, cleanPass)) {
+      setUser(foundUser);
+      localStorage.setItem('pbl_session_user', JSON.stringify(foundUser));
+      store.addAuditLog(foundUser.id, foundUser.name, foundUser.role, 'User Logged In', 'UserProfile', foundUser.id);
+
+      if (foundUser.isFirstLogin) {
+        return { success: true, requiresPasswordChange: true, user: foundUser };
+      }
+      return { success: true, requiresPasswordChange: false, user: foundUser };
+    }
+
+    // 2. Cross-device fallback: verify with server /api/auth/login
+    // This allows phone logins to immediately authenticate if password was updated on a laptop/desktop!
+    try {
+      const resp = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: cleanId, password: cleanPass }),
+      });
+
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.success && data.user) {
+          const authUser: UserProfile = data.user;
+          
+          // Update profile in local store
+          const profiles = store.getAllProfiles();
+          const pIdx = profiles.findIndex(p => p.id === authUser.id);
+          if (pIdx >= 0) {
+            profiles[pIdx] = { ...profiles[pIdx], ...authUser };
+          } else {
+            profiles.push(authUser);
+          }
+          store.save(true);
+
+          // Update backup credentials in localStorage
+          if (typeof window !== 'undefined' && authUser.password) {
+            try {
+              const creds = JSON.parse(localStorage.getItem('pbl_user_credentials_backup') || '{}');
+              const record = {
+                password: authUser.password,
+                isFirstLogin: authUser.isFirstLogin,
+                passwordUpdatedAt: authUser.passwordUpdatedAt
+              };
+              creds[authUser.id] = record;
+              if (authUser.usn) creds[authUser.usn] = record;
+              if (authUser.email) creds[authUser.email] = record;
+              if (authUser.phone) creds[authUser.phone] = record;
+              localStorage.setItem('pbl_user_credentials_backup', JSON.stringify(creds));
+            } catch (e) {}
+          }
+
+          setUser(authUser);
+          localStorage.setItem('pbl_session_user', JSON.stringify(authUser));
+          store.addAuditLog(authUser.id, authUser.name, authUser.role, 'User Logged In', 'UserProfile', authUser.id);
+
+          // Background sync to ensure rest of store is fresh
+          store.syncFromSupabase().catch(() => {});
+
+          return {
+            success: true,
+            requiresPasswordChange: Boolean(data.requiresPasswordChange),
+            user: authUser
+          };
+        }
+      } else {
+        const errData = await resp.json().catch(() => ({}));
+        if (errData.error) {
+          return { success: false, error: errData.error };
+        }
+      }
+    } catch (apiErr) {
+      console.warn('API login call failed, checking local credentials:', apiErr);
+    }
+
+    // 3. Fallback error message if both local and server check failed
     if (!foundUser) {
       return { success: false, error: 'Invalid credentials. User not found in system.' };
     }
 
-    if (password !== undefined && !store.verifyPassword(foundUser.id, password)) {
-      if (foundUser.password && !foundUser.isFirstLogin && (password === foundUser.phone || password === foundUser.usn)) {
-        return { success: false, error: 'Your initial credentials have expired. Please use your newly created password.' };
-      }
-      return { success: false, error: 'Invalid credentials. Incorrect password.' };
+    if (foundUser.password && !foundUser.isFirstLogin && cleanPass && (cleanPass === foundUser.phone || cleanPass === foundUser.usn)) {
+      return { success: false, error: 'Your initial credentials have expired. Please use your newly created password.' };
     }
 
-    setUser(foundUser);
-    localStorage.setItem('pbl_session_user', JSON.stringify(foundUser));
-    store.addAuditLog(foundUser.id, foundUser.name, foundUser.role, 'User Logged In', 'UserProfile', foundUser.id);
-
-    if (foundUser.isFirstLogin) {
-      return { success: true, requiresPasswordChange: true, user: foundUser };
-    }
-
-    return { success: true, requiresPasswordChange: false, user: foundUser };
+    return { success: false, error: 'Invalid credentials. Incorrect password.' };
   };
 
   const changeFirstTimePassword = async (newPassword: string): Promise<boolean> => {
     if (!user) return false;
-    const success = await store.updatePassword(user.id, newPassword);
+    const cleanNewPass = newPassword.trim();
+    const success = await store.updatePassword(user.id, cleanNewPass);
     if (success) {
-      const updatedUser: UserProfile = { ...user, isFirstLogin: false, password: newPassword };
+      const updatedUser: UserProfile = { ...user, isFirstLogin: false, password: cleanNewPass };
       setUser(updatedUser);
       localStorage.setItem('pbl_session_user', JSON.stringify(updatedUser));
 
       // Direct sync to backend authentication APIs
       try {
         const getFastApiUrl = () => {
-          if (process.env.NEXT_PUBLIC_FASTAPI_URL) return process.env.NEXT_PUBLIC_FASTAPI_URL;
-          if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-            return 'https://backend-beta-kohl-9pcedk6q96.vercel.app';
+          if (process.env.NEXT_PUBLIC_FASTAPI_URL && !process.env.NEXT_PUBLIC_FASTAPI_URL.includes('backend-beta-kohl-9pcedk6q96.vercel.app')) {
+            return process.env.NEXT_PUBLIC_FASTAPI_URL;
           }
-          return 'http://127.0.0.1:8000';
+          return '';
         };
 
         const fastApiUrl = getFastApiUrl();
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3500);
-        await fetch(`${fastApiUrl}/api/auth/change-password`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: user.id, newPassword }),
-          mode: 'cors',
-          signal: controller.signal
-        }).catch(() => {}).finally(() => clearTimeout(timeoutId));
+        if (fastApiUrl) {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 2000);
+          await fetch(`${fastApiUrl}/api/auth/change-password`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: user.id, newPassword: cleanNewPass }),
+            mode: 'cors',
+            signal: controller.signal
+          }).catch(() => {}).finally(() => clearTimeout(timeoutId));
+        }
 
         await fetch('/api/auth/change-password', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: user.id, newPassword })
+          body: JSON.stringify({ userId: user.id, newPassword: cleanNewPass })
         }).catch(() => {});
       } catch (err) {
         console.error('Remote change password sync error:', err);

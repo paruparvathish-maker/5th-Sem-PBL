@@ -7,7 +7,9 @@ export const dynamic = 'force-dynamic';
 
 const BACKEND_DATA_PATH = path.join(process.cwd(), 'backend', 'data.json');
 const TMP_DATA_PATH = '/tmp/pbl_backend_data.json';
-const FASTAPI_URL = process.env.NEXT_PUBLIC_FASTAPI_URL || 'https://backend-beta-kohl-9pcedk6q96.vercel.app';
+const FASTAPI_URL = process.env.NEXT_PUBLIC_FASTAPI_URL && !process.env.NEXT_PUBLIC_FASTAPI_URL.includes('backend-beta-kohl-9pcedk6q96.vercel.app')
+  ? process.env.NEXT_PUBLIC_FASTAPI_URL
+  : '';
 
 export async function POST(request: Request) {
   try {
@@ -64,16 +66,18 @@ export async function POST(request: Request) {
     }
 
     // 3. Best-effort async notification to cloud backend if running
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 2000);
-      fetch(`${FASTAPI_URL}/api/auth/change-password`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, newPassword }),
-        signal: controller.signal
-      }).catch(() => {}).finally(() => clearTimeout(timeoutId));
-    } catch {}
+    if (FASTAPI_URL) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
+        fetch(`${FASTAPI_URL}/api/auth/change-password`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, newPassword }),
+          signal: controller.signal
+        }).catch(() => {}).finally(() => clearTimeout(timeoutId));
+      } catch {}
+    }
 
     if (!success && !persisted) {
       return NextResponse.json({ error: 'User not found or password update failed' }, { status: 404 });

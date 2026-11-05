@@ -4,7 +4,9 @@ import * as path from 'path';
 
 export const dynamic = 'force-dynamic';
 
-const FASTAPI_URL = process.env.NEXT_PUBLIC_FASTAPI_URL || 'https://backend-beta-kohl-9pcedk6q96.vercel.app';
+const FASTAPI_URL = process.env.NEXT_PUBLIC_FASTAPI_URL && !process.env.NEXT_PUBLIC_FASTAPI_URL.includes('backend-beta-kohl-9pcedk6q96.vercel.app')
+  ? process.env.NEXT_PUBLIC_FASTAPI_URL
+  : '';
 const BACKEND_DATA_PATH = path.join(process.cwd(), 'backend', 'data.json');
 const TMP_DATA_PATH = '/tmp/pbl_backend_data.json';
 
@@ -57,14 +59,19 @@ export async function GET() {
     }
 
     // 2. Try fetching from FastAPI backend if available
-    try {
-      const fastRes = await fetch(`${FASTAPI_URL}/api/db`, { cache: 'no-store' });
-      if (fastRes.ok) {
-        const data = await fastRes.json();
-        return NextResponse.json(data);
+    if (FASTAPI_URL) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 1500);
+        const fastRes = await fetch(`${FASTAPI_URL}/api/db`, { cache: 'no-store', signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (fastRes.ok) {
+          const data = await fastRes.json();
+          return NextResponse.json(data);
+        }
+      } catch {
+        // FastAPI offline
       }
-    } catch {
-      // FastAPI offline
     }
 
     // 3. Fallback to /tmp or local backend/data.json
@@ -91,15 +98,21 @@ export async function POST(request: Request) {
   try {
     const payload = await request.json();
 
-    // 1. Forward to FastAPI backend if available
-    try {
-      await fetch(`${FASTAPI_URL}/api/db`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-    } catch {
-      // FastAPI offline
+    // 1. Forward to FastAPI backend if available and configured
+    if (FASTAPI_URL) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 1500);
+        await fetch(`${FASTAPI_URL}/api/db`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+      } catch {
+        // FastAPI offline
+      }
     }
 
     // 2. Persist to local backend/data.json or /tmp fallback with intelligent non-destructive merge
