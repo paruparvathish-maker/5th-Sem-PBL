@@ -117,6 +117,11 @@ export default function StudentSubmissionsPage() {
       if (res.success && res.submission) {
         if (fileDataUrl) {
           saveFileToIdb(res.submission.id, fileDataUrl).catch(console.error);
+          fetch('/api/submissions/file', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ submissionId: res.submission.id, fileData: fileDataUrl })
+          }).catch(() => {});
         }
         setMessage({
           type: 'success',

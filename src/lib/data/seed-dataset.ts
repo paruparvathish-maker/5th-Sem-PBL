@@ -1388,7 +1388,7 @@ const FACULTY_DATA = [
   { name: "Mr. DEBABRATA BORAH", mobile: "9845012302", email: "debabrata-cse@dsatm.edu.in" }
 ];
 
-function normalizeName(name: string) {
+export function normalizeName(name: string) {
   const lower = name.toLowerCase().trim();
   const ALIASES: Record<string, string> = {
     'dr. c nandini': 'Dr. NANDINI C',
@@ -1399,12 +1399,19 @@ function normalizeName(name: string) {
     'mrs. a manusha reddy': 'Ms. MANUSHA A',
     'dr. nagaraj lutimath': 'Dr. NAGARAJ M LUTIMATH',
     'ms. priya g': 'Ms. PRIYA G',
-    'mr. debabrata borah': 'Mr. DEBABRATA BORAH'
+    'mr. debabrata borah': 'Mr. DEBABRATA BORAH',
+    'prof. usha c.r': 'Mrs. USHA C R',
+    'prof usha c r': 'Mrs. USHA C R',
+    'ms. usha c r': 'Mrs. USHA C R',
+    'ms.usha k c': 'Dr. USHA K C',
+    'dr. usha k c': 'Dr. USHA K C',
+    'dr. seema j k': 'Ms. DR. SEEMA J K',
+    'mrs. seema j k': 'Ms. DR. SEEMA J K'
   };
 
   const mapped = ALIASES[lower] || name;
   return mapped.toLowerCase()
-    .replace(/^(dr\.|mr\.|mrs\.|ms\.)\s*/, '')
+    .replace(/^(dr\.|mr\.|mrs\.|ms\.|prof\.)\s*/, '')
     .replace(/[^a-z0-9]/g, '');
 }
 
@@ -1421,7 +1428,7 @@ export function getGuideEmail(guideName: string): string {
   }
 
   const cleanName = guideName.toLowerCase()
-    .replace(/^(dr\.|mr\.|mrs\.|ms\.)\s*/, '')
+    .replace(/^(dr\.|mr\.|mrs\.|ms\.|prof\.)\s*/, '')
     .replace(/[^a-z0-9]/g, '-')
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '');

@@ -1,5 +1,12 @@
 import { NextResponse } from 'next/server';
-import { fetchCloudCredentials, fetchCloudDynamicStore, saveCloudDynamicStore, saveCloudCredentials } from '@/lib/data/cloud-sync';
+import {
+  fetchCloudCredentials,
+  fetchCloudDynamicStore,
+  saveCloudDynamicStore,
+  saveCloudCredentials,
+  fetchCloudSubmissions,
+  saveCloudSubmissionsBatch
+} from '@/lib/data/cloud-sync';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -94,13 +101,15 @@ export async function GET() {
       return NextResponse.json({ error: 'Backend data not initialized' }, { status: 404 });
     }
 
-    // 4. Merge serverless cloud KV credentials & dynamic records (ensures all devices see the latest state)
+    // 4. Merge serverless cloud KV credentials, submissions & dynamic records (ensures all devices see the latest state)
     try {
-      const [cloudCreds, cloudDynamic] = await Promise.all([
+      const [cloudCreds, cloudDynamic, cloudSubmissions] = await Promise.all([
         fetchCloudCredentials(),
-        fetchCloudDynamicStore()
+        fetchCloudDynamicStore(),
+        fetchCloudSubmissions()
       ]);
 
+      // 4a. Passwords & Login state
       if (cloudCreds && typeof cloudCreds === 'object' && Array.isArray(baseData.profiles)) {
         baseData.profiles.forEach((p: any) => {
           const uLower = (p.id || '').toLowerCase();
@@ -122,12 +131,20 @@ export async function GET() {
         });
       }
 
+      // 4b. Submissions (ensures mobile phones immediately reflect submissions created on laptops)
+      if (Array.isArray(cloudSubmissions) && cloudSubmissions.length > 0) {
+        const subMap = new Map<string, any>((baseData.submissions || []).map((s: any) => [s.id, s]));
+        cloudSubmissions.forEach((s: any) => {
+          if (s && s.id) {
+            const existing = subMap.get(s.id) || {};
+            subMap.set(s.id, { ...existing, ...s });
+          }
+        });
+        baseData.submissions = Array.from(subMap.values());
+      }
+
+      // 4c. Dynamic Store (Evaluations & Guide Meetings)
       if (cloudDynamic && typeof cloudDynamic === 'object') {
-        if (Array.isArray(cloudDynamic.submissions) && cloudDynamic.submissions.length > 0) {
-          const subMap = new Map<string, any>((baseData.submissions || []).map((s: any) => [s.id, s]));
-          cloudDynamic.submissions.forEach((s: any) => subMap.set(s.id, { ...(subMap.get(s.id) || {}), ...s }));
-          baseData.submissions = Array.from(subMap.values());
-        }
         if (Array.isArray(cloudDynamic.evaluations) && cloudDynamic.evaluations.length > 0) {
           const evalMap = new Map<string, any>((baseData.evaluations || []).map((e: any) => [e.id, e]));
           cloudDynamic.evaluations.forEach((e: any) => evalMap.set(e.id, { ...(evalMap.get(e.id) || {}), ...e }));
@@ -323,9 +340,12 @@ export async function POST(request: Request) {
       } catch {}
     }
 
-    // Best-effort async backup to cloud dynamic store
+    // Persist all submissions and dynamic store to cloud KV for instant multi-device reflection
+    if (merged.submissions.length > 0) {
+      saveCloudSubmissionsBatch(merged.submissions).catch(() => {});
+    }
+
     saveCloudDynamicStore({
-      submissions: merged.submissions.slice(0, 500),
       evaluations: merged.evaluations.slice(0, 500),
       guideMeetings: merged.guideMeetings.slice(0, 500),
     }).catch(() => {});

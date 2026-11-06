@@ -14,15 +14,25 @@ export default function FacultyDashboardPage() {
   const { user } = useAuth();
   if (!user) return null;
 
-  // Strict isolation: Faculty sees ONLY their assigned teams across all sections
-  const assignedTeams = store.getTeamsByGuideId(user.id);
-  const meetings = store.getMeetingsForFaculty(user.id);
-  const allSubmissions = store.getAllSubmissions().filter(s => 
-    assignedTeams.some(t => t.id === s.teamId)
+  const [assignedTeams, setAssignedTeams] = React.useState(store.getTeamsByGuideId(user.id));
+  const [meetings, setMeetings] = React.useState(store.getMeetingsForFaculty(user.id));
+  const [allSubmissions, setAllSubmissions] = React.useState(
+    store.getAllSubmissions().filter(s => assignedTeams.some(t => t.id === s.teamId))
   );
+  const [evaluations, setEvaluations] = React.useState(store.getAllEvaluations());
+
+  React.useEffect(() => {
+    store.syncFromSupabase().then(() => {
+      const teams = store.getTeamsByGuideId(user.id);
+      setAssignedTeams(teams);
+      setMeetings(store.getMeetingsForFaculty(user.id));
+      setAllSubmissions(store.getAllSubmissions().filter(s => teams.some(t => t.id === s.teamId)));
+      setEvaluations(store.getAllEvaluations());
+    });
+  }, [user.id]);
 
   const assigned5thSemTeams = assignedTeams.filter(t => (t.semester || 5) === 5);
-  const pendingEvaluationsCount = assigned5thSemTeams.length - store.getAllEvaluations().filter(e => 
+  const pendingEvaluationsCount = assigned5thSemTeams.length - evaluations.filter(e => 
     assigned5thSemTeams.some(t => t.id === e.teamId) && e.isPublished
   ).length;
 

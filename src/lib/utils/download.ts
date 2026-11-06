@@ -1,6 +1,6 @@
 /**
- * Robust file downloader for student submissions and review reports.
- * Checks for base64 dataUrl, IndexedDB cached files, remote URLs,
+ * Enterprise-grade file downloader for student submissions and review reports.
+ * Checks for base64 dataUrl, local IndexedDB cached files, remote cloud storage API,
  * and falls back to generating a valid downloadable PDF document.
  */
 
@@ -22,15 +22,30 @@ export async function downloadSubmissionFile(sub: {
   const fileName = sub.fileName || 'project_details.pdf';
   let data = sub.fileData || sub.filePath;
 
-  // Check IndexedDB if fileData is not in memory
+  // 1. Check IndexedDB if fileData is not in memory
   if ((!data || !data.startsWith('data:')) && sub.id) {
-    const idbData = await getFileFromIdb(sub.id);
-    if (idbData) {
-      data = idbData;
-    }
+    try {
+      const idbData = await getFileFromIdb(sub.id);
+      if (idbData && idbData.startsWith('data:')) {
+        data = idbData;
+      }
+    } catch {}
   }
 
-  // 1. If base64 data URI, blob URL, or remote URL is present
+  // 2. Fetch from cloud storage API if not found on this local device (e.g. mobile phone viewing desktop upload)
+  if ((!data || !data.startsWith('data:')) && sub.id) {
+    try {
+      const res = await fetch(`/api/submissions/file?id=${encodeURIComponent(sub.id)}`);
+      if (res.ok) {
+        const cloudData = await res.text();
+        if (cloudData && cloudData.startsWith('data:')) {
+          data = cloudData;
+        }
+      }
+    } catch {}
+  }
+
+  // 3. If base64 data URI, blob URL, or remote URL is present, trigger direct download
   if (data && (data.startsWith('data:') || data.startsWith('blob:') || data.startsWith('http://') || data.startsWith('https://'))) {
     const link = document.createElement('a');
     link.href = data;
@@ -42,7 +57,7 @@ export async function downloadSubmissionFile(sub: {
     return;
   }
 
-  // 2. Synthesize a clean, valid PDF file that opens natively in any viewer
+  // 4. Fallback: Synthesize a clean, valid PDF overview report that opens natively in any viewer
   const cleanTitle = (sub.projectTitle || sub.deadlineTitle || 'PBL Project Report').replace(/[()\\]/g, ' ');
   const cleanTeam = (sub.teamNumber || 'N/A').replace(/[()\\]/g, ' ');
   const cleanAuthor = (sub.studentName || 'Student').replace(/[()\\]/g, ' ');
