@@ -13,7 +13,10 @@ export async function POST(request: Request) {
     const result = await verifyOtpCode(String(identifier), String(otp));
 
     if (!result.valid) {
-      return NextResponse.json({ error: result.error || 'Invalid verification code.' }, { status: 400 });
+      return NextResponse.json({
+        error: result.error || 'Invalid verification code.',
+        codeBurned: result.codeBurned ?? true
+      }, { status: 400 });
     }
 
     return NextResponse.json({

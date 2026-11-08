@@ -1385,28 +1385,87 @@ const FACULTY_DATA = [
   { name: "Ms. ASHALATHA N S", mobile: "8197556888", email: "ashalatha-cse@dsatm.edu.in" },
   { name: "Ms. NETHRA H L", mobile: "9606409077", email: "nethra-cse@dsatm.edu.in" },
   { name: "Ms. PRIYA G", mobile: "9845012301", email: "priyag-cse@dsatm.edu.in" },
-  { name: "Mr. DEBABRATA BORAH", mobile: "9845012302", email: "debabrata-cse@dsatm.edu.in" }
+  { name: "Mr. DEBABRATA BORAH", mobile: "9845012302", email: "debabrata-cse@dsatm.edu.in" },
+  { name: "Mr. RAJESH M", mobile: "9845012303", email: "rajesh-cse@dsatm.edu.in" },
+  { name: "Mrs. KAVITHA", mobile: "9845012304", email: "kavitha-cse@dsatm.edu.in" },
+  { name: "Dr. ATHI NARAYAN", mobile: "9845012305", email: "athinarayan-cse@dsatm.edu.in" },
+  { name: "Mr. SANJOY DAS", mobile: "9845012306", email: "sanjoydas-cse@dsatm.edu.in" },
+  { name: "Mr. BHASKER RAO", mobile: "9845012307", email: "bhaskerrao-cse@dsatm.edu.in" }
 ];
 
 export function normalizeName(name: string) {
   const lower = name.toLowerCase().trim();
   const ALIASES: Record<string, string> = {
     'dr. c nandini': 'Dr. NANDINI C',
+    'dr c nandini': 'Dr. NANDINI C',
+    'c nandini': 'Dr. NANDINI C',
+    'nandini c': 'Dr. NANDINI C',
+
     'mr. nunna rama chandu': 'Mr. RAMA CHANDU N',
+    'nunna rama chandu': 'Mr. RAMA CHANDU N',
+    'rama chandu n': 'Mr. RAMA CHANDU N',
+    'rama chandu': 'Mr. RAMA CHANDU N',
+
     'mr. keerthana sankar': 'Mrs. KEERTHANA SHANKAR',
+    'mrs. keerthana shankar': 'Mrs. KEERTHANA SHANKAR',
+
     'mr. kondeti dilip kumar': 'Mr. DILIP KUMAR K',
+    'kondeti dilip kumar': 'Mr. DILIP KUMAR K',
+    'dilip kumar k': 'Mr. DILIP KUMAR K',
+    'dilip kumar': 'Mr. DILIP KUMAR K',
+
+    'ms. k. deepashree': 'Mrs. DEEPASHREE K',
+    'ms.k.deepashree': 'Mrs. DEEPASHREE K',
+    'ms. k deepashree': 'Mrs. DEEPASHREE K',
     'mrs. k deepashree': 'Mrs. DEEPASHREE K',
+    'k deepashree': 'Mrs. DEEPASHREE K',
+    'deepashree k': 'Mrs. DEEPASHREE K',
+
+    'ms. a manusha reddy': 'Ms. MANUSHA A',
     'mrs. a manusha reddy': 'Ms. MANUSHA A',
+    'a manusha reddy': 'Ms. MANUSHA A',
+    'manusha a': 'Ms. MANUSHA A',
+
+    'dr nagaraj lutimath': 'Dr. NAGARAJ M LUTIMATH',
     'dr. nagaraj lutimath': 'Dr. NAGARAJ M LUTIMATH',
+    'nagaraj lutimath': 'Dr. NAGARAJ M LUTIMATH',
+    'dr. nagaraj m lutimath': 'Dr. NAGARAJ M LUTIMATH',
+
     'ms. priya g': 'Ms. PRIYA G',
     'mr. debabrata borah': 'Mr. DEBABRATA BORAH',
+
+    'mrs. g yamini': 'Mrs. Yamini G',
+    'ms. g yamini': 'Mrs. Yamini G',
+    'g yamini': 'Mrs. Yamini G',
+    'yamini g': 'Mrs. Yamini G',
+
     'prof. usha c.r': 'Mrs. USHA C R',
     'prof usha c r': 'Mrs. USHA C R',
     'ms. usha c r': 'Mrs. USHA C R',
     'ms.usha k c': 'Dr. USHA K C',
     'dr. usha k c': 'Dr. USHA K C',
     'dr. seema j k': 'Ms. DR. SEEMA J K',
-    'mrs. seema j k': 'Ms. DR. SEEMA J K'
+    'mrs. seema j k': 'Ms. DR. SEEMA J K',
+
+    'prof rajesh m': 'Mr. RAJESH M',
+    'mr. rajesh m': 'Mr. RAJESH M',
+    'rajesh m': 'Mr. RAJESH M',
+
+    'mr. orchu venkata koteswararo': 'Mr. ORCHU VENKATA KOTESWARA RAO',
+    'orchu venkata koteswararo': 'Mr. ORCHU VENKATA KOTESWARA RAO',
+    'mr. orchu venkata koteswararao': 'Mr. ORCHU VENKATA KOTESWARA RAO',
+
+    'prof. kavitha': 'Mrs. KAVITHA',
+    'kavitha': 'Mrs. KAVITHA',
+
+    'dr athi narayan': 'Dr. ATHI NARAYAN',
+    'athi narayan': 'Dr. ATHI NARAYAN',
+
+    'mr. sanjoy das': 'Mr. SANJOY DAS',
+    'sanjoy das': 'Mr. SANJOY DAS',
+
+    'prof. bhasker rao': 'Mr. BHASKER RAO',
+    'bhasker rao': 'Mr. BHASKER RAO',
   };
 
   const mapped = ALIASES[lower] || name;

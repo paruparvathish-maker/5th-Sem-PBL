@@ -61,7 +61,7 @@ export async function createAndSaveOtp(identifier: string, email: string): Promi
   return otp;
 }
 
-export async function verifyOtpCode(identifier: string, enteredOtp: string): Promise<{ valid: boolean; error?: string }> {
+export async function verifyOtpCode(identifier: string, enteredOtp: string): Promise<{ valid: boolean; error?: string; codeBurned?: boolean }> {
   const cleanKey = normalizeKey(identifier);
   const cleanOtp = enteredOtp.trim();
 
@@ -84,16 +84,28 @@ export async function verifyOtpCode(identifier: string, enteredOtp: string): Pro
   }
 
   if (!entry) {
-    return { valid: false, error: 'No OTP request found for this account. Please request a new code.' };
+    return { valid: false, error: 'No active OTP found for this account. Please request a new verification code.', codeBurned: true };
   }
 
   if (Date.now() > entry.expiresAt) {
     memoryOtpMap.delete(cleanKey);
-    return { valid: false, error: 'Verification code has expired. Please request a new code.' };
+    try {
+      fetch(`${KV_BASE_URL}/pbl_otp_${cleanKey}`, { method: 'DELETE' }).catch(() => {});
+    } catch {}
+    return { valid: false, error: 'Verification code has expired. Please request a new code.', codeBurned: true };
   }
 
+  // If wrong OTP is entered, immediately burn/invalidate the code for security
   if (entry.otp !== cleanOtp) {
-    return { valid: false, error: 'Incorrect 6-digit verification code. Please check and try again.' };
+    memoryOtpMap.delete(cleanKey);
+    try {
+      fetch(`${KV_BASE_URL}/pbl_otp_${cleanKey}`, { method: 'DELETE' }).catch(() => {});
+    } catch {}
+    return {
+      valid: false,
+      error: 'Incorrect verification code. For security, this code is no longer valid. Please re-enter your details to request a new OTP.',
+      codeBurned: true
+    };
   }
 
   entry.verified = true;

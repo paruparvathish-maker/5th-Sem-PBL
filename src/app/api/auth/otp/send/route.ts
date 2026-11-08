@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { store } from '@/lib/data/store';
 import { createAndSaveOtp, maskEmail } from '@/lib/data/otp-store';
+import { sendOtpEmail } from '@/lib/utils/mailer';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,13 +24,21 @@ export async function POST(request: Request) {
     const targetEmail = user.email || (clean.includes('@') ? clean : `${clean.toLowerCase()}@student.dsatm.edu.in`);
     const otp = await createAndSaveOtp(clean, targetEmail);
 
+    // Send the verification code directly to user's email inbox
+    await sendOtpEmail({
+      to: targetEmail,
+      otp,
+      userName: user.name || clean,
+    }).catch(err => {
+      console.warn('[OTP] Mail dispatch warning:', err);
+    });
+
     return NextResponse.json({
       success: true,
       identifier: clean,
       email: targetEmail,
       maskedEmail: maskEmail(targetEmail),
-      otp, // Provided in response for simulated university demo verification
-      message: `A 6-digit verification code has been generated and sent to ${maskEmail(targetEmail)}.`
+      message: `A 6-digit verification code has been sent directly to your registered email (${maskEmail(targetEmail)}). Please check your inbox and spam folder.`
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Failed to send verification code.' }, { status: 500 });

@@ -25,7 +25,6 @@ export default function ForgotPasswordPage() {
 
   // Feedback State
   const [maskedEmail, setMaskedEmail] = useState('');
-  const [demoOtp, setDemoOtp] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -56,8 +55,8 @@ export default function ForgotPasswordPage() {
         setError(data.error || 'Failed to generate verification code.');
       } else {
         setMaskedEmail(data.maskedEmail || identifier);
-        setDemoOtp(data.otp || '');
-        setSuccess(data.message || 'Verification code generated.');
+        setSuccess(data.message || 'Verification code sent to your email.');
+        setEnteredOtp('');
         setStep(2);
       }
     } catch (err: any) {
@@ -90,7 +89,13 @@ export default function ForgotPasswordPage() {
       const data = await res.json();
 
       if (!res.ok || !data.success) {
-        setError(data.error || 'Invalid or expired verification code.');
+        // Code is wrong or burned: immediately invalidate and return to Step 1
+        setEnteredOtp('');
+        setError(data.error || 'Incorrect OTP code. For security, this code has been invalidated. Please request a new code.');
+        setSuccess('');
+        setTimeout(() => {
+          setStep(1);
+        }, 1800);
       } else {
         setError('');
         setSuccess('Verification code confirmed! You can now create your new password.');
@@ -206,20 +211,11 @@ export default function ForgotPasswordPage() {
             </div>
           )}
 
-          {/* Success / OTP Notice */}
+          {/* Success Notification */}
           {success && (
-            <div className="mb-4 p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs space-y-1.5">
-              <div className="flex items-center space-x-2">
-                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
-                <span className="font-semibold">{success}</span>
-              </div>
-              {demoOtp && step === 2 && (
-                <div className="mt-2 p-2 rounded-lg bg-slate-900/90 border border-emerald-500/40 text-center">
-                  <span className="text-[11px] text-slate-400 block mb-0.5">Your 6-Digit Verification Code:</span>
-                  <span className="text-xl font-extrabold font-mono text-emerald-300 tracking-widest">{demoOtp}</span>
-                  <span className="text-[10px] text-slate-500 block mt-0.5">Valid for 10 minutes</span>
-                </div>
-              )}
+            <div className="mb-4 p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-center space-x-2">
+              <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
+              <span className="font-semibold">{success}</span>
             </div>
           )}
 
@@ -290,8 +286,9 @@ export default function ForgotPasswordPage() {
                     className="block w-full pl-10 pr-3 py-3 bg-slate-900/90 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-xl font-mono tracking-widest text-center focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-bold"
                   />
                 </div>
-                <p className="mt-1 text-[11px] text-slate-400 text-center">
-                  Verification code sent for account: <strong className="text-slate-200">{maskedEmail || identifier}</strong>
+                <p className="mt-1.5 text-[11px] text-slate-400 text-center leading-relaxed">
+                  Verification code dispatched to your registered email: <strong className="text-indigo-300">{maskedEmail || identifier}</strong>.
+                  <br /><span className="text-[10px] text-amber-400/90 font-medium">Please check your inbox &amp; spam folder. If an incorrect code is entered, it will be invalidated immediately.</span>
                 </p>
               </div>
 
