@@ -8,13 +8,13 @@ interface SendOtpEmailOptions {
 
 export async function sendOtpEmail({ to, otp, userName }: SendOtpEmailOptions): Promise<{ success: boolean; error?: string }> {
   try {
-    const smtpUser = process.env.SMTP_USER || process.env.GMAIL_USER;
+    const smtpUser = process.env.SMTP_USER || process.env.GMAIL_USER || 'paruparvathish@gmail.com';
     // Strip spaces in case user pasted "abcd efgh ijkl mnop" from Google App Passwords
-    const rawPass = process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD || '';
+    const rawPass = process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD || 'mxwlmeaxzdakxlhk';
     const smtpPass = rawPass.replace(/\s+/g, '');
     const smtpHost = process.env.SMTP_HOST || 'smtp.gmail.com';
     const smtpPort = Number(process.env.SMTP_PORT) || 465;
-    const smtpFrom = process.env.SMTP_FROM || `"Industrial PBL Portal - DSATM" <${smtpUser || 'noreply@dsatm.edu.in'}>`;
+    const smtpFrom = process.env.SMTP_FROM || `"Industrial PBL Portal - DSATM" <${smtpUser}>`;
 
     if (!smtpUser || !smtpPass) {
       const errMsg = 'SMTP credentials not configured. Please configure SMTP_USER and SMTP_PASS (Google App Password) in environment variables.';
