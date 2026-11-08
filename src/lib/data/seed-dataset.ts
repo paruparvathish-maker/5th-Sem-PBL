@@ -1421,6 +1421,25 @@ export function normalizeName(name: string) {
     'k deepashree': 'Mrs. DEEPASHREE K',
     'deepashree k': 'Mrs. DEEPASHREE K',
 
+    'ms. deepthi': 'Ms. DEEPTHI R',
+    'deepthi': 'Ms. DEEPTHI R',
+    'ms. deepthi r': 'Ms. DEEPTHI R',
+    'deepthi r': 'Ms. DEEPTHI R',
+
+    'mr. harsha': 'Mr. HARSHA H N',
+    'harsha': 'Mr. HARSHA H N',
+    'mr. harsha h n': 'Mr. HARSHA H N',
+    'harsha h n': 'Mr. HARSHA H N',
+
+    'dr. shalini s': 'Dr. Shalini',
+    'dr shalini s': 'Dr. Shalini',
+    'shalini s': 'Dr. Shalini',
+    'dr. shalini': 'Dr. Shalini',
+
+    'dr shivanna k': 'Dr. SHIVANNA K',
+    'dr. shivanna k': 'Dr. SHIVANNA K',
+    'shivanna k': 'Dr. SHIVANNA K',
+
     'ms. a manusha reddy': 'Ms. MANUSHA A',
     'mrs. a manusha reddy': 'Ms. MANUSHA A',
     'a manusha reddy': 'Ms. MANUSHA A',
@@ -1470,7 +1489,7 @@ export function normalizeName(name: string) {
 
   const mapped = ALIASES[lower] || name;
   return mapped.toLowerCase()
-    .replace(/^(dr\.|mr\.|mrs\.|ms\.|prof\.)\s*/, '')
+    .replace(/^(dr|mr|mrs|ms|prof)\.?\s*/i, '')
     .replace(/[^a-z0-9]/g, '');
 }
 

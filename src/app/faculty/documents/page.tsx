@@ -14,16 +14,16 @@ export default function FacultyDocumentsPage() {
   const { user } = useAuth();
   if (!user) return null;
 
-  const [assignedTeams, setAssignedTeams] = useState(store.getTeamsByGuideId(user.id));
-  const [submissions, setSubmissions] = useState(store.getSubmissionsForFaculty(user.id));
+  const [assignedTeams, setAssignedTeams] = useState(store.getTeamsByGuideId(user.email || user.id));
+  const [submissions, setSubmissions] = useState(store.getSubmissionsForFaculty(user.email || user.id));
 
   useEffect(() => {
     store.syncFromSupabase().then(() => {
-      const teams = store.getTeamsByGuideId(user.id);
+      const teams = store.getTeamsByGuideId(user.email || user.id);
       setAssignedTeams(teams);
-      setSubmissions(store.getSubmissionsForFaculty(user.id));
+      setSubmissions(store.getSubmissionsForFaculty(user.email || user.id));
     });
-  }, [user.id]);
+  }, [user.id, user.email]);
 
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
   const [analysisResult, setAnalysisResult] = useState<any | null>(null);

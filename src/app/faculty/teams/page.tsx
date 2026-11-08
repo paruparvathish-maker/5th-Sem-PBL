@@ -19,17 +19,17 @@ export default function FacultyTeamsPage() {
   if (!user) return null;
 
   const [activeTab, setActiveTab] = useState<4 | 5>(5);
-  const [assignedTeams, setAssignedTeams] = useState(store.getTeamsByGuideId(user.id));
+  const [assignedTeams, setAssignedTeams] = useState(store.getTeamsByGuideId(user.email || user.id));
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSection, setSelectedSection] = useState<string>('ALL');
   const [isSyncing, setIsSyncing] = useState(true);
 
   React.useEffect(() => {
     store.syncFromSupabase().then(() => {
-      setAssignedTeams([...store.getTeamsByGuideId(user.id)]);
+      setAssignedTeams([...store.getTeamsByGuideId(user.email || user.id)]);
       setIsSyncing(false);
     });
-  }, [user.id]);
+  }, [user.id, user.email]);
 
   // 5th Sem Edit State
   const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
@@ -71,7 +71,7 @@ export default function FacultyTeamsPage() {
       const finalProofPath = proofFileDataUrl || (proofFileName ? `/storage/proofs/${proofFileName}` : undefined);
       await store.updateResearchPaperStatus(teamId, selectedPaperStatus, proofFileName || undefined, finalProofPath);
       // Immediately reflect updated state in the view
-      setAssignedTeams([...store.getTeamsByGuideId(user.id)]);
+      setAssignedTeams([...store.getTeamsByGuideId(user.email || user.id)]);
       setUploadingTeamId(null);
       setProofFileName('');
       setProofFileDataUrl('');

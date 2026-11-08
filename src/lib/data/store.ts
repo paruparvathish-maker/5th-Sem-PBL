@@ -171,7 +171,10 @@ class PBLStore {
           RAW_4TH_SEM_SEED.forEach(seedTeam => {
             const guideEmail = getGuideEmail(seedTeam.guideName);
             const guidePhone = getGuidePhone(seedTeam.guideName);
-            let guideProfile = this.profiles.find(p => p.email && p.email.toLowerCase() === guideEmail.toLowerCase());
+            let guideProfile = this.profiles.find(p => 
+              (p.email && p.email.toLowerCase() === guideEmail.toLowerCase()) ||
+              (p.name && normalizeName(p.name) === normalizeName(seedTeam.guideName))
+            );
             if (!guideProfile) {
               guideProfile = {
                 id: `fac-${this.profiles.filter(p => p.role === 'faculty').length + 1}`,
@@ -721,7 +724,10 @@ class PBLStore {
         RAW_4TH_SEM_SEED.forEach(seedTeam => {
           const guideEmail = getGuideEmail(seedTeam.guideName);
           const guidePhone = getGuidePhone(seedTeam.guideName);
-          let guideProfile = this.profiles.find(p => p.email && p.email.toLowerCase() === guideEmail.toLowerCase());
+          let guideProfile = this.profiles.find(p => 
+            (p.email && p.email.toLowerCase() === guideEmail.toLowerCase()) ||
+            (p.name && normalizeName(p.name) === normalizeName(seedTeam.guideName))
+          );
           if (!guideProfile) {
             guideProfile = {
               id: `fac-${this.profiles.filter(p => p.role === 'faculty').length + 1}`,
@@ -786,7 +792,10 @@ class PBLStore {
         // Unconditionally synchronize 5th sem guides and allocations
         RAW_PDF_SEED.forEach(seedTeam => {
           const guideEmail = getGuideEmail(seedTeam.guideName);
-          let guideProfile = this.profiles.find(p => p.email && p.email.toLowerCase() === guideEmail.toLowerCase());
+          let guideProfile = this.profiles.find(p => 
+            (p.email && p.email.toLowerCase() === guideEmail.toLowerCase()) ||
+            (p.name && normalizeName(p.name) === normalizeName(seedTeam.guideName))
+          );
           const existing = this.teams.find(t => (t.semester || 5) === 5 && t.teamNumber === seedTeam.teamNumber && t.section === seedTeam.section);
           if (existing && guideProfile) {
             existing.guideName = seedTeam.guideName;
@@ -1182,12 +1191,7 @@ class PBLStore {
         return false;
       }
 
-      // Strict name isolation: if both have normalized names and they differ, REJECT immediately
-      if (targetNorm && tNorm && targetNorm !== tNorm) {
-        return false;
-      }
-
-      // 1. Direct Email match (highest accuracy across devices)
+      // 1. Direct Email match (highest confidence and accuracy across devices)
       if (targetEmail && tEmail && tEmail === targetEmail) {
         return true;
       }
@@ -1197,7 +1201,17 @@ class PBLStore {
         return true;
       }
 
-      // 3. ID match ONLY IF neither email nor normalized name conflicts
+      // 3. Guide Name resolution to target faculty email
+      if (targetEmail && t.guideName && getGuideEmail(t.guideName).toLowerCase() === targetEmail) {
+        return true;
+      }
+
+      // Strict name isolation: if both have normalized names and they differ, reject
+      if (targetNorm && tNorm && targetNorm !== tNorm) {
+        return false;
+      }
+
+      // 4. ID match ONLY IF neither email nor normalized name conflicts
       if (t.guideId === targetId) {
         if (targetEmail && tEmail && tEmail !== targetEmail) return false;
         if (targetNorm && tNorm && targetNorm !== tNorm) return false;

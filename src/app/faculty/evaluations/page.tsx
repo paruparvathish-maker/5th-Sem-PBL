@@ -44,17 +44,17 @@ function FacultyEvaluationsContent() {
   if (!user) return null;
 
   // Load assigned teams and deadlines from store
-  const [assignedTeams, setAssignedTeams] = useState(store.getTeamsByGuideId(user.id).filter(t => (t.semester || 5) === 5));
+  const [assignedTeams, setAssignedTeams] = useState(store.getTeamsByGuideId(user.email || user.id).filter(t => (t.semester || 5) === 5));
   const [allDeadlines, setAllDeadlines] = useState(store.getAllDeadlines());
   const [isSyncing, setIsSyncing] = useState(true);
 
   useEffect(() => {
     store.syncFromSupabase().then(() => {
-      setAssignedTeams(store.getTeamsByGuideId(user.id).filter(t => (t.semester || 5) === 5));
+      setAssignedTeams(store.getTeamsByGuideId(user.email || user.id).filter(t => (t.semester || 5) === 5));
       setAllDeadlines(store.getAllDeadlines());
       setIsSyncing(false);
     });
-  }, [user.id]);
+  }, [user.id, user.email]);
 
   const [selectedTeamId, setSelectedTeamId] = useState(preselectedTeamId || assignedTeams[0]?.id || '');
   const [selectedDeadlineId, setSelectedDeadlineId] = useState(allDeadlines[0]?.id || '');

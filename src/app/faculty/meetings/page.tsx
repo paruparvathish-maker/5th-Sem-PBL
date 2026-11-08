@@ -11,13 +11,13 @@ export default function FacultyMeetingsPage() {
   const { user } = useAuth();
   if (!user) return null;
 
-  const [assignedTeams, setAssignedTeams] = useState<Team[]>(store.getTeamsByGuideId(user.id));
-  const [meetings, setMeetings] = useState<GuideMeeting[]>(store.getMeetingsForFaculty(user.id));
+  const [assignedTeams, setAssignedTeams] = useState<Team[]>(store.getTeamsByGuideId(user.email || user.id));
+  const [meetings, setMeetings] = useState<GuideMeeting[]>(store.getMeetingsForFaculty(user.email || user.id));
 
   const loadData = () => {
-    const teams = store.getTeamsByGuideId(user.id);
+    const teams = store.getTeamsByGuideId(user.email || user.id);
     setAssignedTeams(teams);
-    setMeetings(store.getMeetingsForFaculty(user.id));
+    setMeetings(store.getMeetingsForFaculty(user.email || user.id));
     if (teams.length > 0 && !selectedTeamId) {
       setSelectedTeamId(teams[0].id);
     }

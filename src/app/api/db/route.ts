@@ -171,7 +171,19 @@ export async function GET() {
           cloudDynamic.teams.forEach((t: any) => {
             if (t && t.id) {
               const existing = tMap.get(t.id) || {};
-              tMap.set(t.id, { ...existing, ...t });
+              // Merge user-editable fields (paper status, proofs, edited descriptions)
+              // but always preserve canonical guide mappings, semester, section, and team numbers
+              tMap.set(t.id, {
+                ...existing,
+                ...t,
+                guideName: existing.guideName || t.guideName,
+                guideEmail: existing.guideEmail || t.guideEmail,
+                guideId: existing.guideId || t.guideId,
+                semester: existing.semester || t.semester,
+                section: existing.section || t.section,
+                teamNumber: existing.teamNumber || t.teamNumber,
+                members: (existing.members && existing.members.length > 0) ? existing.members : t.members
+              });
             }
           });
           baseData.teams = Array.from(tMap.values());
