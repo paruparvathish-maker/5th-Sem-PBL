@@ -49,7 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (isLoading) return;
 
-    const publicPages = ['/login'];
+    const publicPages = ['/login', '/signup', '/register', '/forgot-password'];
     const isPublic = publicPages.some(p => pathname.startsWith(p));
 
     if (!user && !isPublic) {

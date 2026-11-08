@@ -16,9 +16,7 @@ export default function FacultyDashboardPage() {
 
   const [assignedTeams, setAssignedTeams] = React.useState(store.getTeamsByGuideId(user.id));
   const [meetings, setMeetings] = React.useState(store.getMeetingsForFaculty(user.id));
-  const [allSubmissions, setAllSubmissions] = React.useState(
-    store.getAllSubmissions().filter(s => assignedTeams.some(t => t.id === s.teamId))
-  );
+  const [allSubmissions, setAllSubmissions] = React.useState(store.getSubmissionsForFaculty(user.id));
   const [evaluations, setEvaluations] = React.useState(store.getAllEvaluations());
 
   React.useEffect(() => {
@@ -26,7 +24,7 @@ export default function FacultyDashboardPage() {
       const teams = store.getTeamsByGuideId(user.id);
       setAssignedTeams(teams);
       setMeetings(store.getMeetingsForFaculty(user.id));
-      setAllSubmissions(store.getAllSubmissions().filter(s => teams.some(t => t.id === s.teamId)));
+      setAllSubmissions(store.getSubmissionsForFaculty(user.id));
       setEvaluations(store.getAllEvaluations());
     });
   }, [user.id]);

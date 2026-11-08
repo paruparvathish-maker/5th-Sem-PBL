@@ -7,6 +7,7 @@ import {
   fetchCloudSubmissions,
   saveCloudSubmissionsBatch
 } from '@/lib/data/cloud-sync';
+import { store } from '@/lib/data/store';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -82,7 +83,7 @@ export async function GET() {
       }
     }
 
-    // 3. Read base data from /tmp or local backend/data.json
+    // 3. Read base data from /tmp or local backend/data.json; fallback to built-in seed dataset
     let baseData: any = null;
     if (fs.existsSync(TMP_DATA_PATH)) {
       try {
@@ -97,8 +98,18 @@ export async function GET() {
       } catch {}
     }
 
+    // Always fallback to in-memory store so serverless lambdas on Vercel NEVER return 404
     if (!baseData) {
-      return NextResponse.json({ error: 'Backend data not initialized' }, { status: 404 });
+      baseData = {
+        profiles: store.getAllProfiles(),
+        teams: store.getAllTeams(),
+        deadlines: store.getAllDeadlines(),
+        submissions: [],
+        evaluations: [],
+        guideMeetings: [],
+        notifications: [],
+        auditLogs: []
+      };
     }
 
     // 4. Merge serverless cloud KV credentials, submissions & dynamic records (ensures all devices see the latest state)
@@ -154,6 +165,16 @@ export async function GET() {
           const meetMap = new Map<string, any>((baseData.guideMeetings || []).map((m: any) => [m.id, m]));
           cloudDynamic.guideMeetings.forEach((m: any) => meetMap.set(m.id, { ...(meetMap.get(m.id) || {}), ...m }));
           baseData.guideMeetings = Array.from(meetMap.values());
+        }
+        if (Array.isArray(cloudDynamic.teams) && cloudDynamic.teams.length > 0) {
+          const tMap = new Map<string, any>((baseData.teams || []).map((t: any) => [t.id, t]));
+          cloudDynamic.teams.forEach((t: any) => {
+            if (t && t.id) {
+              const existing = tMap.get(t.id) || {};
+              tMap.set(t.id, { ...existing, ...t });
+            }
+          });
+          baseData.teams = Array.from(tMap.values());
         }
       }
     } catch (kvErr) {
@@ -341,14 +362,20 @@ export async function POST(request: Request) {
     }
 
     // Persist all submissions and dynamic store to cloud KV for instant multi-device reflection
+    const cloudSaves: Promise<any>[] = [];
     if (merged.submissions.length > 0) {
-      saveCloudSubmissionsBatch(merged.submissions).catch(() => {});
+      cloudSaves.push(saveCloudSubmissionsBatch(merged.submissions));
     }
 
-    saveCloudDynamicStore({
+    cloudSaves.push(saveCloudDynamicStore({
       evaluations: merged.evaluations.slice(0, 500),
       guideMeetings: merged.guideMeetings.slice(0, 500),
-    }).catch(() => {});
+      teams: merged.teams.filter((t: any) => t.researchPaperProofName || (t.researchPaperStatus && t.researchPaperStatus !== 'submitted') || (t.projectTitle && t.projectTitle !== 'To Be Decided (TBD)')).slice(0, 500)
+    }));
+
+    await Promise.all(cloudSaves).catch((kvErr) => {
+      console.warn('Cloud KV persist non-blocking warning:', kvErr);
+    });
 
     return NextResponse.json({ success: true, message: 'Backend database synced successfully' });
   } catch (err: any) {

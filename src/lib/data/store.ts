@@ -136,11 +136,9 @@ class PBLStore {
 
             const existing = this.teams.find(t => (t.semester || 5) === 5 && t.teamNumber === seedTeam.teamNumber && t.section === seedTeam.section);
             if (existing) {
-              if (existing.guideName !== seedTeam.guideName) {
-                existing.guideName = seedTeam.guideName;
-                existing.guideEmail = guideEmail;
-                existing.guideId = guideProfile.id;
-              }
+              existing.guideName = seedTeam.guideName;
+              existing.guideEmail = guideEmail;
+              existing.guideId = guideProfile.id;
               if (!existing.projectTitle || existing.projectTitle === 'To Be Decided (TBD)' || existing.projectTitle.startsWith('4th Sem') || existing.projectTitle !== seedTeam.projectTitle) {
                 existing.projectTitle = seedTeam.projectTitle;
                 existing.projectDescription = seedTeam.projectDescription;
@@ -285,6 +283,13 @@ class PBLStore {
           });
 
           this.initialized = true;
+
+          // Asynchronously uplink existing local submissions to cloud KV so all mobile devices reflect them immediately
+          if (this.submissions.length > 0) {
+            setTimeout(() => {
+              this.syncToSupabase().catch(() => {});
+            }, 600);
+          }
           return;
         } catch (e) {
           console.error("Error restoring PBL store:", e);
@@ -701,73 +706,94 @@ class PBLStore {
               }
             }
           });
-
-          // Synchronize 4th sem project titles, guides, and auto-heal guideId allocations
-          RAW_4TH_SEM_SEED.forEach(seedTeam => {
-            const guideEmail = getGuideEmail(seedTeam.guideName);
-            const guidePhone = getGuidePhone(seedTeam.guideName);
-            let guideProfile = this.profiles.find(p => p.email && p.email.toLowerCase() === guideEmail.toLowerCase());
-            if (!guideProfile) {
-              guideProfile = {
-                id: `fac-${this.profiles.filter(p => p.role === 'faculty').length + 1}`,
-                email: guideEmail,
-                name: seedTeam.guideName,
-                role: 'faculty',
-                phone: guidePhone,
-                staffCode: `F${1000 + this.profiles.filter(p => p.role === 'faculty').length + 1}`,
-                isFirstLogin: true,
-                createdAt: new Date().toISOString()
-              };
-              this.profiles.push(guideProfile);
-            }
-
-            const existing = this.teams.find(t => t.semester === 4 && t.teamNumber === seedTeam.teamNumber && t.section === seedTeam.section);
-            if (existing) {
-              existing.guideName = seedTeam.guideName;
-              existing.guideEmail = guideEmail;
-              existing.guideId = guideProfile.id;
-            } else {
-              const teamId = `team-4-${seedTeam.section}-${seedTeam.teamNumber}`;
-              const expert4 = getIndustryExpertForTeam(4, seedTeam.section);
-              const teamMembersList: UserProfile[] = (seedTeam.students || []).map(s => {
-                const cleanUsn = s.usn.toUpperCase().trim();
-                let stud = this.profiles.find(p => p.usn === cleanUsn);
-                if (!stud) {
-                  stud = {
-                    id: `stud-${cleanUsn}`,
-                    email: `${cleanUsn.toLowerCase()}@student.dsatm.edu.in`,
-                    name: s.name,
-                    usn: cleanUsn,
-                    role: 'student',
-                    section: seedTeam.section,
-                    isFirstLogin: true,
-                    createdAt: new Date().toISOString()
-                  };
-                  this.profiles.push(stud);
-                }
-                return stud;
-              });
-
-              this.teams.push({
-                id: teamId,
-                teamNumber: seedTeam.teamNumber,
-                section: seedTeam.section,
-                semester: 4,
-                projectTitle: `4th Sem Research Paper (${seedTeam.teamNumber})`,
-                projectDescription: `Research paper work under ${seedTeam.guideName}`,
-                guideId: guideProfile.id,
-                guideName: seedTeam.guideName,
-                guideEmail: guideEmail,
-                industryExpertId: expert4?.id,
-                industryExpertName: expert4?.name,
-                industryExpertEmail: expert4?.email,
-                members: teamMembersList,
-                researchPaperStatus: 'submitted',
-                createdAt: new Date().toISOString()
-              });
-            }
-          });
         }
+
+        // Bidirectional sync: if local client has submissions that the remote server is missing, push local submissions to the server!
+        if (this.submissions.length > 0) {
+          const serverIds = new Set((data.submissions || []).map((s: any) => s.id));
+          const hasUnsynced = this.submissions.some(s => !serverIds.has(s.id));
+          if (hasUnsynced) {
+            this.syncToSupabase().catch(() => {});
+          }
+        }
+
+        // Unconditionally synchronize 4th sem project titles, guides, and auto-heal guideId allocations
+        RAW_4TH_SEM_SEED.forEach(seedTeam => {
+          const guideEmail = getGuideEmail(seedTeam.guideName);
+          const guidePhone = getGuidePhone(seedTeam.guideName);
+          let guideProfile = this.profiles.find(p => p.email && p.email.toLowerCase() === guideEmail.toLowerCase());
+          if (!guideProfile) {
+            guideProfile = {
+              id: `fac-${this.profiles.filter(p => p.role === 'faculty').length + 1}`,
+              email: guideEmail,
+              name: seedTeam.guideName,
+              role: 'faculty',
+              phone: guidePhone,
+              staffCode: `F${1000 + this.profiles.filter(p => p.role === 'faculty').length + 1}`,
+              isFirstLogin: true,
+              createdAt: new Date().toISOString()
+            };
+            this.profiles.push(guideProfile);
+          }
+
+          const existing = this.teams.find(t => t.semester === 4 && t.teamNumber === seedTeam.teamNumber && t.section === seedTeam.section);
+          if (existing) {
+            existing.guideName = seedTeam.guideName;
+            existing.guideEmail = guideEmail;
+            existing.guideId = guideProfile.id;
+          } else {
+            const teamId = `team-4-${seedTeam.section}-${seedTeam.teamNumber}`;
+            const expert4 = getIndustryExpertForTeam(4, seedTeam.section);
+            const teamMembersList: UserProfile[] = (seedTeam.students || []).map(s => {
+              const cleanUsn = s.usn.toUpperCase().trim();
+              let stud = this.profiles.find(p => p.usn === cleanUsn);
+              if (!stud) {
+                stud = {
+                  id: `stud-${cleanUsn}`,
+                  email: `${cleanUsn.toLowerCase()}@student.dsatm.edu.in`,
+                  name: s.name,
+                  usn: cleanUsn,
+                  role: 'student',
+                  section: seedTeam.section,
+                  isFirstLogin: true,
+                  createdAt: new Date().toISOString()
+                };
+                this.profiles.push(stud);
+              }
+              return stud;
+            });
+
+            this.teams.push({
+              id: teamId,
+              teamNumber: seedTeam.teamNumber,
+              section: seedTeam.section,
+              semester: 4,
+              projectTitle: `4th Sem Research Paper (${seedTeam.teamNumber})`,
+              projectDescription: `Research paper work under ${seedTeam.guideName}`,
+              guideId: guideProfile.id,
+              guideName: seedTeam.guideName,
+              guideEmail: guideEmail,
+              industryExpertId: expert4?.id,
+              industryExpertName: expert4?.name,
+              industryExpertEmail: expert4?.email,
+              members: teamMembersList,
+              researchPaperStatus: 'submitted',
+              createdAt: new Date().toISOString()
+            });
+          }
+        });
+
+        // Unconditionally synchronize 5th sem guides and allocations
+        RAW_PDF_SEED.forEach(seedTeam => {
+          const guideEmail = getGuideEmail(seedTeam.guideName);
+          let guideProfile = this.profiles.find(p => p.email && p.email.toLowerCase() === guideEmail.toLowerCase());
+          const existing = this.teams.find(t => (t.semester || 5) === 5 && t.teamNumber === seedTeam.teamNumber && t.section === seedTeam.section);
+          if (existing && guideProfile) {
+            existing.guideName = seedTeam.guideName;
+            existing.guideEmail = guideEmail;
+            existing.guideId = guideProfile.id;
+          }
+        });
 
         // Intelligent non-destructive merge for evaluations
         if (data.evaluations && Array.isArray(data.evaluations) && data.evaluations.length > 0) {
@@ -1142,7 +1168,7 @@ class PBLStore {
     );
 
     const targetId = guide ? guide.id : guideIdentifier;
-    const targetEmail = guide?.email?.toLowerCase();
+    const targetEmail = guide?.email?.toLowerCase() || (guideIdentifier.includes('@') ? guideIdentifier.toLowerCase() : undefined);
     const targetNorm = guide?.name ? normalizeName(guide.name) : normalizeName(guideIdentifier);
 
     return this.teams.filter(t => {
@@ -1151,28 +1177,52 @@ class PBLStore {
       const tEmail = (t.guideEmail || '').toLowerCase();
       const tNorm = t.guideName ? normalizeName(t.guideName) : '';
 
+      // Strict email isolation: if both have emails and they differ, REJECT immediately
+      if (targetEmail && tEmail && tEmail !== targetEmail) {
+        return false;
+      }
+
+      // Strict name isolation: if both have normalized names and they differ, REJECT immediately
+      if (targetNorm && tNorm && targetNorm !== tNorm) {
+        return false;
+      }
+
       // 1. Direct Email match (highest accuracy across devices)
       if (targetEmail && tEmail && tEmail === targetEmail) {
         return true;
       }
 
-      // 2. ID match with cross-faculty email collision guard
-      if (t.guideId === targetId) {
-        if (targetEmail && tEmail && tEmail !== targetEmail) {
-          return false; // Prevent wrong team leakage
-        }
+      // 2. Normalized Name exact match
+      if (targetNorm && tNorm && targetNorm === tNorm) {
         return true;
       }
 
-      // 3. Normalized Name match with cross-faculty email collision guard
-      if (targetNorm && tNorm && (targetNorm === tNorm || targetNorm.includes(tNorm) || tNorm.includes(targetNorm))) {
-        if (targetEmail && tEmail && tEmail !== targetEmail) {
-          return false;
-        }
+      // 3. ID match ONLY IF neither email nor normalized name conflicts
+      if (t.guideId === targetId) {
+        if (targetEmail && tEmail && tEmail !== targetEmail) return false;
+        if (targetNorm && tNorm && targetNorm !== tNorm) return false;
         return true;
       }
 
       return false;
+    });
+  }
+
+  public getSubmissionsForFaculty(guideIdentifier: string): Submission[] {
+    const facultyTeams = this.getTeamsByGuideId(guideIdentifier);
+    if (!facultyTeams || facultyTeams.length === 0) return [];
+
+    return this.submissions.filter(s => {
+      // 1. Match by teamId
+      if (facultyTeams.some(t => t.id === s.teamId)) return true;
+
+      // 2. Fallback match by teamNumber and section
+      const subSection = (s as any).section || (s.teamNumber ? s.teamNumber.replace(/[^A-Za-z]/g, '').slice(0, 1).toUpperCase() : '');
+      return facultyTeams.some(t => {
+        if (t.teamNumber !== s.teamNumber) return false;
+        if (subSection && t.section && subSection !== t.section) return false;
+        return true;
+      });
     });
   }
 

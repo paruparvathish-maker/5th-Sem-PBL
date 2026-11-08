@@ -3,8 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth/auth-context';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { store } from '@/lib/data/store';
-import { GraduationCap, ShieldCheck, UserCheck, Lock, Mail, User, AlertCircle, ArrowRight, Sparkles, Eye, EyeOff } from 'lucide-react';
+import { GraduationCap, ShieldCheck, UserCheck, Lock, Mail, User, AlertCircle, ArrowRight, Sparkles, Eye, EyeOff, KeyRound, UserPlus } from 'lucide-react';
 import { UserRole } from '@/lib/types/pbl';
 
 export default function LoginPage() {
@@ -129,10 +130,10 @@ export default function LoginPage() {
             </div>
           )}
 
-          <form className="space-y-5" onSubmit={handleSubmit}>
+          <form className="space-y-4" onSubmit={handleSubmit}>
             <div>
               <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-                {activeTab === 'student' ? 'USN / Mobile Number / Email' : activeTab === 'faculty' ? 'Faculty Email / Mobile Number' : 'Admin / Industry Email, Username or Phone'}
+                {activeTab === 'student' ? 'USN (e.g. 1DT24CS001) or Email' : activeTab === 'faculty' ? 'Institutional Email or Employee ID (Staff Code)' : 'Email, Username or Employee ID'}
               </label>
               <div className="relative rounded-xl shadow-sm">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
@@ -148,24 +149,32 @@ export default function LoginPage() {
                   spellCheck={false}
                   autoComplete="username"
                   placeholder={
-                    activeTab === 'student' ? 'USN (e.g. 1DT24CS010), Name or Mobile' :
-                    activeTab === 'faculty' ? 'Faculty Name (e.g. Gajendra), Email or Mobile' :
+                    activeTab === 'student' ? 'Enter USN (e.g. 1DT24CS010) or Email' :
+                    activeTab === 'faculty' ? 'Enter Email (e.g. gajendra-cse@dsatm.edu.in) or Employee ID (e.g. F1023)' :
                     'Username (e.g. admin, raghu, girish) or Email'
                   }
                   className="block w-full pl-10 pr-3 py-2.5 bg-slate-900/90 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
                 />
               </div>
               <p className="mt-1 text-[11px] text-slate-400">
-                {activeTab === 'student' && 'Login with USN or Name. Initial password is your USN (e.g. 1DT24CS001)'}
-                {activeTab === 'faculty' && 'Login with Name, Email or Mobile. Initial password is your registered 10-digit mobile number'}
+                {activeTab === 'student' && 'Students log in with USN as username with your account password.'}
+                {activeTab === 'faculty' && 'Faculties log in with Institutional Email or Employee ID (Staff Code).'}
                 {activeTab === 'admin' && 'Main Admin (admin/parvathish) & Industry Experts (girish, raghu, rajashekhar, manasa, harshitha)'}
               </p>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-                Password
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                  Password
+                </label>
+                <Link
+                  href="/forgot-password"
+                  className="text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 transition-colors"
+                >
+                  Forgot Password?
+                </Link>
+              </div>
               <div className="relative rounded-xl shadow-sm">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
                   <Lock className="h-4 w-4" />
@@ -204,6 +213,17 @@ export default function LoginPage() {
               <span>{isSubmitting ? 'Authenticating...' : 'Sign In to Portal'}</span>
               <ArrowRight className="h-4 w-4" />
             </button>
+
+            {/* Sign Up / Create Account Button */}
+            <div className="pt-2 text-center">
+              <Link
+                href="/signup"
+                className="w-full flex justify-center items-center space-x-2 py-2.5 px-4 rounded-xl text-xs font-bold text-slate-200 bg-slate-700/60 hover:bg-slate-700 border border-slate-600/60 hover:border-indigo-500/50 transition-all shadow-sm"
+              >
+                <UserPlus className="h-3.5 w-3.5 text-indigo-400" />
+                <span>New User? Create Account / Sign Up</span>
+              </Link>
+            </div>
           </form>
 
           {/* Quick Demo Credentials Panel */}

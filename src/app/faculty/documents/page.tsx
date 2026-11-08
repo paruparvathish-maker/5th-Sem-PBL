@@ -15,15 +15,13 @@ export default function FacultyDocumentsPage() {
   if (!user) return null;
 
   const [assignedTeams, setAssignedTeams] = useState(store.getTeamsByGuideId(user.id));
-  const [submissions, setSubmissions] = useState(
-    store.getAllSubmissions().filter(s => assignedTeams.some(t => t.id === s.teamId))
-  );
+  const [submissions, setSubmissions] = useState(store.getSubmissionsForFaculty(user.id));
 
   useEffect(() => {
     store.syncFromSupabase().then(() => {
       const teams = store.getTeamsByGuideId(user.id);
       setAssignedTeams(teams);
-      setSubmissions(store.getAllSubmissions().filter(s => teams.some(t => t.id === s.teamId)));
+      setSubmissions(store.getSubmissionsForFaculty(user.id));
     });
   }, [user.id]);
 

@@ -12,6 +12,7 @@ import {
 import { Deadline, Submission, Team } from '@/lib/types/pbl';
 import { downloadSubmissionFile } from '@/lib/utils/download';
 import { saveFileToIdb } from '@/lib/utils/idb-storage';
+import { saveCloudSubmission } from '@/lib/data/cloud-sync';
 
 export default function StudentSubmissionsPage() {
   const { user } = useAuth();
@@ -115,14 +116,21 @@ export default function StudentSubmissionsPage() {
       );
 
       if (res.success && res.submission) {
+        // Await cloud persistence so that mobile phones and all devices see the submission immediately
+        await saveCloudSubmission(res.submission).catch(console.error);
+
         if (fileDataUrl) {
           saveFileToIdb(res.submission.id, fileDataUrl).catch(console.error);
-          fetch('/api/submissions/file', {
+          await fetch('/api/submissions/file', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ submissionId: res.submission.id, fileData: fileDataUrl })
           }).catch(() => {});
         }
+
+        // Sync full store to cloud API
+        await store.syncToSupabase().catch(console.error);
+
         setMessage({
           type: 'success',
           text: `Document "${selectedFile.name}" successfully saved and locked for Team Group ${team.teamNumber}!`
