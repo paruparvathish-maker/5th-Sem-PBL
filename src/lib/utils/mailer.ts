@@ -8,44 +8,39 @@ interface SendOtpEmailOptions {
 
 export async function sendOtpEmail({ to, otp, userName }: SendOtpEmailOptions): Promise<{ success: boolean; error?: string }> {
   try {
+    const smtpUser = process.env.SMTP_USER || process.env.GMAIL_USER;
+    // Strip spaces in case user pasted "abcd efgh ijkl mnop" from Google App Passwords
+    const rawPass = process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD || '';
+    const smtpPass = rawPass.replace(/\s+/g, '');
     const smtpHost = process.env.SMTP_HOST || 'smtp.gmail.com';
-    const smtpPort = Number(process.env.SMTP_PORT) || 587;
-    const smtpUser = process.env.SMTP_USER;
-    const smtpPass = process.env.SMTP_PASS;
+    const smtpPort = Number(process.env.SMTP_PORT) || 465;
     const smtpFrom = process.env.SMTP_FROM || `"Industrial PBL Portal - DSATM" <${smtpUser || 'noreply@dsatm.edu.in'}>`;
 
-    let transporter: any;
+    if (!smtpUser || !smtpPass) {
+      const errMsg = 'SMTP credentials not configured. Please configure SMTP_USER and SMTP_PASS (Google App Password) in environment variables.';
+      console.warn(`[Mailer] ${errMsg}`);
+      return { success: false, error: errMsg };
+    }
 
-    if (smtpUser && smtpPass) {
-      transporter = nodemailer.createTransport({
-        host: smtpHost,
-        port: smtpPort,
-        secure: smtpPort === 465,
-        auth: {
-          user: smtpUser,
-          pass: smtpPass,
-        },
-      });
-    } else {
-      // Fallback to local sendmail or Ethereal test transporter for robust development
-      const testAccount = await nodemailer.createTestAccount().catch(() => null);
-      if (testAccount) {
-        transporter = nodemailer.createTransport({
-          host: 'smtp.ethereal.email',
-          port: 587,
-          secure: false,
+    const isGmail = smtpHost.includes('gmail') || smtpUser.endsWith('@gmail.com');
+
+    const transporter = isGmail
+      ? nodemailer.createTransport({
+          service: 'gmail',
           auth: {
-            user: testAccount.user,
-            pass: testAccount.pass,
+            user: smtpUser,
+            pass: smtpPass,
+          },
+        })
+      : nodemailer.createTransport({
+          host: smtpHost,
+          port: smtpPort,
+          secure: smtpPort === 465,
+          auth: {
+            user: smtpUser,
+            pass: smtpPass,
           },
         });
-      } else {
-        transporter = nodemailer.createTransport({
-          streamTransport: true,
-          newline: 'windows',
-        });
-      }
-    }
 
     const htmlContent = `
 <!DOCTYPE html>
@@ -110,7 +105,7 @@ export async function sendOtpEmail({ to, otp, userName }: SendOtpEmailOptions): 
       html: htmlContent,
     });
 
-    console.log(`[Mailer] OTP email dispatched to ${to} (MessageId: ${info.messageId})`);
+    console.log(`[Mailer] OTP email dispatched successfully to ${to} (MessageId: ${info.messageId})`);
     return { success: true };
   } catch (err: any) {
     console.error('[Mailer] Failed to send OTP email:', err);

@@ -25,13 +25,18 @@ export async function POST(request: Request) {
     const otp = await createAndSaveOtp(clean, targetEmail);
 
     // Send the verification code directly to user's email inbox
-    await sendOtpEmail({
+    const mailResult = await sendOtpEmail({
       to: targetEmail,
       otp,
       userName: user.name || clean,
-    }).catch(err => {
-      console.warn('[OTP] Mail dispatch warning:', err);
     });
+
+    if (!mailResult.success) {
+      console.warn('[OTP] Mail dispatch failed:', mailResult.error);
+      return NextResponse.json({
+        error: `Could not send verification email to ${maskEmail(targetEmail)}: ${mailResult.error || 'Email service is unavailable.'}`
+      }, { status: 503 });
+    }
 
     return NextResponse.json({
       success: true,
