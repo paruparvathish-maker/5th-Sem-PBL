@@ -153,8 +153,8 @@ export default function AdminImportPage() {
   const downloadSampleTemplate = () => {
     const sampleData = [
       ['USN', 'Student Name', 'Section', 'Team Number', 'Faculty Guide', 'Faculty Email', 'Project Title'],
-      ['1DT24CS999', 'Demo Student One', 'A', 'A18', 'Dr. Guruprasad B J', 'guruprasad-cse@dsatm.edu.in', 'AI Powered Traffic Signal Controller'],
-      ['1DT24CS998', 'Demo Student Two', 'A', 'A18', 'Dr. Guruprasad B J', 'guruprasad-cse@dsatm.edu.in', 'AI Powered Traffic Signal Controller']
+      ['1DT24CS999', 'Sample Student One', 'A', 'A18', 'Dr. Guruprasad B J', 'guruprasad-cse@dsatm.edu.in', 'AI Powered Traffic Signal Controller'],
+      ['1DT24CS998', 'Sample Student Two', 'A', 'A18', 'Dr. Guruprasad B J', 'guruprasad-cse@dsatm.edu.in', 'AI Powered Traffic Signal Controller']
     ];
     const ws = XLSX.utils.aoa_to_sheet(sampleData);
     const wb = XLSX.utils.book_new();

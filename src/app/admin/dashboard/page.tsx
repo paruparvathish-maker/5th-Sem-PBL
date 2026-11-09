@@ -107,68 +107,6 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* Executive & Industry Personnel Credentials Quick Reference (Super Admin Only) */}
-        {!isExec && (
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 shadow-sm space-y-3">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <h3 className="text-sm font-extrabold text-amber-950 flex items-center gap-2">
-                <ShieldAlert className="w-4 h-4 text-amber-600" /> Executive Leadership &amp; Industry Expert Credentials
-              </h3>
-              <span className="text-[10px] font-bold uppercase bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full">Official Accounts</span>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
-              <div className="bg-white p-3 rounded-xl border border-amber-200">
-                <p className="font-extrabold text-slate-800">HOD (Dr. C Nandini)</p>
-                <p className="text-slate-500 text-[11px] mt-0.5">Scope: <span className="font-bold text-slate-700">All Sem 4 &amp; 5</span></p>
-                <p className="text-slate-500 text-[11px]">Email: <span className="font-mono text-slate-700">hod.cse@dsatm.edu.in</span></p>
-                <p className="text-slate-500 text-[11px]">Pass: <span className="font-mono font-bold text-indigo-700">HOD@CSE#2026</span></p>
-              </div>
-              <div className="bg-white p-3 rounded-xl border border-amber-200">
-                <p className="font-extrabold text-slate-800">Principal Office</p>
-                <p className="text-slate-500 text-[11px] mt-0.5">Scope: <span className="font-bold text-slate-700">All Sem 4 &amp; 5</span></p>
-                <p className="text-slate-500 text-[11px]">Email: <span className="font-mono text-slate-700">principal@dsatm.edu.in</span></p>
-                <p className="text-slate-500 text-[11px]">Pass: <span className="font-mono font-bold text-indigo-700">DSATM@PRIN#984</span></p>
-              </div>
-              <div className="bg-white p-3 rounded-xl border border-amber-200">
-                <p className="font-extrabold text-slate-800">Mr. Girish (Industry)</p>
-                <p className="text-slate-500 text-[11px] mt-0.5">Scope: <span className="font-bold text-indigo-700">4th Sem (4A, 4D)</span></p>
-                <p className="text-slate-500 text-[11px]">Email: <span className="font-mono text-slate-700">girish.industry@dsatm.edu.in</span></p>
-                <p className="text-slate-500 text-[11px]">Pass: <span className="font-mono font-bold text-indigo-700">9986765626</span></p>
-              </div>
-              <div className="bg-white p-3 rounded-xl border border-amber-200">
-                <p className="font-extrabold text-slate-800">Mr. Raghu (Industry)</p>
-                <p className="text-slate-500 text-[11px] mt-0.5">Scope: <span className="font-bold text-indigo-700">4th Sem (4B, 4E)</span></p>
-                <p className="text-slate-500 text-[11px]">Email: <span className="font-mono text-slate-700">raghu.industry@dsatm.edu.in</span></p>
-                <p className="text-slate-500 text-[11px]">Pass: <span className="font-mono font-bold text-indigo-700">8123573747</span></p>
-              </div>
-              <div className="bg-white p-3 rounded-xl border border-amber-200">
-                <p className="font-extrabold text-slate-800">Mr. Raja Shekhar (Industry)</p>
-                <p className="text-slate-500 text-[11px] mt-0.5">Scope: <span className="font-bold text-indigo-700">4C, 4F &amp; 5B, 5E</span></p>
-                <p className="text-slate-500 text-[11px]">Email: <span className="font-mono text-slate-700">rajashekhar.industry@dsatm.edu.in</span></p>
-                <p className="text-slate-500 text-[11px]">Pass: <span className="font-mono font-bold text-indigo-700">9964222260</span></p>
-              </div>
-              <div className="bg-white p-3 rounded-xl border border-amber-200">
-                <p className="font-extrabold text-slate-800">Ms. Manasa S (Industry)</p>
-                <p className="text-slate-500 text-[11px] mt-0.5">Scope: <span className="font-bold text-indigo-700">5th Sem (5A, 5D)</span></p>
-                <p className="text-slate-500 text-[11px]">Email: <span className="font-mono text-slate-700">manasa.industry@dsatm.edu.in</span></p>
-                <p className="text-slate-500 text-[11px]">Pass: <span className="font-mono font-bold text-indigo-700">9108932557</span></p>
-              </div>
-              <div className="bg-white p-3 rounded-xl border border-amber-200">
-                <p className="font-extrabold text-slate-800">Ms. Harshitha R (Industry)</p>
-                <p className="text-slate-500 text-[11px] mt-0.5">Scope: <span className="font-bold text-indigo-700">5th Sem (5C, 5F)</span></p>
-                <p className="text-slate-500 text-[11px]">Email: <span className="font-mono text-slate-700">harshitha.industry@dsatm.edu.in</span></p>
-                <p className="text-slate-500 text-[11px]">Pass: <span className="font-mono font-bold text-indigo-700">9611172433</span></p>
-              </div>
-              <div className="bg-white p-3 rounded-xl border border-amber-200">
-                <p className="font-extrabold text-slate-800">Main Admin</p>
-                <p className="text-slate-500 text-[11px] mt-0.5">Scope: <span className="font-bold text-rose-700">Full Access</span></p>
-                <p className="text-slate-500 text-[11px]">Email: <span className="font-mono text-slate-700">paruparvathish@gmail.com</span></p>
-                <p className="text-slate-500 text-[11px]">Pass: <span className="font-mono font-bold text-rose-700">03May@2002@</span></p>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* 4 Stats Cards Row 1 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
@@ -281,7 +219,7 @@ export default function AdminDashboardPage() {
               </div>
               <h3 className="font-extrabold text-slate-900 text-base">Faculty Allocation</h3>
               <p className="text-xs text-slate-500 leading-relaxed">
-                Manage faculty credentials, guide allocations, and monitor workload across sections.
+                Manage faculty profiles, guide allocations, and monitor workload across sections.
               </p>
             </Link>
 

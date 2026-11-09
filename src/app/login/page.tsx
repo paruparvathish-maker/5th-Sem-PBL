@@ -5,7 +5,7 @@ import { useAuth } from '@/lib/auth/auth-context';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { store } from '@/lib/data/store';
-import { GraduationCap, ShieldCheck, UserCheck, Lock, Mail, User, AlertCircle, ArrowRight, Sparkles, Eye, EyeOff, KeyRound, UserPlus } from 'lucide-react';
+import { GraduationCap, ShieldCheck, UserCheck, Lock, Mail, User, AlertCircle, ArrowRight, Eye, EyeOff, KeyRound, UserPlus } from 'lucide-react';
 import { UserRole } from '@/lib/types/pbl';
 
 export default function LoginPage() {
@@ -52,14 +52,6 @@ export default function LoginPage() {
       else if (res.user?.role === 'faculty') router.push('/faculty/dashboard');
       else router.push('/admin/dashboard');
     }
-  };
-
-  // Quick Demo Auto-fill Helper
-  const fillDemo = (id: string, pass: string, role: UserRole) => {
-    setActiveTab(role);
-    setIdentifier(id);
-    setPassword(pass);
-    setError('');
   };
 
   return (
@@ -225,60 +217,6 @@ export default function LoginPage() {
               </Link>
             </div>
           </form>
-
-          {/* Quick Demo Credentials Panel */}
-          <div className="mt-8 pt-6 border-t border-slate-700/60">
-            <div className="flex items-center space-x-2 mb-3">
-              <Sparkles className="h-4 w-4 text-indigo-400" />
-              <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Quick Demo Credentials</h4>
-            </div>
-
-            <div className="space-y-2">
-              <button
-                onClick={() => fillDemo('1DT24CS010', '1DT24CS010', 'student')}
-                className="w-full text-left p-2.5 rounded-xl bg-slate-900/60 border border-slate-700/50 hover:border-indigo-500/50 transition-all flex items-center justify-between text-xs"
-              >
-                <div>
-                  <span className="font-semibold text-slate-200 block">Student (Team A1): ACHUT MALLIKARJUN</span>
-                  <span className="text-slate-400">USN: 1DT24CS010</span>
-                </div>
-                <span className="px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-bold text-[10px]">Autofill</span>
-              </button>
-
-              <button
-                onClick={() => fillDemo('gajendra-cse@dsatm.edu.in', '8494875135', 'faculty')}
-                className="w-full text-left p-2.5 rounded-xl bg-slate-900/60 border border-slate-700/50 hover:border-amber-500/50 transition-all flex items-center justify-between text-xs"
-              >
-                <div>
-                  <span className="font-semibold text-slate-200 block">Faculty: Mr. Gajendra L (Guide for A1, D12, F9)</span>
-                  <span className="text-slate-400">Email: gajendra-cse@dsatm.edu.in • Pass: 8494875135</span>
-                </div>
-                <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold text-[10px]">Autofill</span>
-              </button>
-
-              <button
-                onClick={() => fillDemo('raghu.industry@dsatm.edu.in', '8123573747', 'admin')}
-                className="w-full text-left p-2.5 rounded-xl bg-slate-900/60 border border-slate-700/50 hover:border-indigo-500/50 transition-all flex items-center justify-between text-xs"
-              >
-                <div>
-                  <span className="font-semibold text-slate-200 block">Industry Expert: Mr. Raghu (4th Sem: 4B &amp; 4E)</span>
-                  <span className="text-slate-400">raghu.industry@dsatm.edu.in • Pass: 8123573747</span>
-                </div>
-                <span className="px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-bold text-[10px]">Autofill</span>
-              </button>
-
-              <button
-                onClick={() => fillDemo('paruparvathish@gmail.com', '03May@2002@', 'admin')}
-                className="w-full text-left p-2.5 rounded-xl bg-slate-900/60 border border-slate-700/50 hover:border-rose-500/50 transition-all flex items-center justify-between text-xs"
-              >
-                <div>
-                  <span className="font-semibold text-slate-200 block">System Administrator (Parvathisha P)</span>
-                  <span className="text-slate-400">paruparvathish@gmail.com</span>
-                </div>
-                <span className="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 font-bold text-[10px]">Autofill</span>
-              </button>
-            </div>
-          </div>
 
         </div>
       </div>

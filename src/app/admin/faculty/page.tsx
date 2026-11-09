@@ -110,7 +110,7 @@ export default function AdminFacultyPage() {
           <div>
             <h1 className="text-2xl font-extrabold text-slate-900">Faculty Guide Allocation & Workload</h1>
             <p className="text-sm text-slate-600 mt-1">
-              Manage faculty credentials, guide allocations across sections, and workload metrics.
+              Manage faculty profiles, guide allocations across sections, and workload metrics.
             </p>
           </div>
           <button
