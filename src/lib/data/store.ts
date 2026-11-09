@@ -21,7 +21,7 @@ export const DEFAULT_INDUSTRY_EXPERTS: UserProfile[] = [
   {
     id: 'industry-girish',
     email: 'girish.industry@dsatm.edu.in',
-    name: 'Mr. Girish (Industry Expert)',
+    name: 'Mr. Girish',
     role: 'admin',
     phone: '9986765626',
     password: '9986765626',
@@ -31,7 +31,7 @@ export const DEFAULT_INDUSTRY_EXPERTS: UserProfile[] = [
   {
     id: 'industry-raghu',
     email: 'raghu.industry@dsatm.edu.in',
-    name: 'Mr. Raghu (Industry Expert)',
+    name: 'Mr. Raghu',
     role: 'admin',
     phone: '8123573747',
     password: '8123573747',
@@ -41,7 +41,7 @@ export const DEFAULT_INDUSTRY_EXPERTS: UserProfile[] = [
   {
     id: 'industry-rajashekhar',
     email: 'rajashekhar.industry@dsatm.edu.in',
-    name: 'Mr. Raja Shekhar (Industry Expert)',
+    name: 'Mr. Raja Shekhar',
     role: 'admin',
     phone: '9964222260',
     password: '9964222260',
@@ -51,7 +51,7 @@ export const DEFAULT_INDUSTRY_EXPERTS: UserProfile[] = [
   {
     id: 'industry-manasa',
     email: 'manasa.industry@dsatm.edu.in',
-    name: 'Ms. Manasa S (Industry Expert)',
+    name: 'Ms. Manasa S',
     role: 'admin',
     phone: '9108932557',
     password: '9108932557',
@@ -61,7 +61,7 @@ export const DEFAULT_INDUSTRY_EXPERTS: UserProfile[] = [
   {
     id: 'industry-harshitha',
     email: 'harshitha.industry@dsatm.edu.in',
-    name: 'Ms. Harshitha R (Industry Expert)',
+    name: 'Ms. Harshitha R',
     role: 'admin',
     phone: '9611172433',
     password: '9611172433',
@@ -93,11 +93,22 @@ class PBLStore {
           const parsed = JSON.parse(storedData);
           this.profiles = parsed.profiles || [];
 
-          // Force update admin email if they have an old localStorage state
-          const admin = this.profiles.find((p: UserProfile) => p.role === 'admin' && p.id === '180881');
+          // Force update admin names & credentials from source of truth
+          const admin = this.profiles.find((p: UserProfile) => p.role === 'admin' && (p.id === '180881' || p.email === 'paruparvathish@gmail.com'));
           if (admin) {
+            admin.name = 'Mr. Parvathisha Pudugosula';
             admin.email = 'paruparvathish@gmail.com';
             admin.password = '03May@2002@';
+          }
+          const hod = this.profiles.find((p: UserProfile) => p.role === 'admin' && (p.id === 'admin-hod' || p.email === 'hod.cse@dsatm.edu.in'));
+          if (hod) {
+            hod.name = 'Dr. C Nandini';
+            hod.email = 'hod.cse@dsatm.edu.in';
+          }
+          const prin = this.profiles.find((p: UserProfile) => p.role === 'admin' && (p.id === 'admin-principal' || p.email === 'principal@dsatm.edu.in'));
+          if (prin) {
+            prin.name = 'Dr. M Ravishankar';
+            prin.email = 'principal@dsatm.edu.in';
           }
 
           // Restore credentials backup
@@ -304,30 +315,36 @@ class PBLStore {
     const adminUser: UserProfile = {
       id: '180881',
       email: 'paruparvathish@gmail.com',
-      name: 'Parvathisha P (Main Admin)',
+      name: 'Mr. Parvathisha Pudugosula',
       role: 'admin',
+      phone: '9550011981',
+      staffCode: 'F1030',
       password: '03May@2002@',
       isFirstLogin: false,
+      isActivated: true,
       createdAt: new Date().toISOString()
     };
 
     const hodAdmin: UserProfile = {
       id: 'admin-hod',
       email: 'hod.cse@dsatm.edu.in',
-      name: 'Dr. C Nandini (HOD CSE)',
+      name: 'Dr. C Nandini',
       role: 'admin',
+      phone: '9972634890',
       password: 'HOD@CSE#2026',
       isFirstLogin: false,
+      isActivated: true,
       createdAt: new Date().toISOString()
     };
 
     const principalAdmin: UserProfile = {
       id: 'admin-principal',
       email: 'principal@dsatm.edu.in',
-      name: 'Dr. Principal Office',
+      name: 'Dr. M Ravishankar',
       role: 'admin',
       password: 'DSATM@PRIN#984',
       isFirstLogin: false,
+      isActivated: true,
       createdAt: new Date().toISOString()
     };
 
@@ -986,13 +1003,29 @@ class PBLStore {
     if (found) return found;
 
     // 2. Special Admin aliases (Main Admin, HOD, Principal)
-    if (['admin', 'administrator', 'mainadmin', 'main admin', 'parvathish', 'parvathisha', 'paru'].includes(clean)) {
+    if (
+      clean.includes('parvathish') ||
+      clean.includes('pudugosula') ||
+      ['admin', 'administrator', 'mainadmin', 'main admin', 'paru', '180881'].includes(clean) ||
+      clean === 'paruparvathish@gmail.com' ||
+      clean === 'parvathisha-cse@dsatm.edu.in'
+    ) {
       return this.profiles.find(p => p.id === '180881' || p.email === 'paruparvathish@gmail.com');
     }
-    if (['hod', 'hodcse', 'hod_cse', 'hod cse', 'nandini'].includes(clean)) {
+    if (
+      clean.includes('nandini') ||
+      ['hod', 'hodcse', 'hod_cse', 'hod cse'].includes(clean) ||
+      clean === 'hod.cse@dsatm.edu.in' ||
+      clean === 'vp@dsatm.edu.in'
+    ) {
       return this.profiles.find(p => p.id === 'admin-hod' || p.email === 'hod.cse@dsatm.edu.in');
     }
-    if (['principal', 'prin', 'principal office', 'principaldsatm'].includes(clean)) {
+    if (
+      clean.includes('ravishankar') ||
+      clean.includes('principal') ||
+      ['prin', 'principal office', 'principaldsatm'].includes(clean) ||
+      clean === 'principal@dsatm.edu.in'
+    ) {
       return this.profiles.find(p => p.id === 'admin-principal' || p.email === 'principal@dsatm.edu.in');
     }
 

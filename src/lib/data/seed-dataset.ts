@@ -1396,10 +1396,24 @@ const FACULTY_DATA = [
 export function normalizeName(name: string) {
   const lower = name.toLowerCase().trim();
   const ALIASES: Record<string, string> = {
+    'mr. parvathisha pudugosula': 'Mr. PARVATHISHA PUDUGOSULA',
+    'parvathisha pudugosula': 'Mr. PARVATHISHA PUDUGOSULA',
+    'mr. parvathisha p': 'Mr. PARVATHISHA PUDUGOSULA',
+    'parvathisha p': 'Mr. PARVATHISHA PUDUGOSULA',
+    'mr. parvathisha p (main admin)': 'Mr. PARVATHISHA PUDUGOSULA',
+    'parvathisha p (main admin)': 'Mr. PARVATHISHA PUDUGOSULA',
+    'mr. parvathisha pudugosula (main admin)': 'Mr. PARVATHISHA PUDUGOSULA',
+    'parvathisha pudugosula (main admin)': 'Mr. PARVATHISHA PUDUGOSULA',
+    'parvathisha': 'Mr. PARVATHISHA PUDUGOSULA',
+    'parvathish': 'Mr. PARVATHISHA PUDUGOSULA',
+    'paru': 'Mr. PARVATHISHA PUDUGOSULA',
+
     'dr. c nandini': 'Dr. NANDINI C',
     'dr c nandini': 'Dr. NANDINI C',
     'c nandini': 'Dr. NANDINI C',
     'nandini c': 'Dr. NANDINI C',
+    'dr. c nandini (hod cse)': 'Dr. NANDINI C',
+    'dr. c nandini (hod)': 'Dr. NANDINI C',
 
     'mr. nunna rama chandu': 'Mr. RAMA CHANDU N',
     'nunna rama chandu': 'Mr. RAMA CHANDU N',

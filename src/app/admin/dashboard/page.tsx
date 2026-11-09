@@ -43,6 +43,8 @@ export default function AdminDashboardPage() {
     ? rawSubmissions.filter(s => scopedTeamIds.has(s.teamId))
     : rawSubmissions;
 
+  const myGuidedTeams = store.getTeamsByGuideId(user.id);
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -70,18 +72,23 @@ export default function AdminDashboardPage() {
                     ? `Industry Expert Supervision • Scope: ${Object.entries(industryAccess.allowedSectionsBySemester).map(([sem, secs]) => `${sem}th Sem (${secs.join(', ')})`).join(' | ')}`
                     : isExec
                     ? 'Executive Leadership Supervision • Read-Only Review Mode'
-                    : 'System Administration • Full System Access'}
+                    : 'System Administration • Full System Control'}
                 </span>
+                {myGuidedTeams.length > 0 && (
+                  <span className="ml-2 px-2 py-0.5 rounded-full bg-white/20 text-white font-medium text-[10px]">
+                    Project Guide ({myGuidedTeams.length} Teams)
+                  </span>
+                )}
               </div>
               <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight">
                 {industryAccess.isIndustry
-                  ? `${industryAccess.industryName} — Industrial PBL Portal`
+                  ? `${industryAccess.industryName} — Industrial Expert Portal`
                   : isExec
-                  ? 'Industrial PBL & Research Supervision Portal'
-                  : 'Industrial PBL Control Center'}
+                  ? `${user.name || 'Executive Leadership'} — Supervision Portal`
+                  : `Welcome, ${user.name || 'Mr. Parvathisha Pudugosula'}`}
               </h1>
               <p className={`text-xs mt-1 ${isExec ? 'text-indigo-200' : 'text-rose-200'}`}>
-                Dayananda Sagar Academy of Technology &amp; Management — CSE Department
+                {user.email || 'paruparvathish@gmail.com'} &bull; Dayananda Sagar Academy of Technology &amp; Management — CSE Department
               </p>
             </div>
 

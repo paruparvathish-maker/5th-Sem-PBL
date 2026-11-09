@@ -246,11 +246,25 @@ export async function POST(request: Request) {
       const cleanEmail = String(email).trim().toLowerCase();
       const cleanName = String(name).trim();
       const cleanPhone = phone ? String(phone).trim() : '';
+      const lowerName = cleanName.toLowerCase();
 
-      let industryUser = allProfiles.find(p => p.email && p.email.toLowerCase() === cleanEmail);
+      // Check with exact names from the database to map industry experts
+      let matchedAdminId = '';
+      if (lowerName.includes('girish')) matchedAdminId = 'industry-girish';
+      else if (lowerName.includes('raghu')) matchedAdminId = 'industry-raghu';
+      else if (lowerName.includes('raja') || lowerName.includes('shekhar')) matchedAdminId = 'industry-rajashekhar';
+      else if (lowerName.includes('manasa')) matchedAdminId = 'industry-manasa';
+      else if (lowerName.includes('harshitha')) matchedAdminId = 'industry-harshitha';
+
+      let industryUser = allProfiles.find(p => 
+        (matchedAdminId && p.id === matchedAdminId) ||
+        (p.email && p.email.toLowerCase() === cleanEmail) ||
+        (cleanPhone && p.phone && p.phone.replace(/\D/g, '') === cleanPhone.replace(/\D/g, ''))
+      );
 
       if (industryUser) {
         industryUser.name = cleanName;
+        industryUser.email = cleanEmail;
         if (cleanPhone) industryUser.phone = cleanPhone;
         industryUser.password = cleanPass;
         industryUser.isFirstLogin = false;
@@ -259,7 +273,7 @@ export async function POST(request: Request) {
       } else {
         const idSlug = cleanName.toLowerCase().replace(/[^a-z0-9]/g, '');
         const newInd: UserProfile = {
-          id: `industry-${idSlug || Date.now()}`,
+          id: matchedAdminId || `industry-${idSlug || Date.now()}`,
           name: cleanName,
           email: cleanEmail,
           phone: cleanPhone,
@@ -273,6 +287,16 @@ export async function POST(request: Request) {
         allProfiles.push(newInd);
         industryUser = newInd;
       }
+
+      // Synchronize assigned teams for this industry expert
+      const allTeams = store.getAllTeams();
+      allTeams.forEach(t => {
+        if (t.industryExpertId === industryUser.id) {
+          t.industryExpertEmail = cleanEmail;
+          t.industryExpertName = cleanName;
+        }
+      });
+      store.save(true);
 
       const activationToken = await createAndSaveActivationToken(cleanEmail);
       industryUser.activationToken = activationToken;

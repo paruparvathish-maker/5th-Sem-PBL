@@ -127,16 +127,32 @@ export async function POST(request: Request) {
 
     // Step 3b: Special administrative & leadership aliases
     if (!user) {
-      if (['admin', 'administrator', 'mainadmin', 'main admin', 'parvathish', 'parvathisha', 'paru'].includes(cleanId)) {
+      if (
+        cleanId.includes('parvathish') ||
+        cleanId.includes('pudugosula') ||
+        ['admin', 'administrator', 'mainadmin', 'main admin', 'paru', '180881'].includes(cleanId) ||
+        cleanId === 'paruparvathish@gmail.com' ||
+        cleanId === 'parvathisha-cse@dsatm.edu.in'
+      ) {
         user = profiles.find((p: any) => p.id === '180881' || p.email === 'paruparvathish@gmail.com');
-      } else if (['hod', 'hodcse', 'hod_cse', 'hod cse', 'nandini'].includes(cleanId)) {
+      } else if (
+        cleanId.includes('nandini') ||
+        ['hod', 'hodcse', 'hod_cse', 'hod cse'].includes(cleanId) ||
+        cleanId === 'hod.cse@dsatm.edu.in' ||
+        cleanId === 'vp@dsatm.edu.in'
+      ) {
         user = profiles.find((p: any) => p.id === 'admin-hod' || p.email === 'hod.cse@dsatm.edu.in');
-      } else if (['principal', 'prin', 'principal office', 'principaldsatm'].includes(cleanId)) {
+      } else if (
+        cleanId.includes('ravishankar') ||
+        cleanId.includes('principal') ||
+        ['prin', 'principal office', 'principaldsatm'].includes(cleanId) ||
+        cleanId === 'principal@dsatm.edu.in'
+      ) {
         user = profiles.find((p: any) => p.id === 'admin-principal' || p.email === 'principal@dsatm.edu.in');
-      } else if (cleanId.includes('raghu')) {
-        user = profiles.find((p: any) => p.id === 'industry-raghu');
       } else if (cleanId.includes('girish')) {
         user = profiles.find((p: any) => p.id === 'industry-girish');
+      } else if (cleanId.includes('raghu')) {
+        user = profiles.find((p: any) => p.id === 'industry-raghu');
       } else if (cleanId.includes('raja') || cleanId.includes('shekhar')) {
         user = profiles.find((p: any) => p.id === 'industry-rajashekhar');
       } else if (cleanId.includes('manasa')) {
