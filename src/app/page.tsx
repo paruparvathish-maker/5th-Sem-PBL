@@ -71,13 +71,13 @@ export default function HomePage() {
               href="/login"
               className="px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold text-slate-200 bg-slate-900/80 hover:bg-slate-800 hover:text-white border border-slate-700/80 hover:border-slate-600 transition-all shadow-sm"
             >
-              Sign In / Login
+              Login
             </Link>
             <Link
               href="/signup"
               className="px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-lg shadow-indigo-600/30 hover:shadow-indigo-600/50 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center space-x-1.5"
             >
-              <span>Create Account</span>
+              <span>Sign Up / Create Account</span>
               <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </div>
@@ -96,34 +96,78 @@ export default function HomePage() {
 
         {/* Main Title */}
         <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black text-white tracking-tight leading-[1.1] max-w-5xl mx-auto">
-          Enterprise Industrial <br className="hidden sm:inline" />
+          Welcome to <br className="hidden sm:inline" />
           <span className="bg-gradient-to-r from-indigo-400 via-purple-300 to-pink-400 bg-clip-text text-transparent">
-            Project-Based Learning
-          </span>{' '}
-          &amp; Evaluation System
+            Industrial Project-Based Learning (PBL)
+          </span>
         </h1>
 
-        {/* Subtitle */}
-        <p className="mt-6 text-base sm:text-xl text-slate-400 max-w-3xl mx-auto leading-relaxed">
-          The official digital gateway for DSATM engineering students, faculty project guides, and corporate industry experts. Collaboratively submit IEEE research publications, manage semester project deliverables, and evaluate rubrics in real-time.
-        </p>
+        {/* Sub Heading & Innovation Quotation */}
+        <div className="mt-6 max-w-4xl mx-auto space-y-4">
+          <div className="inline-flex items-center space-x-2 px-4 py-2 rounded-2xl bg-gradient-to-r from-indigo-500/15 via-purple-500/15 to-pink-500/15 border border-indigo-500/30 text-indigo-200 text-sm sm:text-lg font-bold tracking-wide shadow-sm">
+            <span>✨</span>
+            <span className="text-white font-extrabold tracking-wider">Think. Innovate. Build. Launch.</span>
+            <span>🚀</span>
+          </div>
 
-        {/* Primary Action Buttons */}
-        <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-5 max-w-md mx-auto">
+          <p className="text-base sm:text-xl text-slate-300 font-medium italic leading-relaxed max-w-3xl mx-auto">
+            &ldquo;Empowering visionary engineers to think critically, innovate fearlessly, and launch world-class technological solutions.&rdquo;
+          </p>
+
+          <p className="text-xs sm:text-sm text-slate-400 max-w-2xl mx-auto leading-relaxed">
+            The unified academic and industrial platform for DSATM engineering students, faculty project guides, and enterprise evaluators. Turn research curiosity into published IEEE papers, and translate conceptual designs into working production software.
+          </p>
+        </div>
+
+        {/* Primary Action Buttons: Sign Up / Create Account and Login */}
+        <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-5 max-w-md mx-auto">
           <Link
             href="/login"
             className="w-full sm:w-auto px-8 py-4 rounded-2xl text-base font-bold text-white bg-indigo-600 hover:bg-indigo-500 shadow-xl shadow-indigo-600/35 hover:shadow-indigo-600/50 hover:-translate-y-0.5 transition-all flex items-center justify-center space-x-2"
           >
-            <span>Sign In to Portal</span>
+            <span>Login</span>
             <ArrowRight className="h-4 w-4" />
           </Link>
           <Link
             href="/signup"
             className="w-full sm:w-auto px-8 py-4 rounded-2xl text-base font-bold text-slate-100 bg-slate-900/90 hover:bg-slate-800/90 border border-slate-700/80 hover:border-slate-600 shadow-xl shadow-black/20 hover:-translate-y-0.5 transition-all flex items-center justify-center space-x-2"
           >
-            <span>Create New Account</span>
+            <span>Sign Up / Create Account</span>
             <Sparkles className="h-4 w-4 text-purple-400" />
           </Link>
+        </div>
+
+        {/* Three Pillars: Think, Innovate, Launch */}
+        <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto text-left">
+          <div className="p-4 rounded-2xl bg-slate-900/80 border border-indigo-500/20 backdrop-blur-md">
+            <div className="flex items-center space-x-2 text-indigo-400 font-bold text-xs uppercase tracking-wider mb-1">
+              <span className="w-2 h-2 rounded-full bg-indigo-400" />
+              <span>1. Think &amp; Ideate</span>
+            </div>
+            <p className="text-xs text-slate-300 italic">
+              &ldquo;Every great engineering breakthrough starts with the courage to question and the curiosity to think differently.&rdquo;
+            </p>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-slate-900/80 border border-purple-500/20 backdrop-blur-md">
+            <div className="flex items-center space-x-2 text-purple-400 font-bold text-xs uppercase tracking-wider mb-1">
+              <span className="w-2 h-2 rounded-full bg-purple-400" />
+              <span>2. Innovate &amp; Engineer</span>
+            </div>
+            <p className="text-xs text-slate-300 italic">
+              &ldquo;Innovation is not just about ideas; it is the rigorous craft of transforming concepts into robust real-world architectures.&rdquo;
+            </p>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-slate-900/80 border border-pink-500/20 backdrop-blur-md">
+            <div className="flex items-center space-x-2 text-pink-400 font-bold text-xs uppercase tracking-wider mb-1">
+              <span className="w-2 h-2 rounded-full bg-pink-400" />
+              <span>3. Launch &amp; Impact</span>
+            </div>
+            <p className="text-xs text-slate-300 italic">
+              &ldquo;Deploy solutions that make a difference. From campus project repositories directly into industrial production.&rdquo;
+            </p>
+          </div>
         </div>
 
         {/* Trust Badges */}
@@ -480,24 +524,24 @@ export default function HomePage() {
           <div className="p-10 sm:p-14 rounded-3xl bg-gradient-to-b from-indigo-950/60 to-purple-950/40 border border-indigo-500/30 shadow-2xl relative overflow-hidden">
             <div className="absolute inset-0 bg-indigo-600/5 blur-3xl pointer-events-none" />
             <h3 className="text-3xl sm:text-4xl font-black text-white">
-              Ready to Access the Industrial PBL Portal?
+              Think. Innovate. Build. Launch.
             </h3>
             <p className="mt-4 text-sm sm:text-base text-slate-300 max-w-2xl mx-auto leading-relaxed">
-              Sign in with your registered university account to collaborate on projects, submit IEEE research manuscripts, or review semester deliverables.
+              Join the DSATM Industrial Project-Based Learning (PBL) ecosystem to collaborate on projects, submit IEEE research manuscripts, or review semester deliverables.
             </p>
             <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link
                 href="/login"
                 className="w-full sm:w-auto px-7 py-3.5 rounded-xl text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-500 shadow-lg shadow-indigo-600/30 transition-all flex items-center justify-center space-x-2"
               >
-                <span>Sign In / Login</span>
+                <span>Login</span>
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
                 href="/signup"
                 className="w-full sm:w-auto px-7 py-3.5 rounded-xl text-sm font-bold text-slate-100 bg-slate-900/90 hover:bg-slate-800 border border-slate-700 hover:border-slate-600 transition-all flex items-center justify-center space-x-2"
               >
-                <span>Create Account / Sign Up</span>
+                <span>Sign Up / Create Account</span>
                 <Sparkles className="h-4 w-4 text-purple-400" />
               </Link>
             </div>

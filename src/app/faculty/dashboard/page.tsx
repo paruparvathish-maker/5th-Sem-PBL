@@ -48,6 +48,8 @@ export default function FacultyDashboardPage() {
               <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-amber-500/20 text-amber-200 text-xs font-semibold mb-3 border border-amber-500/30">
                 <ShieldCheck className="h-3.5 w-3.5" />
                 <span>Faculty Guide Portal • Assigned Sections: {sectionsList.join(', ') || 'None'}</span>
+                <span className="text-amber-400">&bull;</span>
+                <span className="text-amber-300 font-semibold italic">Think &bull; Innovate &bull; Launch</span>
               </div>
               <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight">
                 Welcome, {user.name}
