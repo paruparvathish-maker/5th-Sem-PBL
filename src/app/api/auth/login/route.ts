@@ -55,7 +55,7 @@ export async function POST(request: Request) {
     const cleanEmailPrefix = cleanId.includes('@') ? cleanId.split('@')[0].replace(/[^a-z0-9]/g, '') : cleanAlpha;
     const cleanPass = password !== undefined ? String(password).trim() : '';
 
-    // 1. Read profiles from disk to get seed data
+    // 1. Read profiles from disk and merge with in-memory store
     let profiles: any[] = [];
     const targetPath = fs.existsSync(TMP_DATA_PATH) ? TMP_DATA_PATH : (fs.existsSync(BACKEND_DATA_PATH) ? BACKEND_DATA_PATH : null);
     if (targetPath) {
@@ -68,9 +68,16 @@ export async function POST(request: Request) {
       } catch {}
     }
 
-    if (profiles.length === 0) {
-      profiles = store.getAllProfiles();
-    }
+    const storeProfiles = store.getAllProfiles();
+    const profileMap = new Map<string, any>(profiles.map(p => [p.id, p]));
+    storeProfiles.forEach(p => {
+      if (!profileMap.has(p.id)) {
+        profileMap.set(p.id, p);
+      } else {
+        profileMap.set(p.id, { ...profileMap.get(p.id), ...p });
+      }
+    });
+    profiles = Array.from(profileMap.values());
 
     // 2. Fetch and merge cloud credentials (ensures passwords changed on laptops are instantly available to phones)
     try {

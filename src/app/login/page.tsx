@@ -89,7 +89,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden">
+    <div className="min-h-screen bg-slate-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden bg-grid-pattern selection:bg-indigo-500 selection:text-white">
       {/* Background Decorative Elements */}
       <div className="absolute -top-40 -left-40 w-96 h-96 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl pointer-events-none" />
@@ -104,8 +104,12 @@ export default function LoginPage() {
           </Link>
         </div>
         <div className="flex items-center justify-center space-x-3">
-          <div className="h-12 w-12 rounded-2xl bg-gradient-to-tr from-indigo-500 via-indigo-600 to-purple-600 flex items-center justify-center text-white shadow-xl shadow-indigo-500/30">
-            <GraduationCap className="h-7 w-7" />
+          <div className="h-14 w-14 rounded-full bg-white p-1 ring-2 ring-indigo-500/40 shadow-xl shadow-indigo-500/30 flex items-center justify-center shrink-0">
+            <img
+              src="/dsatm-logo.png"
+              alt="DSATM Logo"
+              className="h-full w-full object-contain rounded-full"
+            />
           </div>
           <div>
             <h2 className="text-2xl font-extrabold text-white tracking-tight">Industrial PBL</h2>

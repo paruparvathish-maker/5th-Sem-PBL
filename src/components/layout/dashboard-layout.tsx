@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { 
   GraduationCap, LayoutDashboard, Users, Calendar, UploadCloud, 
-  Award, Bot, BookOpen, ShieldAlert, LogOut, Menu, X, Bell, FileSpreadsheet, History, CheckCircle2 
+  Award, Bot, BookOpen, ShieldAlert, LogOut, Menu, X, Bell, FileSpreadsheet, History, CheckCircle2, Globe
 } from 'lucide-react';
 import { store } from '@/lib/data/store';
 import { isExecutiveViewer, getIndustryPersonAccess } from '@/lib/auth/roles';
@@ -59,8 +59,12 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       {/* Sidebar Desktop */}
       <aside className="hidden md:flex flex-col w-64 bg-slate-900 text-slate-100 border-r border-slate-800 shrink-0">
         <div className="p-5 border-b border-slate-800 flex items-center space-x-3">
-          <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/30">
-            <GraduationCap className="h-6 w-6" />
+          <div className="h-11 w-11 rounded-full bg-white p-0.5 ring-2 ring-indigo-500/40 shadow-lg shadow-indigo-500/30 flex items-center justify-center shrink-0">
+            <img
+              src="/dsatm-logo.png"
+              alt="DSATM Logo"
+              className="h-full w-full object-contain rounded-full"
+            />
           </div>
           <div>
             <h1 className="font-bold text-base text-white leading-tight">Industrial PBL</h1>
@@ -148,6 +152,14 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
             >
               {mobileOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </button>
+            <div className="flex items-center space-x-2 md:hidden">
+              <img
+                src="/dsatm-logo.png"
+                alt="DSATM Logo"
+                className="h-8 w-8 rounded-full object-contain bg-white p-0.5 ring-1 ring-slate-300 shadow-sm"
+              />
+              <span className="font-bold text-sm text-slate-900">Industrial PBL</span>
+            </div>
             <h2 className="text-lg font-bold text-slate-800 capitalize hidden sm:block">
               {pathname.split('/')[2]?.replace('-', ' ') || 'Dashboard'}
             </h2>
@@ -195,8 +207,22 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
 
             <div className="h-6 w-px bg-slate-200" />
 
+            <Link
+              href="/"
+              className="text-xs font-semibold text-slate-500 hover:text-indigo-600 transition flex items-center space-x-1 px-2.5 py-1.5 rounded-lg hover:bg-slate-100"
+              title="Return to Public Landing Page"
+            >
+              <Globe className="h-3.5 w-3.5 text-indigo-500" />
+              <span className="hidden sm:inline">Home</span>
+            </Link>
+
+            <div className="h-6 w-px bg-slate-200" />
+
             <div className="flex items-center space-x-2">
-              <span className="text-xs font-semibold text-slate-700">{user.name}</span>
+              <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 text-white font-bold text-xs flex items-center justify-center shadow-sm">
+                {user.name.charAt(0)}
+              </div>
+              <span className="text-xs font-bold text-slate-700 hidden sm:inline">{user.name}</span>
             </div>
           </div>
         </header>
@@ -204,6 +230,17 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
         {/* Mobile Navigation Drawer */}
         {mobileOpen && (
           <div className="md:hidden bg-slate-900 text-white p-4 space-y-2 border-b border-slate-800 animate-in slide-in-from-top-2">
+            <div className="flex items-center space-x-3 pb-3 border-b border-slate-800">
+              <img
+                src="/dsatm-logo.png"
+                alt="DSATM Logo"
+                className="h-10 w-10 rounded-full object-contain bg-white p-0.5 ring-2 ring-indigo-500/40 shrink-0"
+              />
+              <div>
+                <h1 className="font-bold text-sm text-white">Industrial PBL</h1>
+                <p className="text-[11px] text-slate-400">DSATM CSE Dept</p>
+              </div>
+            </div>
             {navItems.map((item) => {
               const Icon = item.icon;
               return (

@@ -8,6 +8,11 @@ const inter = Inter({ subsets: ['latin'] });
 export const metadata: Metadata = {
   title: 'Industrial PBL - DSATM CSE',
   description: 'Industrial Project-Based Learning Portal for DSATM CSE',
+  icons: {
+    icon: '/dsatm-logo.png',
+    shortcut: '/dsatm-logo.png',
+    apple: '/dsatm-logo.png',
+  },
 };
 
 export default function RootLayout({
