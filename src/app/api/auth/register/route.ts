@@ -2,12 +2,16 @@ import { NextResponse } from 'next/server';
 import { store } from '@/lib/data/store';
 import { saveCloudCredentials } from '@/lib/data/cloud-sync';
 import { UserProfile } from '@/lib/types/pbl';
-import { normalizeName } from '@/lib/data/seed-dataset';
+import { normalizeName, getGuideEmail } from '@/lib/data/seed-dataset';
+import { createAndSaveActivationToken } from '@/lib/data/otp-store';
+import { sendActivationEmail } from '@/lib/utils/mailer';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   try {
+    const url = new URL(request.url);
+    const origin = url.origin || 'https://5th-sem-pbl.vercel.app';
     const body = await request.json();
     const { role, password, confirmPassword } = body;
 
@@ -35,7 +39,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'USN is required for student registration.' }, { status: 400 });
       }
       if (!email) {
-        return NextResponse.json({ error: 'Email ID is required for student registration.' }, { status: 400 });
+        return NextResponse.json({ error: 'College Email ID is required for student registration.' }, { status: 400 });
       }
 
       const cleanUsn = String(usn).trim().toUpperCase();
@@ -48,6 +52,7 @@ export async function POST(request: Request) {
         student.email = cleanEmail;
         student.password = cleanPass;
         student.isFirstLogin = false;
+        student.isActivated = false;
         student.passwordUpdatedAt = new Date().toISOString();
         if (name && (!student.name || student.name === student.usn)) {
           student.name = String(name).trim();
@@ -63,6 +68,7 @@ export async function POST(request: Request) {
           section: section || 'A',
           password: cleanPass,
           isFirstLogin: false,
+          isActivated: false,
           createdAt: new Date().toISOString(),
           passwordUpdatedAt: new Date().toISOString()
         };
@@ -70,11 +76,35 @@ export async function POST(request: Request) {
         student = newStud;
       }
 
+      // Generate secure activation token and dispatch email
+      const activationToken = await createAndSaveActivationToken(cleanEmail);
+      student.activationToken = activationToken;
+      const activationLink = `${origin}/activate?token=${activationToken}&email=${encodeURIComponent(cleanEmail)}`;
+
+      await sendActivationEmail({
+        to: cleanEmail,
+        userName: student.name || cleanUsn,
+        activationLink
+      }).catch(e => console.warn('[Register] Activation mail error:', e));
+
+      // Auto-link student to their assigned team in the dataset
+      const allTeams = store.getAllTeams();
+      const studentTeam = allTeams.find(t => t.members?.some(m => m.usn?.toUpperCase() === cleanUsn));
+      if (studentTeam && studentTeam.members && student.name) {
+        const mem = studentTeam.members.find(m => m.usn?.toUpperCase() === cleanUsn);
+        if (mem && (!mem.name || mem.name === cleanUsn)) {
+          mem.name = student.name;
+          store.save(true);
+        }
+      }
+
       // Persist credentials to serverless Cloud KV
       const aliases = [student.id, student.usn, student.email].filter(Boolean) as string[];
       await saveCloudCredentials(student.id, {
         password: cleanPass,
         isFirstLogin: false,
+        isActivated: false,
+        activationToken,
         passwordUpdatedAt: student.passwordUpdatedAt
       }, aliases);
 
@@ -84,7 +114,7 @@ export async function POST(request: Request) {
       return NextResponse.json({
         success: true,
         user: student,
-        message: `Student account successfully created! You can now log in using your USN (${cleanUsn}) as username.`
+        message: `Account created successfully! An activation link has been sent to your college email (${cleanEmail}). Please check your inbox (or spam) and click the link to activate your account.`
       }, { status: 201 });
     }
 
@@ -126,6 +156,7 @@ export async function POST(request: Request) {
         if (cleanPhone) faculty.phone = cleanPhone;
         faculty.password = cleanPass;
         faculty.isFirstLogin = false;
+        faculty.isActivated = false;
         faculty.passwordUpdatedAt = new Date().toISOString();
       } else {
         // Create new faculty profile
@@ -138,6 +169,7 @@ export async function POST(request: Request) {
           role: 'faculty',
           password: cleanPass,
           isFirstLogin: false,
+          isActivated: false,
           createdAt: new Date().toISOString(),
           passwordUpdatedAt: new Date().toISOString()
         };
@@ -145,11 +177,47 @@ export async function POST(request: Request) {
         faculty = newFac;
       }
 
+      // Generate activation link and dispatch email
+      const activationToken = await createAndSaveActivationToken(cleanEmail);
+      faculty.activationToken = activationToken;
+      const activationLink = `${origin}/activate?token=${activationToken}&email=${encodeURIComponent(cleanEmail)}`;
+
+      await sendActivationEmail({
+        to: cleanEmail,
+        userName: faculty.name,
+        activationLink
+      }).catch(e => console.warn('[Register] Faculty activation mail error:', e));
+
+      // Auto-map all 4th and 5th sem teams assigned to this faculty guide
+      const allTeams = store.getAllTeams();
+      let mappedTeamCount = 0;
+      allTeams.forEach(t => {
+        const teamGuideNorm = t.guideName ? normalizeName(t.guideName) : '';
+        const emailMatches = (t.guideEmail && t.guideEmail.toLowerCase() === cleanEmail) ||
+                             (t.guideName && getGuideEmail(t.guideName).toLowerCase() === cleanEmail);
+        const nameMatches = teamGuideNorm && (
+          teamGuideNorm === normInputName ||
+          teamGuideNorm.includes(normInputName) ||
+          normInputName.includes(teamGuideNorm)
+        );
+
+        if (emailMatches || nameMatches) {
+          t.guideId = faculty.id;
+          t.guideEmail = cleanEmail;
+          mappedTeamCount++;
+        }
+      });
+      if (mappedTeamCount > 0) {
+        store.save(true);
+      }
+
       // Persist credentials to serverless Cloud KV
       const aliases = [faculty.id, faculty.email, faculty.staffCode, faculty.phone, cleanEmpId].filter(Boolean) as string[];
       await saveCloudCredentials(faculty.id, {
         password: cleanPass,
         isFirstLogin: false,
+        isActivated: false,
+        activationToken,
         passwordUpdatedAt: faculty.passwordUpdatedAt
       }, aliases);
 
@@ -159,7 +227,7 @@ export async function POST(request: Request) {
       return NextResponse.json({
         success: true,
         user: faculty,
-        message: `Faculty account successfully created! You can now log in using either your Employee ID (${cleanEmpId}) or Email (${cleanEmail}) as username.`
+        message: `Faculty account created successfully! An activation link has been sent to your institutional email (${cleanEmail}). Please click the link to activate your account.`
       }, { status: 201 });
     }
 
@@ -186,6 +254,7 @@ export async function POST(request: Request) {
         if (cleanPhone) industryUser.phone = cleanPhone;
         industryUser.password = cleanPass;
         industryUser.isFirstLogin = false;
+        industryUser.isActivated = false;
         industryUser.passwordUpdatedAt = new Date().toISOString();
       } else {
         const idSlug = cleanName.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -194,9 +263,10 @@ export async function POST(request: Request) {
           name: cleanName,
           email: cleanEmail,
           phone: cleanPhone,
-          role: 'admin', // Industry persons hold executive reviewer role
+          role: 'admin',
           password: cleanPass,
           isFirstLogin: false,
+          isActivated: false,
           createdAt: new Date().toISOString(),
           passwordUpdatedAt: new Date().toISOString()
         };
@@ -204,10 +274,22 @@ export async function POST(request: Request) {
         industryUser = newInd;
       }
 
+      const activationToken = await createAndSaveActivationToken(cleanEmail);
+      industryUser.activationToken = activationToken;
+      const activationLink = `${origin}/activate?token=${activationToken}&email=${encodeURIComponent(cleanEmail)}`;
+
+      await sendActivationEmail({
+        to: cleanEmail,
+        userName: industryUser.name,
+        activationLink
+      }).catch(e => console.warn('[Register] Industry activation mail error:', e));
+
       const aliases = [industryUser.id, industryUser.email, industryUser.phone].filter(Boolean) as string[];
       await saveCloudCredentials(industryUser.id, {
         password: cleanPass,
         isFirstLogin: false,
+        isActivated: false,
+        activationToken,
         passwordUpdatedAt: industryUser.passwordUpdatedAt
       }, aliases);
 
@@ -216,7 +298,7 @@ export async function POST(request: Request) {
       return NextResponse.json({
         success: true,
         user: industryUser,
-        message: `Industry evaluator account created successfully! You can now log in using your Email (${cleanEmail}) as username.`
+        message: `Account created successfully! An activation link has been sent to your email (${cleanEmail}). Please click the link to activate your account.`
       }, { status: 201 });
     }
 

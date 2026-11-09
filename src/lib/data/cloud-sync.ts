@@ -9,8 +9,10 @@ const DYNAMIC_STORE_KEY = 'pbl_dynamic_store';
 const SUBMISSIONS_KEY = 'pbl_submissions';
 
 interface CredentialRecord {
-  password: string;
+  password?: string;
   isFirstLogin: boolean;
+  isActivated?: boolean;
+  activationToken?: string;
   passwordUpdatedAt?: string;
   updatedAt?: string;
 }
@@ -55,7 +57,13 @@ export async function fetchCloudCredentials(): Promise<Record<string, Credential
 
 export async function saveCloudCredentials(
   userId: string,
-  record: { password: string; isFirstLogin: boolean; passwordUpdatedAt?: string },
+  record: {
+    password?: string;
+    isFirstLogin?: boolean;
+    isActivated?: boolean;
+    activationToken?: string;
+    passwordUpdatedAt?: string;
+  },
   aliases: string[] = []
 ): Promise<boolean> {
   try {
@@ -73,10 +81,13 @@ export async function saveCloudCredentials(
       }
     } catch {}
 
+    const existing = currentMap[userId] || {};
     const fullRecord: CredentialRecord = {
-      password: record.password,
-      isFirstLogin: record.isFirstLogin,
-      passwordUpdatedAt: record.passwordUpdatedAt || new Date().toISOString(),
+      password: record.password !== undefined ? record.password : existing.password,
+      isFirstLogin: record.isFirstLogin !== undefined ? record.isFirstLogin : (existing.isFirstLogin ?? false),
+      isActivated: record.isActivated !== undefined ? record.isActivated : existing.isActivated,
+      activationToken: record.activationToken !== undefined ? record.activationToken : existing.activationToken,
+      passwordUpdatedAt: record.passwordUpdatedAt || existing.passwordUpdatedAt || new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
 

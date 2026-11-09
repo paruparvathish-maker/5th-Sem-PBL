@@ -43,7 +43,7 @@ export async function POST(request: Request) {
       identifier: clean,
       email: targetEmail,
       maskedEmail: maskEmail(targetEmail),
-      message: `A 6-digit verification code has been sent directly to your registered email (${maskEmail(targetEmail)}). Please check your inbox and spam folder.`
+      message: `A 6-digit verification code has been sent directly to your registered email (${maskEmail(targetEmail)}). It is valid for 5 minutes. Please check your inbox and spam folder.`
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Failed to send verification code.' }, { status: 500 });

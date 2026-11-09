@@ -13,6 +13,9 @@ export interface UserProfile {
   staffCode?: string;
   password?: string;
   isFirstLogin: boolean;
+  isActivated?: boolean;
+  activationToken?: string;
+  activationExpiresAt?: string;
   passwordUpdatedAt?: string;
   createdAt: string;
 }

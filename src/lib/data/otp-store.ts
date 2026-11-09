@@ -32,7 +32,7 @@ export async function createAndSaveOtp(identifier: string, email: string): Promi
   
   // Generate random 6-digit number between 100000 and 999999
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
-  const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
+  const expiresAt = Date.now() + 5 * 60 * 1000; // Exactly 5 minutes validity as required
 
   const entry: OtpEntry = {
     otp,
@@ -154,6 +154,96 @@ export async function clearOtp(identifier: string): Promise<void> {
   memoryOtpMap.delete(cleanKey);
   try {
     fetch(`${KV_BASE_URL}/pbl_otp_${cleanKey}`, { method: 'DELETE' }).catch(() => {});
+  } catch {}
+}
+
+// ==========================================
+// ACCOUNT ACTIVATION TOKEN SYSTEM (EMAIL LINK)
+// ==========================================
+interface ActivationEntry {
+  token: string;
+  email: string;
+  expiresAt: number;
+}
+
+const memoryActivationMap = new Map<string, ActivationEntry>();
+
+export async function createAndSaveActivationToken(email: string): Promise<string> {
+  const cleanKey = normalizeKey(email);
+  // Generate high-entropy secure activation token
+  const token = typeof crypto !== 'undefined' && crypto.randomUUID 
+    ? crypto.randomUUID() 
+    : `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+  
+  // 24 hours activation window
+  const expiresAt = Date.now() + 24 * 60 * 60 * 1000;
+
+  const entry: ActivationEntry = {
+    token,
+    email: email.toLowerCase().trim(),
+    expiresAt
+  };
+
+  memoryActivationMap.set(cleanKey, entry);
+  memoryActivationMap.set(token, entry);
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 2000);
+    await fetch(`${KV_BASE_URL}/pbl_act_${cleanKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(entry),
+      signal: controller.signal
+    });
+    clearTimeout(timeout);
+  } catch {}
+
+  return token;
+}
+
+export async function verifyActivationToken(email: string, token: string): Promise<{ valid: boolean; error?: string }> {
+  const cleanKey = normalizeKey(email);
+  let entry = memoryActivationMap.get(cleanKey) || memoryActivationMap.get(token);
+
+  if (!entry) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 2000);
+      const res = await fetch(`${KV_BASE_URL}/pbl_act_${cleanKey}`, {
+        cache: 'no-store',
+        signal: controller.signal
+      });
+      clearTimeout(timeout);
+      if (res.ok) {
+        entry = await res.json();
+      }
+    } catch {}
+  }
+
+  if (!entry) {
+    return { valid: false, error: 'Invalid activation link or account is already activated. Please try signing in.' };
+  }
+
+  if (entry.token !== token.trim()) {
+    return { valid: false, error: 'Invalid activation token. Please request a new activation email.' };
+  }
+
+  if (Date.now() > entry.expiresAt) {
+    clearActivationToken(email);
+    return { valid: false, error: 'Activation link has expired. Please request a new activation email.' };
+  }
+
+  // Clear token upon successful activation
+  clearActivationToken(email);
+  return { valid: true };
+}
+
+export async function clearActivationToken(email: string): Promise<void> {
+  const cleanKey = normalizeKey(email);
+  memoryActivationMap.delete(cleanKey);
+  try {
+    fetch(`${KV_BASE_URL}/pbl_act_${cleanKey}`, { method: 'DELETE' }).catch(() => {});
   } catch {}
 }
 

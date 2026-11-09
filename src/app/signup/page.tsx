@@ -163,7 +163,15 @@ export default function SignUpPage() {
 
       {/* Header */}
       <div className="sm:mx-auto sm:w-full sm:max-w-md z-10 px-4 text-center">
-        <Link href="/login" className="inline-flex items-center justify-center space-x-3 mb-2">
+        <div className="mb-3">
+          <Link
+            href="/"
+            className="inline-flex items-center space-x-1 text-xs text-slate-400 hover:text-indigo-400 transition-colors"
+          >
+            <span>&larr; Back to Portal Home</span>
+          </Link>
+        </div>
+        <Link href="/" className="inline-flex items-center justify-center space-x-3 mb-2">
           <div className="h-12 w-12 rounded-2xl bg-gradient-to-tr from-indigo-500 via-indigo-600 to-purple-600 flex items-center justify-center text-white shadow-xl shadow-indigo-500/30">
             <GraduationCap className="h-7 w-7" />
           </div>

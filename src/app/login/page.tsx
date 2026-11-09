@@ -18,6 +18,10 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [needsActivation, setNeedsActivation] = useState(false);
+  const [activationEmail, setActivationEmail] = useState('');
+  const [resendStatus, setResendStatus] = useState<'idle' | 'sending' | 'sent'>('idle');
+  const [resendMsg, setResendMsg] = useState('');
 
   useEffect(() => {
     // When visiting login page (especially on mobile phone browsers), immediately sync latest database
@@ -27,6 +31,8 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setNeedsActivation(false);
+    setResendMsg('');
     setIsSubmitting(true);
 
     const cleanIdentifier = identifier.trim();
@@ -41,6 +47,10 @@ export default function LoginPage() {
     const res = await login(cleanIdentifier, cleanPassword);
     if (!res.success) {
       setError(res.error || 'Authentication failed. Please check your credentials.');
+      if (res.needsActivation) {
+        setNeedsActivation(true);
+        setActivationEmail(res.email || cleanIdentifier);
+      }
       setIsSubmitting(false);
       return;
     }
@@ -54,6 +64,30 @@ export default function LoginPage() {
     }
   };
 
+  const handleResendActivation = async () => {
+    if (!activationEmail && !identifier) return;
+    setResendStatus('sending');
+    setResendMsg('');
+    try {
+      const res = await fetch('/api/auth/resend-activation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: (activationEmail || identifier).trim() })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setResendStatus('sent');
+        setResendMsg(data.message || 'Activation email resent successfully! Check your inbox.');
+      } else {
+        setResendStatus('idle');
+        setResendMsg(data.error || 'Failed to resend activation email.');
+      }
+    } catch {
+      setResendStatus('idle');
+      setResendMsg('Network error while resending activation link.');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden">
       {/* Background Decorative Elements */}
@@ -61,6 +95,14 @@ export default function LoginPage() {
       <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl pointer-events-none" />
 
       <div className="sm:mx-auto sm:w-full sm:max-w-md z-10">
+        <div className="mb-3 text-center">
+          <Link
+            href="/"
+            className="inline-flex items-center space-x-1 text-xs text-slate-400 hover:text-indigo-400 transition-colors"
+          >
+            <span>&larr; Back to Portal Home</span>
+          </Link>
+        </div>
         <div className="flex items-center justify-center space-x-3">
           <div className="h-12 w-12 rounded-2xl bg-gradient-to-tr from-indigo-500 via-indigo-600 to-purple-600 flex items-center justify-center text-white shadow-xl shadow-indigo-500/30">
             <GraduationCap className="h-7 w-7" />
@@ -115,7 +157,31 @@ export default function LoginPage() {
             </button>
           </div>
 
-          {error && (
+          {needsActivation && (
+            <div className="mb-4 p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs space-y-2">
+              <div className="flex items-center space-x-2">
+                <Mail className="h-4 w-4 shrink-0 text-amber-400" />
+                <span className="font-semibold">Account Pending Email Activation</span>
+              </div>
+              <p className="text-[11px] text-amber-300/80 leading-relaxed">
+                Please check your college email inbox or spam folder for the activation link. If you didn't receive it, click below to resend.
+              </p>
+              {resendMsg ? (
+                <p className="text-xs text-emerald-400 font-semibold">{resendMsg}</p>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleResendActivation}
+                  disabled={resendStatus === 'sending'}
+                  className="inline-flex items-center space-x-1 text-xs font-bold text-amber-300 hover:text-white underline pt-1"
+                >
+                  <span>{resendStatus === 'sending' ? 'Sending Link...' : 'Resend Activation Email'}</span>
+                </button>
+              )}
+            </div>
+          )}
+
+          {error && !needsActivation && (
             <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-start space-x-2">
               <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
               <span>{error}</span>

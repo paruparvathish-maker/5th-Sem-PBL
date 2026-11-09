@@ -9,7 +9,7 @@ import { isExecutiveViewer } from './roles';
 interface AuthContextType {
   user: UserProfile | null;
   isLoading: boolean;
-  login: (identifier: string, password?: string) => Promise<{ success: boolean; requiresPasswordChange?: boolean; user?: UserProfile; error?: string }>;
+  login: (identifier: string, password?: string) => Promise<{ success: boolean; requiresPasswordChange?: boolean; user?: UserProfile; error?: string; needsActivation?: boolean; email?: string }>;
   logout: () => void;
   changeFirstTimePassword: (newPassword: string) => Promise<boolean>;
 }
@@ -49,8 +49,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (isLoading) return;
 
-    const publicPages = ['/login', '/signup', '/register', '/forgot-password'];
-    const isPublic = publicPages.some(p => pathname.startsWith(p));
+    const publicPages = ['/login', '/signup', '/register', '/forgot-password', '/activate'];
+    const isPublic = pathname === '/' || publicPages.some(p => pathname.startsWith(p));
 
     if (!user && !isPublic) {
       router.push('/login');
@@ -87,14 +87,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user, isLoading, pathname, router]);
 
-  const login = async (identifier: string, password?: string): Promise<{ success: boolean; requiresPasswordChange?: boolean; user?: UserProfile; error?: string }> => {
+  const login = async (identifier: string, password?: string): Promise<{ success: boolean; requiresPasswordChange?: boolean; user?: UserProfile; error?: string; needsActivation?: boolean; email?: string }> => {
     const cleanId = (identifier || '').trim();
     const cleanPass = password !== undefined ? (password || '').trim() : undefined;
 
     let foundUser = store.findUserByUsernameOrEmail(cleanId);
 
-    // 1. Fast local verification if user profile is already cached with valid credentials
-    if (foundUser && cleanPass !== undefined && store.verifyPassword(foundUser.id, cleanPass)) {
+    // 1. Fast local verification if user profile is already cached with valid credentials and activated
+    if (foundUser && cleanPass !== undefined && foundUser.isActivated !== false && store.verifyPassword(foundUser.id, cleanPass)) {
       setUser(foundUser);
       localStorage.setItem('pbl_session_user', JSON.stringify(foundUser));
       store.addAuditLog(foundUser.id, foundUser.name, foundUser.role, 'User Logged In', 'UserProfile', foundUser.id);
@@ -162,7 +162,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         const errData = await resp.json().catch(() => ({}));
         if (errData.error) {
-          return { success: false, error: errData.error };
+          return {
+            success: false,
+            error: errData.error,
+            needsActivation: Boolean(errData.needsActivation),
+            email: errData.email
+          };
         }
       }
     } catch (apiErr) {

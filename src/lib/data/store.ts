@@ -1044,39 +1044,33 @@ class PBLStore {
     const user = this.profiles.find(p => p.id === userId);
     if (!user) return false;
 
-    // Once a custom password has been created, ONLY the new password is valid!
-    if (user.password && !user.isFirstLogin) {
-      return user.password === inputPassword;
-    }
-
-    if (user.password && user.password === inputPassword) {
+    // 1. If user has created/set their password
+    if (user.password && user.password === inputPassword.trim()) {
       return true;
     }
 
-    // Default initial password during first-time login:
     const cleanPass = inputPassword.trim();
-    const cleanDigits = cleanPass.replace(/\D/g, '');
 
-    if (user.role === 'admin') {
-      const phoneDigits = user.phone ? user.phone.replace(/\D/g, '') : '';
-      return (
-        cleanPass === '03May@2002@' ||
-        cleanPass === (user.password || '') ||
-        (cleanDigits.length >= 7 && phoneDigits === cleanDigits)
-      );
-    } else if (user.role === 'student') {
-      const matchUsn = user.usn && cleanPass.toLowerCase() === user.usn.toLowerCase();
-      const matchPhone = user.phone && (cleanPass === user.phone || (cleanDigits.length >= 7 && user.phone.replace(/\D/g, '') === cleanDigits));
-      if (cleanDigits.length === 10 && user.isFirstLogin && !user.password) {
-        if (!user.phone) user.phone = cleanDigits;
-        return true;
-      }
-      return !!(matchUsn || matchPhone);
-    } else if (user.role === 'faculty') {
-      const matchPhone = user.phone && (cleanPass === user.phone || (cleanDigits.length >= 7 && user.phone.replace(/\D/g, '') === cleanDigits));
-      const matchStaff = user.staffCode && cleanPass.toLowerCase() === user.staffCode.toLowerCase();
-      return !!(matchPhone || matchStaff);
+    // 2. Main Admin
+    if (user.id === '180881' || user.email?.toLowerCase() === 'paruparvathish@gmail.com') {
+      return cleanPass === '03May@2002@';
     }
+
+    // 3. Predefined Leadership Accounts
+    if (user.role === 'admin') {
+      if (user.id === 'admin-hod' || user.email?.toLowerCase() === 'hod.cse@dsatm.edu.in') {
+        return cleanPass === 'HOD@CSE#2026' || cleanPass === (user.password || '');
+      }
+      if (user.id === 'admin-principal' || user.email?.toLowerCase() === 'principal@dsatm.edu.in') {
+        return cleanPass === 'DSATM@PRIN#984' || cleanPass === (user.password || '');
+      }
+      if (user.id?.startsWith('industry-') && user.password) {
+        return cleanPass === user.password;
+      }
+      return cleanPass === (user.password || '');
+    }
+
+    // 4. Default credentials for regular students and faculty have been removed!
     return false;
   }
 

@@ -13,33 +13,32 @@ function verifyPassword(user: any, inputPass: string): boolean {
   if (!user) return false;
   const cleanInput = inputPass.trim();
 
-  // If user has a custom password and is no longer first login:
-  if (user.password && !user.isFirstLogin) {
-    return user.password === cleanInput;
-  }
-
+  // 1. Password verified if user has created/updated their password
   if (user.password && user.password === cleanInput) {
     return true;
   }
 
-  const inputDigits = cleanInput.replace(/\D/g, '');
-  if (user.role === 'admin') {
-    const phoneDigits = user.phone ? user.phone.replace(/\D/g, '') : '';
-    return (
-      cleanInput === '03May@2002@' ||
-      cleanInput === 'admin123' ||
-      cleanInput === (user.password || '') ||
-      (inputDigits.length >= 7 && phoneDigits === inputDigits)
-    );
-  } else if (user.role === 'student') {
-    const matchUsn = user.usn && cleanInput.toLowerCase() === user.usn.toLowerCase();
-    const matchPhone = user.phone && (cleanInput === user.phone || (inputDigits.length >= 7 && user.phone.replace(/\D/g, '') === inputDigits));
-    return Boolean(matchUsn || matchPhone);
-  } else if (user.role === 'faculty') {
-    const matchPhone = user.phone && (cleanInput === user.phone || (inputDigits.length >= 7 && user.phone.replace(/\D/g, '') === inputDigits));
-    const matchStaff = user.staffCode && cleanInput.toLowerCase() === user.staffCode.toLowerCase();
-    return Boolean(matchPhone || matchStaff);
+  // 2. Main System Administrator
+  if (user.id === '180881' || user.email?.toLowerCase() === 'paruparvathish@gmail.com') {
+    return cleanInput === '03May@2002@';
   }
+
+  // 3. Official Leadership & Industry Admin Accounts
+  if (user.role === 'admin') {
+    if (user.id === 'admin-hod' || user.email?.toLowerCase() === 'hod.cse@dsatm.edu.in') {
+      return cleanInput === 'HOD@CSE#2026' || cleanInput === (user.password || '');
+    }
+    if (user.id === 'admin-principal' || user.email?.toLowerCase() === 'principal@dsatm.edu.in') {
+      return cleanInput === 'DSATM@PRIN#984' || cleanInput === (user.password || '');
+    }
+    if (user.id?.startsWith('industry-') && user.password) {
+      return cleanInput === user.password;
+    }
+    return cleanInput === (user.password || '');
+  }
+
+  // 4. For regular Students and Faculty: Default credentials have been removed!
+  // They MUST have created their password during Sign Up or Password Reset.
   return false;
 }
 
@@ -92,6 +91,9 @@ export async function POST(request: Request) {
           if (record && record.password) {
             p.password = record.password;
             p.isFirstLogin = record.isFirstLogin ?? false;
+            if (record.isActivated !== undefined) {
+              p.isActivated = record.isActivated;
+            }
             p.passwordUpdatedAt = record.passwordUpdatedAt || record.updatedAt || p.passwordUpdatedAt;
           }
         });
@@ -166,27 +168,35 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid credentials. User not found in system.' }, { status: 401 });
     }
 
-    // 4. Check if initial default credentials have expired (user already created a custom password)
-    if (user.password && !user.isFirstLogin) {
-      const isDefaultStudent = user.usn && cleanPass.toLowerCase() === user.usn.toLowerCase();
-      const isDefaultPhone = user.phone && (cleanPass === user.phone || (cleanPass.replace(/\D/g, '').length >= 7 && user.phone.replace(/\D/g, '') === cleanPass.replace(/\D/g, '')));
-      if (isDefaultStudent || isDefaultPhone) {
-        return NextResponse.json({
-          error: 'Your initial credentials have expired. Please use your newly created password.'
-        }, { status: 401 });
-      }
+    // 4. Check if account requires sign-up (no password set yet)
+    if (!user.password && user.role !== 'admin') {
+      return NextResponse.json({
+        error: 'No password has been registered for this account yet. Please click "New User? Create Account / Sign Up" to set your password and activate your account.',
+        needsSignup: true
+      }, { status: 401 });
     }
 
-    // 5. Verify password
+    // 5. Check if account has been activated via email link
+    if (user.isActivated === false && user.role !== 'admin') {
+      return NextResponse.json({
+        error: `Your account (${user.email || cleanId}) is pending activation. Please check your email inbox and click the activation link to activate your account.`,
+        needsActivation: true,
+        email: user.email
+      }, { status: 403 });
+    }
+
+    // 6. Verify password
     const isVerified = verifyPassword(user, cleanPass);
     if (!isVerified) {
-      return NextResponse.json({ error: 'Invalid credentials. Incorrect password.' }, { status: 401 });
+      return NextResponse.json({
+        error: 'Invalid credentials. Incorrect password. If you forgot your password, please click "Forgot Password".'
+      }, { status: 401 });
     }
 
     return NextResponse.json({
       success: true,
       user,
-      requiresPasswordChange: Boolean(user.isFirstLogin),
+      requiresPasswordChange: false,
     });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
