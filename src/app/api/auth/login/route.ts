@@ -95,11 +95,14 @@ export async function POST(request: Request) {
             (emailLower && cloudCreds[emailLower]) ||
             (phoneClean && cloudCreds[phoneClean]);
 
-          if (record && record.password) {
-            p.password = record.password;
+          if (record) {
+            if (record.password) p.password = record.password;
             p.isFirstLogin = record.isFirstLogin ?? false;
             if (record.isActivated !== undefined) {
               p.isActivated = record.isActivated;
+            }
+            if (record.email) {
+              p.email = record.email;
             }
             p.passwordUpdatedAt = record.passwordUpdatedAt || record.updatedAt || p.passwordUpdatedAt;
           }

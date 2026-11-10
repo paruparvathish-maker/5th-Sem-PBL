@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { store } from '@/lib/data/store';
 import { createAndSaveOtp, maskEmail } from '@/lib/data/otp-store';
 import { sendOtpEmail } from '@/lib/utils/mailer';
+import { resolveUserForAuth } from '@/lib/data/user-resolver';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,28 +13,43 @@ export async function POST(request: Request) {
     }
 
     const clean = identifier.trim();
-    const user = store.findUserByUsernameOrEmail(clean);
+    const resolved = await resolveUserForAuth(clean);
 
-    if (!user) {
+    if (!resolved || !resolved.user) {
       return NextResponse.json({
         error: 'No account found matching this identifier. Please check your Email, USN, or Employee ID, or Sign Up for a new account.'
       }, { status: 404 });
     }
 
-    const targetEmail = user.email || (clean.includes('@') ? clean : `${clean.toLowerCase()}@student.dsatm.edu.in`);
-    const otp = await createAndSaveOtp(clean, targetEmail);
+    const targetEmail = resolved.targetEmail || 
+      (clean.includes('@') ? clean.toLowerCase() : resolved.user.email?.toLowerCase());
 
-    // Send the verification code directly to user's email inbox
+    if (!targetEmail || !targetEmail.includes('@')) {
+      return NextResponse.json({
+        error: 'No valid email address is linked to this account. Please sign up or contact the administrator.'
+      }, { status: 400 });
+    }
+
+    // Generate 5-minute OTP and save in memory & Cloud KV
+    const otp = await createAndSaveOtp(clean, targetEmail);
+    if (resolved.user.usn && resolved.user.usn !== clean) {
+      await createAndSaveOtp(resolved.user.usn, targetEmail);
+    }
+    if (resolved.user.email && resolved.user.email !== targetEmail) {
+      await createAndSaveOtp(resolved.user.email, targetEmail);
+    }
+
+    // Send the verification code directly to user's registered email inbox
     const mailResult = await sendOtpEmail({
       to: targetEmail,
       otp,
-      userName: user.name || clean,
+      userName: resolved.user.name || clean,
     });
 
     if (!mailResult.success) {
       console.warn('[OTP] Mail dispatch failed:', mailResult.error);
       return NextResponse.json({
-        error: `Could not send verification email to ${maskEmail(targetEmail)}: ${mailResult.error || 'Email service is unavailable.'}`
+        error: `Could not send verification email to ${maskEmail(targetEmail)}: ${mailResult.error || 'Email service is unavailable.'}. Please check the email address or try again shortly.`
       }, { status: 503 });
     }
 
@@ -46,7 +61,7 @@ export async function POST(request: Request) {
       message: `A 6-digit verification code has been sent directly to your registered email (${maskEmail(targetEmail)}). It is valid for 5 minutes. Please check your inbox and spam folder.`
     });
   } catch (err: any) {
+    console.error('[OTP] Unexpected error in OTP send route:', err);
     return NextResponse.json({ error: err.message || 'Failed to send verification code.' }, { status: 500 });
   }
 }
-

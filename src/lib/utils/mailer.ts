@@ -1,5 +1,60 @@
 import nodemailer from 'nodemailer';
 
+export function getAppOrigin(request?: Request): string {
+  if (request) {
+    const originHeader = request.headers.get('origin');
+    if (originHeader && originHeader.startsWith('http')) {
+      return originHeader;
+    }
+    const fwdHost = request.headers.get('x-forwarded-host');
+    const fwdProto = request.headers.get('x-forwarded-proto') || 'https';
+    if (fwdHost) {
+      return `${fwdProto}://${fwdHost}`;
+    }
+    const host = request.headers.get('host');
+    if (host) {
+      const proto = host.includes('localhost') || host.includes('127.0.0.1') ? 'http' : 'https';
+      return `${proto}://${host}`;
+    }
+    try {
+      const u = new URL(request.url);
+      if (u.origin && !u.origin.includes('0.0.0.0')) return u.origin;
+    } catch {}
+  }
+  return process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://5th-sem-pbl.vercel.app');
+}
+
+function getSmtpConfig() {
+  const smtpUser = (process.env.SMTP_USER || process.env.GMAIL_USER || 'paruparvathish@gmail.com').trim();
+  const rawPass = process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD || 'mxwlmeaxzdakxlhk';
+  const smtpPass = rawPass.replace(/\s+/g, '');
+  const smtpHost = (process.env.SMTP_HOST || 'smtp.gmail.com').trim();
+  const smtpPort = Number(process.env.SMTP_PORT) || 465;
+  const smtpFrom = process.env.SMTP_FROM || `"Industrial PBL Portal - DSATM" <${smtpUser}>`;
+
+  return { smtpUser, smtpPass, smtpHost, smtpPort, smtpFrom };
+}
+
+function createTransporter() {
+  const { smtpUser, smtpPass, smtpHost, smtpPort } = getSmtpConfig();
+
+  return nodemailer.createTransport({
+    host: smtpHost,
+    port: smtpPort,
+    secure: smtpPort === 465,
+    auth: {
+      user: smtpUser,
+      pass: smtpPass,
+    },
+    tls: {
+      rejectUnauthorized: false
+    },
+    connectionTimeout: 15000,
+    greetingTimeout: 10000,
+    socketTimeout: 20000,
+  });
+}
+
 interface SendOtpEmailOptions {
   to: string;
   otp: string;
@@ -8,13 +63,7 @@ interface SendOtpEmailOptions {
 
 export async function sendOtpEmail({ to, otp, userName }: SendOtpEmailOptions): Promise<{ success: boolean; error?: string }> {
   try {
-    const smtpUser = process.env.SMTP_USER || process.env.GMAIL_USER || 'paruparvathish@gmail.com';
-    // Strip spaces in case user pasted "abcd efgh ijkl mnop" from Google App Passwords
-    const rawPass = process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD || 'mxwlmeaxzdakxlhk';
-    const smtpPass = rawPass.replace(/\s+/g, '');
-    const smtpHost = process.env.SMTP_HOST || 'smtp.gmail.com';
-    const smtpPort = Number(process.env.SMTP_PORT) || 465;
-    const smtpFrom = process.env.SMTP_FROM || `"Industrial PBL Portal - DSATM" <${smtpUser}>`;
+    const { smtpUser, smtpPass, smtpFrom } = getSmtpConfig();
 
     if (!smtpUser || !smtpPass) {
       const errMsg = 'SMTP credentials not configured. Please configure SMTP_USER and SMTP_PASS (Google App Password) in environment variables.';
@@ -22,25 +71,10 @@ export async function sendOtpEmail({ to, otp, userName }: SendOtpEmailOptions): 
       return { success: false, error: errMsg };
     }
 
-    const isGmail = smtpHost.includes('gmail') || smtpUser.endsWith('@gmail.com');
-
-    const transporter = isGmail
-      ? nodemailer.createTransport({
-          service: 'gmail',
-          auth: {
-            user: smtpUser,
-            pass: smtpPass,
-          },
-        })
-      : nodemailer.createTransport({
-          host: smtpHost,
-          port: smtpPort,
-          secure: smtpPort === 465,
-          auth: {
-            user: smtpUser,
-            pass: smtpPass,
-          },
-        });
+    const cleanTo = (to || '').trim().toLowerCase();
+    if (!cleanTo || !cleanTo.includes('@')) {
+      return { success: false, error: `Invalid recipient email address: "${to}"` };
+    }
 
     const htmlContent = `
 <!DOCTYPE html>
@@ -97,18 +131,32 @@ export async function sendOtpEmail({ to, otp, userName }: SendOtpEmailOptions): 
 </html>
     `;
 
-    const info = await transporter.sendMail({
-      from: smtpFrom,
-      to,
-      subject: `[Industrial PBL DSATM] Your Verification Code: ${otp}`,
-      text: `Your Industrial PBL verification code is: ${otp}. It is valid for 5 minutes.`,
-      html: htmlContent,
-    });
+    let lastError: any = null;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const transporter = createTransporter();
+        const info = await transporter.sendMail({
+          from: smtpFrom,
+          to: cleanTo,
+          subject: `[Industrial PBL DSATM] Your Verification Code: ${otp}`,
+          text: `Your Industrial PBL verification code is: ${otp}. It is valid for 5 minutes. Enter this code to verify your account.`,
+          html: htmlContent,
+        });
 
-    console.log(`[Mailer] OTP email dispatched successfully to ${to} (MessageId: ${info.messageId})`);
-    return { success: true };
+        console.log(`[Mailer] OTP email dispatched successfully to ${cleanTo} on attempt ${attempt} (MessageId: ${info.messageId})`);
+        return { success: true };
+      } catch (err: any) {
+        lastError = err;
+        console.warn(`[Mailer] OTP dispatch attempt ${attempt} failed for ${cleanTo}:`, err.message);
+        if (attempt === 1) {
+          await new Promise(r => setTimeout(r, 600));
+        }
+      }
+    }
+
+    return { success: false, error: lastError?.message || 'Failed to dispatch verification email.' };
   } catch (err: any) {
-    console.error('[Mailer] Failed to send OTP email:', err);
+    console.error('[Mailer] Unexpected OTP dispatch error:', err);
     return { success: false, error: err.message };
   }
 }
@@ -121,32 +169,18 @@ interface SendActivationEmailOptions {
 
 export async function sendActivationEmail({ to, userName, activationLink }: SendActivationEmailOptions): Promise<{ success: boolean; error?: string }> {
   try {
-    const smtpUser = process.env.SMTP_USER || process.env.GMAIL_USER || 'paruparvathish@gmail.com';
-    const rawPass = process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD || 'mxwlmeaxzdakxlhk';
-    const smtpPass = rawPass.replace(/\s+/g, '');
-    const smtpHost = process.env.SMTP_HOST || 'smtp.gmail.com';
-    const smtpPort = Number(process.env.SMTP_PORT) || 465;
-    const smtpFrom = process.env.SMTP_FROM || `"Industrial PBL Portal - DSATM" <${smtpUser}>`;
+    const { smtpUser, smtpPass, smtpFrom } = getSmtpConfig();
 
-    const isGmail = smtpHost.includes('gmail') || smtpUser.endsWith('@gmail.com');
+    if (!smtpUser || !smtpPass) {
+      const errMsg = 'SMTP credentials not configured. Please configure SMTP_USER and SMTP_PASS (Google App Password) in environment variables.';
+      console.warn(`[Mailer] ${errMsg}`);
+      return { success: false, error: errMsg };
+    }
 
-    const transporter = isGmail
-      ? nodemailer.createTransport({
-          service: 'gmail',
-          auth: {
-            user: smtpUser,
-            pass: smtpPass,
-          },
-        })
-      : nodemailer.createTransport({
-          host: smtpHost,
-          port: smtpPort,
-          secure: smtpPort === 465,
-          auth: {
-            user: smtpUser,
-            pass: smtpPass,
-          },
-        });
+    const cleanTo = (to || '').trim().toLowerCase();
+    if (!cleanTo || !cleanTo.includes('@')) {
+      return { success: false, error: `Invalid recipient email address: "${to}"` };
+    }
 
     const htmlContent = `
 <!DOCTYPE html>
@@ -181,7 +215,7 @@ export async function sendActivationEmail({ to, userName, activationLink }: Send
       </p>
 
       <div class="btn-box">
-        <a href="${activationLink}" class="btn" target="_blank">Activate My Account</a>
+        <a href="${activationLink}" class="btn" target="_blank" style="color: #ffffff !important;">Activate My Account</a>
       </div>
 
       <p style="margin: 0; font-size: 12px; color: #64748b;">
@@ -203,18 +237,32 @@ export async function sendActivationEmail({ to, userName, activationLink }: Send
 </html>
     `;
 
-    const info = await transporter.sendMail({
-      from: smtpFrom,
-      to,
-      subject: `[Industrial PBL DSATM] Activate Your Account`,
-      text: `Hello ${userName || 'User'}, please activate your Industrial PBL account by visiting: ${activationLink}`,
-      html: htmlContent,
-    });
+    let lastError: any = null;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const transporter = createTransporter();
+        const info = await transporter.sendMail({
+          from: smtpFrom,
+          to: cleanTo,
+          subject: `[Industrial PBL DSATM] Activate Your Account`,
+          text: `Hello ${userName || 'User'},\n\nPlease activate your Industrial PBL account by visiting this link:\n${activationLink}\n\nThis link is valid for 24 hours.`,
+          html: htmlContent,
+        });
 
-    console.log(`[Mailer] Activation email dispatched successfully to ${to} (MessageId: ${info.messageId})`);
-    return { success: true };
+        console.log(`[Mailer] Activation email dispatched successfully to ${cleanTo} on attempt ${attempt} (MessageId: ${info.messageId})`);
+        return { success: true };
+      } catch (err: any) {
+        lastError = err;
+        console.warn(`[Mailer] Activation dispatch attempt ${attempt} failed for ${cleanTo}:`, err.message);
+        if (attempt === 1) {
+          await new Promise(r => setTimeout(r, 600));
+        }
+      }
+    }
+
+    return { success: false, error: lastError?.message || 'Failed to dispatch activation email.' };
   } catch (err: any) {
-    console.error('[Mailer] Failed to send activation email:', err);
+    console.error('[Mailer] Unexpected activation dispatch error:', err);
     return { success: false, error: err.message };
   }
 }

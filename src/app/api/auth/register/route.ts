@@ -4,14 +4,14 @@ import { saveCloudCredentials } from '@/lib/data/cloud-sync';
 import { UserProfile } from '@/lib/types/pbl';
 import { normalizeName, getGuideEmail } from '@/lib/data/seed-dataset';
 import { createAndSaveActivationToken } from '@/lib/data/otp-store';
-import { sendActivationEmail } from '@/lib/utils/mailer';
+import { sendActivationEmail, getAppOrigin } from '@/lib/utils/mailer';
+import { persistProfileToDisk } from '@/lib/data/user-resolver';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   try {
-    const url = new URL(request.url);
-    const origin = url.origin || 'https://5th-sem-pbl.vercel.app';
+    const origin = getAppOrigin(request);
     const body = await request.json();
     const { role, password, confirmPassword } = body;
 
@@ -76,16 +76,19 @@ export async function POST(request: Request) {
         student = newStud;
       }
 
+      // Persist profile to disk (server-side persistence)
+      persistProfileToDisk(student);
+
       // Generate secure activation token and dispatch email
       const activationToken = await createAndSaveActivationToken(cleanEmail);
       student.activationToken = activationToken;
       const activationLink = `${origin}/activate?token=${activationToken}&email=${encodeURIComponent(cleanEmail)}`;
 
-      await sendActivationEmail({
+      const mailResult = await sendActivationEmail({
         to: cleanEmail,
         userName: student.name || cleanUsn,
         activationLink
-      }).catch(e => console.warn('[Register] Activation mail error:', e));
+      });
 
       // Auto-link student to their assigned team in the dataset
       const allTeams = store.getAllTeams();
@@ -99,22 +102,35 @@ export async function POST(request: Request) {
       }
 
       // Persist credentials to serverless Cloud KV
-      const aliases = [student.id, student.usn, student.email].filter(Boolean) as string[];
+      const aliases = [student.id, student.usn, student.email, cleanUsn, cleanEmail].filter(Boolean) as string[];
       await saveCloudCredentials(student.id, {
         password: cleanPass,
         isFirstLogin: false,
         isActivated: false,
         activationToken,
-        passwordUpdatedAt: student.passwordUpdatedAt
+        passwordUpdatedAt: student.passwordUpdatedAt,
+        email: cleanEmail,
+        name: student.name,
+        usn: cleanUsn,
+        role: 'student'
       }, aliases);
 
       // Uplink to backend store
       store.syncToSupabase().catch(console.error);
 
+      if (!mailResult.success) {
+        return NextResponse.json({
+          success: true,
+          user: student,
+          warning: mailResult.error,
+          message: `Account created successfully! However, the activation email could not be delivered to ${cleanEmail} (${mailResult.error}). You can use "Resend Activation Link" on the Login screen, or ask your administrator to verify your email.`
+        }, { status: 201 });
+      }
+
       return NextResponse.json({
         success: true,
         user: student,
-        message: `Account created successfully! An activation link has been sent to your college email (${cleanEmail}). Please check your inbox (or spam) and click the link to activate your account.`
+        message: `Account created successfully! An activation link has been sent to your college email (${cleanEmail}). Please check your inbox (and spam folder) and click the link to activate your account.`
       }, { status: 201 });
     }
 
@@ -149,7 +165,6 @@ export async function POST(request: Request) {
       });
 
       if (faculty) {
-        // Link to existing faculty guide profile
         faculty.staffCode = cleanEmpId;
         faculty.email = cleanEmail;
         faculty.name = cleanName;
@@ -159,7 +174,6 @@ export async function POST(request: Request) {
         faculty.isActivated = false;
         faculty.passwordUpdatedAt = new Date().toISOString();
       } else {
-        // Create new faculty profile
         const newFac: UserProfile = {
           id: `fac-${Date.now()}`,
           staffCode: cleanEmpId,
@@ -177,16 +191,19 @@ export async function POST(request: Request) {
         faculty = newFac;
       }
 
+      // Persist profile to disk (server-side persistence)
+      persistProfileToDisk(faculty);
+
       // Generate activation link and dispatch email
       const activationToken = await createAndSaveActivationToken(cleanEmail);
       faculty.activationToken = activationToken;
       const activationLink = `${origin}/activate?token=${activationToken}&email=${encodeURIComponent(cleanEmail)}`;
 
-      await sendActivationEmail({
+      const mailResult = await sendActivationEmail({
         to: cleanEmail,
         userName: faculty.name,
         activationLink
-      }).catch(e => console.warn('[Register] Faculty activation mail error:', e));
+      });
 
       // Auto-map all 4th and 5th sem teams assigned to this faculty guide
       const allTeams = store.getAllTeams();
@@ -212,17 +229,29 @@ export async function POST(request: Request) {
       }
 
       // Persist credentials to serverless Cloud KV
-      const aliases = [faculty.id, faculty.email, faculty.staffCode, faculty.phone, cleanEmpId].filter(Boolean) as string[];
+      const aliases = [faculty.id, faculty.email, faculty.staffCode, faculty.phone, cleanEmpId, cleanEmail].filter(Boolean) as string[];
       await saveCloudCredentials(faculty.id, {
         password: cleanPass,
         isFirstLogin: false,
         isActivated: false,
         activationToken,
-        passwordUpdatedAt: faculty.passwordUpdatedAt
+        passwordUpdatedAt: faculty.passwordUpdatedAt,
+        email: cleanEmail,
+        name: faculty.name,
+        role: 'faculty'
       }, aliases);
 
       // Uplink to backend store
       store.syncToSupabase().catch(console.error);
+
+      if (!mailResult.success) {
+        return NextResponse.json({
+          success: true,
+          user: faculty,
+          warning: mailResult.error,
+          message: `Faculty account created! However, the activation email could not be delivered to ${cleanEmail} (${mailResult.error}). Please use "Resend Activation Link" on the login page or check your spam folder.`
+        }, { status: 201 });
+      }
 
       return NextResponse.json({
         success: true,
@@ -288,6 +317,9 @@ export async function POST(request: Request) {
         industryUser = newInd;
       }
 
+      // Persist profile to disk (server-side persistence)
+      persistProfileToDisk(industryUser);
+
       // Synchronize assigned teams for this industry expert
       const allTeams = store.getAllTeams();
       allTeams.forEach(t => {
@@ -302,22 +334,34 @@ export async function POST(request: Request) {
       industryUser.activationToken = activationToken;
       const activationLink = `${origin}/activate?token=${activationToken}&email=${encodeURIComponent(cleanEmail)}`;
 
-      await sendActivationEmail({
+      const mailResult = await sendActivationEmail({
         to: cleanEmail,
         userName: industryUser.name,
         activationLink
-      }).catch(e => console.warn('[Register] Industry activation mail error:', e));
+      });
 
-      const aliases = [industryUser.id, industryUser.email, industryUser.phone].filter(Boolean) as string[];
+      const aliases = [industryUser.id, industryUser.email, industryUser.phone, cleanEmail].filter(Boolean) as string[];
       await saveCloudCredentials(industryUser.id, {
         password: cleanPass,
         isFirstLogin: false,
         isActivated: false,
         activationToken,
-        passwordUpdatedAt: industryUser.passwordUpdatedAt
+        passwordUpdatedAt: industryUser.passwordUpdatedAt,
+        email: cleanEmail,
+        name: industryUser.name,
+        role: 'admin'
       }, aliases);
 
       store.syncToSupabase().catch(console.error);
+
+      if (!mailResult.success) {
+        return NextResponse.json({
+          success: true,
+          user: industryUser,
+          warning: mailResult.error,
+          message: `Industry account created! However, the activation email could not be delivered to ${cleanEmail} (${mailResult.error}). Please use "Resend Activation Link" on the login page or check your spam folder.`
+        }, { status: 201 });
+      }
 
       return NextResponse.json({
         success: true,
@@ -331,4 +375,3 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: err.message || 'Account registration failed.' }, { status: 500 });
   }
 }
-

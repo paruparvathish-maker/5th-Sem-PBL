@@ -14,6 +14,10 @@ interface CredentialRecord {
   isActivated?: boolean;
   activationToken?: string;
   passwordUpdatedAt?: string;
+  email?: string;
+  name?: string;
+  usn?: string;
+  role?: string;
   updatedAt?: string;
 }
 
@@ -63,6 +67,10 @@ export async function saveCloudCredentials(
     isActivated?: boolean;
     activationToken?: string;
     passwordUpdatedAt?: string;
+    email?: string;
+    name?: string;
+    usn?: string;
+    role?: string;
   },
   aliases: string[] = []
 ): Promise<boolean> {
@@ -82,18 +90,40 @@ export async function saveCloudCredentials(
     } catch {}
 
     const existing = currentMap[userId] || {};
+    const effectiveEmail = (record.email || existing.email)?.toLowerCase().trim();
+    const effectiveUsn = (record.usn || existing.usn)?.toUpperCase().trim();
+
     const fullRecord: CredentialRecord = {
       password: record.password !== undefined ? record.password : existing.password,
       isFirstLogin: record.isFirstLogin !== undefined ? record.isFirstLogin : (existing.isFirstLogin ?? false),
       isActivated: record.isActivated !== undefined ? record.isActivated : existing.isActivated,
       activationToken: record.activationToken !== undefined ? record.activationToken : existing.activationToken,
       passwordUpdatedAt: record.passwordUpdatedAt || existing.passwordUpdatedAt || new Date().toISOString(),
+      email: effectiveEmail,
+      name: record.name || existing.name,
+      usn: effectiveUsn,
+      role: record.role || existing.role,
       updatedAt: new Date().toISOString()
     };
 
     currentMap[userId] = fullRecord;
+    if (userId.toLowerCase() !== userId) {
+      currentMap[userId.toLowerCase()] = fullRecord;
+    }
+
+    if (effectiveEmail) {
+      currentMap[effectiveEmail] = fullRecord;
+    }
+    if (effectiveUsn) {
+      currentMap[effectiveUsn] = fullRecord;
+      currentMap[effectiveUsn.toLowerCase()] = fullRecord;
+    }
+
     aliases.forEach(alias => {
-      if (alias) currentMap[alias.toLowerCase()] = fullRecord;
+      if (alias) {
+        currentMap[alias] = fullRecord;
+        currentMap[alias.toLowerCase()] = fullRecord;
+      }
     });
 
     cachedCreds = currentMap;

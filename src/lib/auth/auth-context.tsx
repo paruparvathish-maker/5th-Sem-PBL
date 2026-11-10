@@ -53,7 +53,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const isPublic = pathname === '/' || publicPages.some(p => pathname.startsWith(p));
 
     if (!user && !isPublic) {
-      router.push('/login');
+      router.push('/');
       return;
     }
 
@@ -235,7 +235,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     setUser(null);
     localStorage.removeItem('pbl_session_user');
-    router.push('/login');
+    if (typeof window !== 'undefined') {
+      window.location.href = '/';
+    } else {
+      router.push('/');
+    }
   };
 
   return (

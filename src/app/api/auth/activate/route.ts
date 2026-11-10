@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { store } from '@/lib/data/store';
 import { saveCloudCredentials, fetchCloudCredentials } from '@/lib/data/cloud-sync';
 import { verifyActivationToken } from '@/lib/data/otp-store';
+import { resolveUserForAuth, persistProfileToDisk } from '@/lib/data/user-resolver';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,28 +23,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: tokenResult.error || 'Invalid or expired activation link.' }, { status: 400 });
     }
 
-    // Find user profile in store
-    const allProfiles = store.getAllProfiles();
-    let user = allProfiles.find(p => p.email && p.email.toLowerCase() === cleanEmail);
-
-    if (!user) {
-      // Check cloud credentials for this user
-      const cloudCreds = await fetchCloudCredentials().catch(() => null);
-      if (cloudCreds && cloudCreds[cleanEmail]) {
-        user = allProfiles.find(p => p.id === cleanEmail || (p.usn && p.usn.toLowerCase() === cleanEmail));
-      }
-    }
+    // Find user profile
+    const resolved = await resolveUserForAuth(cleanEmail);
+    const user = resolved?.user;
 
     if (user) {
       user.isActivated = true;
       user.isFirstLogin = false;
       user.activationToken = undefined;
 
-      const aliases = [user.id, user.email, user.usn, user.staffCode].filter(Boolean) as string[];
+      persistProfileToDisk(user);
+
+      const aliases = [user.id, user.email, user.usn, user.staffCode, cleanEmail].filter(Boolean) as string[];
       await saveCloudCredentials(user.id, {
         password: user.password || '',
         isFirstLogin: false,
         isActivated: true,
+        email: cleanEmail,
+        name: user.name,
+        usn: user.usn,
+        role: user.role,
         passwordUpdatedAt: user.passwordUpdatedAt || new Date().toISOString()
       }, aliases);
 
@@ -53,6 +52,7 @@ export async function POST(request: Request) {
       await saveCloudCredentials(cleanEmail, {
         isActivated: true,
         isFirstLogin: false,
+        email: cleanEmail,
         passwordUpdatedAt: new Date().toISOString()
       }, [cleanEmail]);
     }
@@ -62,7 +62,7 @@ export async function POST(request: Request) {
       message: 'Your account has been successfully activated! You can now log in using your college email and password.'
     });
   } catch (err: any) {
+    console.error('[Activate] Unexpected error:', err);
     return NextResponse.json({ error: err.message || 'Account activation failed.' }, { status: 500 });
   }
 }
-
