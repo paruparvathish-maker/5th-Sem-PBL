@@ -1,21 +1,42 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/lib/auth/auth-context';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { 
   GraduationCap, LayoutDashboard, Users, Calendar, UploadCloud, 
-  Award, Bot, BookOpen, ShieldAlert, LogOut, Menu, X, Bell, FileSpreadsheet, History, CheckCircle2, Globe
+  Award, Bot, BookOpen, ShieldAlert, LogOut, Menu, X, Bell, FileSpreadsheet, 
+  History, CheckCircle2, Globe, User, KeyRound, Sparkles, ChevronDown, Settings
 } from 'lucide-react';
 import { store } from '@/lib/data/store';
 import { isExecutiveViewer, getIndustryPersonAccess } from '@/lib/auth/roles';
+import { ProfileModal } from '@/components/profile/profile-modal';
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [activeModalTab, setActiveModalTab] = useState<'profile' | 'password' | 'ai' | null>(null);
+
+  const profileMenuRef = useRef<HTMLDivElement>(null);
+  const notificationRef = useRef<HTMLDivElement>(null);
+
+  // Close menus when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
+        setShowProfileMenu(false);
+      }
+      if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
+        setShowNotifications(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   if (!user) return <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white font-medium">Loading session...</div>;
 
@@ -72,21 +93,29 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
 
-        {/* User Card */}
-        <div className="p-4 mx-3 my-3 rounded-xl bg-slate-800/80 border border-slate-700/50">
-          <div className="flex items-center space-x-3">
-            <div className="h-9 w-9 rounded-full bg-indigo-600/30 text-indigo-400 font-semibold flex items-center justify-center border border-indigo-500/30 text-sm">
+        {/* User Card with Quick Profile & AI Options */}
+        <div className="p-4 mx-3 my-3 rounded-2xl bg-slate-800/90 border border-slate-700/60 shadow-lg">
+          <div 
+            onClick={() => setActiveModalTab('profile')}
+            className="flex items-center space-x-3 cursor-pointer group"
+            title="Click to view full user profile"
+          >
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 text-white font-black flex items-center justify-center text-sm shadow-md group-hover:scale-105 transition-transform">
               {user.name.charAt(0)}
             </div>
-            <div className="overflow-hidden">
-              <p className="text-sm font-semibold text-white truncate">{user.name}</p>
-              <p className="text-xs text-slate-400 truncate">
+            <div className="overflow-hidden flex-1">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-bold text-white truncate group-hover:text-indigo-300 transition-colors">{user.name}</p>
+                <Settings className="h-3.5 w-3.5 text-slate-400 group-hover:text-white transition-colors" />
+              </div>
+              <p className="text-[11px] text-slate-400 font-mono truncate">
                 {user.role === 'student' ? user.usn : user.email}
               </p>
             </div>
           </div>
-          <div className="mt-3 flex items-center justify-between pt-2 border-t border-slate-700/40">
-            <span className={`px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider ${
+
+          <div className="mt-3 flex items-center justify-between pt-2 border-t border-slate-700/50">
+            <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider ${
               industryAccess.isIndustry ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30' :
               isExec ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
               user.role === 'admin' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' :
@@ -96,7 +125,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
               {industryAccess.isIndustry ? 'Industry Expert' : isExec ? 'Executive Observer' : user.role === 'admin' ? 'Super Admin' : user.role}
             </span>
             {industryAccess.isIndustry ? (
-              <span className="text-[11px] font-semibold text-slate-300 bg-slate-700 px-2 py-0.5 rounded">
+              <span className="text-[10px] font-semibold text-slate-300 bg-slate-700 px-2 py-0.5 rounded">
                 Sec {industryAccess.allAllowedSections.join(', ')}
               </span>
             ) : user.section ? (
@@ -104,6 +133,37 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
                 Sec {user.section}
               </span>
             ) : null}
+          </div>
+
+          {/* Quick Action Badges */}
+          <div className="mt-3 pt-2 border-t border-slate-700/40 grid grid-cols-3 gap-1">
+            <button
+              type="button"
+              onClick={() => setActiveModalTab('profile')}
+              className="py-1 px-1.5 rounded-lg text-[10px] font-bold text-slate-300 hover:text-white hover:bg-slate-700/70 transition flex items-center justify-center space-x-1"
+              title="View User Profile"
+            >
+              <User className="h-3 w-3 text-indigo-400" />
+              <span>Profile</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveModalTab('password')}
+              className="py-1 px-1.5 rounded-lg text-[10px] font-bold text-slate-300 hover:text-white hover:bg-slate-700/70 transition flex items-center justify-center space-x-1"
+              title="Change Password"
+            >
+              <KeyRound className="h-3 w-3 text-amber-400" />
+              <span>Pass</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveModalTab('ai')}
+              className="py-1 px-1.5 rounded-lg text-[10px] font-bold text-purple-300 hover:text-white hover:bg-purple-900/50 transition flex items-center justify-center space-x-1"
+              title="AI Project Copilot"
+            >
+              <Sparkles className="h-3 w-3 text-purple-400" />
+              <span>AI</span>
+            </button>
           </div>
         </div>
 
@@ -218,11 +278,117 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
 
             <div className="h-6 w-px bg-slate-200" />
 
-            <div className="flex items-center space-x-2">
-              <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 text-white font-bold text-xs flex items-center justify-center shadow-sm">
-                {user.name.charAt(0)}
-              </div>
-              <span className="text-xs font-bold text-slate-700 hidden sm:inline">{user.name}</span>
+            {/* User Profile Trigger & Dropdown Menu */}
+            <div className="relative" ref={profileMenuRef}>
+              <button
+                type="button"
+                onClick={() => setShowProfileMenu(!showProfileMenu)}
+                className="flex items-center space-x-2.5 px-2.5 py-1.5 rounded-xl hover:bg-slate-100 transition-all border border-slate-200/80 bg-slate-50/70 shadow-sm cursor-pointer group"
+                title="Account options: View Profile, Change Password, AI Copilot"
+              >
+                <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 text-white font-black text-xs flex items-center justify-center shadow-sm ring-2 ring-indigo-500/20 group-hover:scale-105 transition-transform">
+                  {user.name.charAt(0)}
+                </div>
+                <div className="text-left hidden sm:block">
+                  <p className="text-xs font-bold text-slate-800 leading-tight truncate max-w-[130px]">
+                    {user.name}
+                  </p>
+                  <p className="text-[10px] text-indigo-600 font-extrabold uppercase tracking-wider">
+                    {user.role}
+                  </p>
+                </div>
+                <ChevronDown className={`h-3.5 w-3.5 text-slate-400 group-hover:text-slate-700 transition-transform duration-200 ${showProfileMenu ? 'rotate-180 text-indigo-600' : ''}`} />
+              </button>
+
+              {/* Profile Dropdown Menu */}
+              {showProfileMenu && (
+                <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-slate-200 py-2 z-50 animate-in fade-in slide-in-from-top-2">
+                  <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/70">
+                    <div className="flex items-center space-x-3">
+                      <div className="h-10 w-10 rounded-xl bg-indigo-600 text-white font-black text-sm flex items-center justify-center shadow-md">
+                        {user.name.charAt(0)}
+                      </div>
+                      <div className="overflow-hidden">
+                        <p className="text-sm font-bold text-slate-900 truncate">{user.name}</p>
+                        <p className="text-xs text-slate-500 font-mono truncate">{user.email || user.usn}</p>
+                        <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-200">
+                          {user.role}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-1 space-y-0.5 text-xs font-semibold text-slate-700">
+                    {/* Option 1: User Profile */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowProfileMenu(false);
+                        setActiveModalTab('profile');
+                      }}
+                      className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-indigo-50 hover:text-indigo-700 transition text-left cursor-pointer group"
+                    >
+                      <div className="h-8 w-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                        <User className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <span className="block font-bold text-slate-900 group-hover:text-indigo-700">User Profile</span>
+                        <span className="text-[10px] text-slate-400 font-normal">Account, Section &amp; Team Details</span>
+                      </div>
+                    </button>
+
+                    {/* Option 2: Change Password */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowProfileMenu(false);
+                        setActiveModalTab('password');
+                      }}
+                      className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-amber-50 hover:text-amber-800 transition text-left cursor-pointer group"
+                    >
+                      <div className="h-8 w-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 group-hover:bg-amber-600 group-hover:text-white transition-colors">
+                        <KeyRound className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <span className="block font-bold text-slate-900 group-hover:text-amber-800">Change Password</span>
+                        <span className="text-[10px] text-slate-400 font-normal">Update Security Credentials</span>
+                      </div>
+                    </button>
+
+                    {/* Option 3: AI Project Copilot */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowProfileMenu(false);
+                        setActiveModalTab('ai');
+                      }}
+                      className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-purple-50 hover:text-purple-800 transition text-left cursor-pointer group"
+                    >
+                      <div className="h-8 w-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center shrink-0 group-hover:bg-purple-600 group-hover:text-white transition-colors">
+                        <Sparkles className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <div className="flex items-center space-x-1.5">
+                          <span className="block font-bold text-slate-900 group-hover:text-purple-800">AI Project Copilot</span>
+                          <span className="text-[9px] bg-purple-100 text-purple-700 px-1 py-0.2 rounded font-extrabold uppercase">AI</span>
+                        </div>
+                        <span className="text-[10px] text-slate-400 font-normal">Ideation, IEEE Papers &amp; Rubrics</span>
+                      </div>
+                    </button>
+                  </div>
+
+                  <div className="pt-1 mt-1 border-t border-slate-100 p-1">
+                    <button
+                      type="button"
+                      onClick={logout}
+                      className="w-full flex items-center space-x-3 px-3 py-2 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 transition text-left cursor-pointer"
+                    >
+                      <LogOut className="h-4 w-4 text-rose-500" />
+                      <span>Sign Out</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </header>
@@ -241,6 +407,61 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
                 <p className="text-[11px] text-slate-400">DSATM CSE Dept</p>
               </div>
             </div>
+
+            {/* Mobile User Profile Quick Trigger */}
+            <div className="p-3 rounded-xl bg-slate-800 border border-slate-700/60 my-2">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center space-x-2.5">
+                  <div className="h-8 w-8 rounded-full bg-indigo-600 text-white font-bold text-xs flex items-center justify-center">
+                    {user.name.charAt(0)}
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-white truncate max-w-[150px]">{user.name}</p>
+                    <p className="text-[10px] text-slate-400 font-mono">{user.email || user.usn}</p>
+                  </div>
+                </div>
+                <span className="px-2 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-wider bg-indigo-500/20 text-indigo-300">
+                  {user.role}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-1 pt-2 border-t border-slate-700/60">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileOpen(false);
+                    setActiveModalTab('profile');
+                  }}
+                  className="py-1 px-2 rounded-lg text-[10px] font-bold text-slate-200 bg-slate-700/80 hover:bg-slate-700 flex items-center justify-center space-x-1"
+                >
+                  <User className="h-3 w-3 text-indigo-400" />
+                  <span>Profile</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileOpen(false);
+                    setActiveModalTab('password');
+                  }}
+                  className="py-1 px-2 rounded-lg text-[10px] font-bold text-slate-200 bg-slate-700/80 hover:bg-slate-700 flex items-center justify-center space-x-1"
+                >
+                  <KeyRound className="h-3 w-3 text-amber-400" />
+                  <span>Pass</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileOpen(false);
+                    setActiveModalTab('ai');
+                  }}
+                  className="py-1 px-2 rounded-lg text-[10px] font-bold text-purple-300 bg-purple-900/40 hover:bg-purple-900/60 flex items-center justify-center space-x-1"
+                >
+                  <Sparkles className="h-3 w-3 text-purple-400" />
+                  <span>AI</span>
+                </button>
+              </div>
+            </div>
+
             {navItems.map((item) => {
               const Icon = item.icon;
               return (
@@ -259,7 +480,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
             })}
             <button
               onClick={logout}
-              className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium text-rose-400 hover:bg-rose-500/10"
+              className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium text-rose-400 hover:bg-rose-500/10 cursor-pointer"
             >
               <LogOut className="h-4 w-4" />
               <span>Sign Out</span>
@@ -272,6 +493,13 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
           {children}
         </main>
       </div>
+
+      {/* Profile, Password & AI Copilot Modal */}
+      <ProfileModal
+        isOpen={activeModalTab !== null}
+        onClose={() => setActiveModalTab(null)}
+        initialTab={activeModalTab || 'profile'}
+      />
     </div>
   );
 }
