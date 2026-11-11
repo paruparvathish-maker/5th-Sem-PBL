@@ -23,8 +23,11 @@ export async function GET(request: Request) {
       const assigned5thSem = teams.filter(
         (t) => t.guideId === f.id && (t.semester || 5) === 5
       );
+      const { password, ...rest } = f;
       return {
-        ...f,
+        ...rest,
+        password: password ? '••••••••' : undefined,
+        hasPassword: !!password,
         assignedTeamsCount: assigned5thSem.length,
         assigned5thSemProjects: assigned5thSem.map((t) => ({
           teamId: t.id,

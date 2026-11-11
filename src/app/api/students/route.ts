@@ -24,7 +24,13 @@ export async function GET(request: Request) {
       );
     }
 
-    return NextResponse.json(students);
+    const sanitizedStudents = students.map(({ password, ...rest }) => ({
+      ...rest,
+      password: password ? '••••••••' : undefined,
+      hasPassword: !!password
+    }));
+
+    return NextResponse.json(sanitizedStudents);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

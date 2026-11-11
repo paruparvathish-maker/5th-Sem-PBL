@@ -296,6 +296,18 @@ class PBLStore {
             }
           });
 
+          // Ensure Mrs. Megha D email is strictly megha-cse@dsatm.edu.in
+          this.profiles.forEach(p => {
+            if (p.id === 'fac-18' || p.name?.toLowerCase().includes('megha d') || p.email === 'shreyajayanth27@gmail.com') {
+              p.email = 'megha-cse@dsatm.edu.in';
+            }
+          });
+          this.teams.forEach(t => {
+            if (t.guideEmail === 'shreyajayanth27@gmail.com' || (t.guideName && t.guideName.toLowerCase().includes('megha d'))) {
+              t.guideEmail = 'megha-cse@dsatm.edu.in';
+            }
+          });
+
           this.initialized = true;
 
           // Asynchronously uplink existing local submissions to cloud KV so all mobile devices reflect them immediately
@@ -308,6 +320,46 @@ class PBLStore {
         } catch (e) {
           console.error("Error restoring PBL store:", e);
         }
+      }
+    } else {
+      // Server-side (Node.js) runtime: initialize directly from backend/data.json
+      try {
+        const fs = require('fs');
+        const path = require('path');
+        const BACKEND_DATA_PATH = path.join(process.cwd(), 'backend', 'data.json');
+        const TMP_DATA_PATH = '/tmp/pbl_backend_data.json';
+        const sourcePath = fs.existsSync(BACKEND_DATA_PATH) ? BACKEND_DATA_PATH : (fs.existsSync(TMP_DATA_PATH) ? TMP_DATA_PATH : null);
+        if (sourcePath) {
+          const raw = fs.readFileSync(sourcePath, 'utf8');
+          const parsed = JSON.parse(raw);
+          if (parsed && Array.isArray(parsed.profiles) && parsed.profiles.length > 0) {
+            this.profiles = parsed.profiles || [];
+            this.teams = parsed.teams || [];
+            this.deadlines = parsed.deadlines || [];
+            this.submissions = parsed.submissions || [];
+            this.evaluations = parsed.evaluations || [];
+            this.guideMeetings = parsed.guideMeetings || [];
+            this.notifications = parsed.notifications || [];
+            this.auditLogs = parsed.auditLogs || [];
+
+            // Ensure Mrs. Megha D email is strictly megha-cse@dsatm.edu.in
+            this.profiles.forEach(p => {
+              if (p.id === 'fac-18' || p.name?.toLowerCase().includes('megha d') || p.email === 'shreyajayanth27@gmail.com') {
+                p.email = 'megha-cse@dsatm.edu.in';
+              }
+            });
+            this.teams.forEach(t => {
+              if (t.guideEmail === 'shreyajayanth27@gmail.com' || (t.guideName && t.guideName.toLowerCase().includes('megha d'))) {
+                t.guideEmail = 'megha-cse@dsatm.edu.in';
+              }
+            });
+
+            this.initialized = true;
+            return;
+          }
+        }
+      } catch (e) {
+        console.error("Server init store from disk error:", e);
       }
     }
 
@@ -555,6 +607,47 @@ class PBLStore {
         }
       } catch (e) {
         console.error("Save store error:", e);
+      }
+    } else {
+      // Server-side (Node.js) runtime: write directly to backend/data.json & /tmp fallback
+      try {
+        const fs = require('fs');
+        const path = require('path');
+        const BACKEND_DATA_PATH = path.join(process.cwd(), 'backend', 'data.json');
+        const TMP_DATA_PATH = '/tmp/pbl_backend_data.json';
+
+        const lightweightSubmissions = this.submissions.map((s: any) => {
+          if (s.fileData && s.fileData.length > 50000) {
+            const { fileData, ...rest } = s;
+            return rest;
+          }
+          return s;
+        });
+
+        const dataToSave = {
+          profiles: this.profiles,
+          teams: this.teams,
+          deadlines: this.deadlines,
+          submissions: lightweightSubmissions,
+          evaluations: this.evaluations,
+          guideMeetings: this.guideMeetings,
+          notifications: this.notifications,
+          auditLogs: this.auditLogs
+        };
+
+        try {
+          fs.writeFileSync(BACKEND_DATA_PATH, JSON.stringify(dataToSave, null, 2), 'utf8');
+        } catch {
+          try {
+            fs.writeFileSync(TMP_DATA_PATH, JSON.stringify(dataToSave, null, 2), 'utf8');
+          } catch {}
+        }
+
+        if (!skipCloudSync) {
+          this.syncToSupabase().catch(() => {});
+        }
+      } catch (e) {
+        console.error("Server save store error:", e);
       }
     }
   }
@@ -959,11 +1052,28 @@ class PBLStore {
         }
       }
 
-      await fetch('/api/db', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: payload
-      }).catch(() => { });
+      if (typeof window !== 'undefined') {
+        await fetch('/api/db', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: payload
+        }).catch(() => { });
+      } else {
+        // Server-side: sync submissions and dynamic records to Cloud KV
+        try {
+          const { saveCloudSubmissionsBatch, saveCloudDynamicStore } = await import('./cloud-sync');
+          const tasks: Promise<any>[] = [];
+          if (lightweightSubmissions.length > 0) {
+            tasks.push(saveCloudSubmissionsBatch(lightweightSubmissions));
+          }
+          tasks.push(saveCloudDynamicStore({
+            evaluations: this.evaluations.slice(0, 500),
+            guideMeetings: this.guideMeetings.slice(0, 500),
+            teams: this.teams.filter((t: any) => t.researchPaperProofName || (t.researchPaperStatus && t.researchPaperStatus !== 'submitted') || (t.projectTitle && t.projectTitle !== 'To Be Decided (TBD)')).slice(0, 500)
+          }));
+          await Promise.all(tasks).catch(() => {});
+        } catch {}
+      }
     } catch (err) {
       console.error('Sync to backend API failed', err);
     }
@@ -1556,7 +1666,7 @@ class PBLStore {
 
     const updatedObj: Evaluation = {
       ...evalData,
-      id: existingIdx !== -1 ? this.evaluations[existingIdx].id : `eval-${Date.now()}`,
+      id: existingIdx !== -1 ? this.evaluations[existingIdx].id : `eval-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       evaluatedAt: new Date().toISOString()
     };
 
@@ -1585,7 +1695,7 @@ class PBLStore {
   public createMeeting(meetingData: Omit<GuideMeeting, 'id' | 'createdAt'>): GuideMeeting {
     const newMeeting: GuideMeeting = {
       ...meetingData,
-      id: `m-${Date.now()}`,
+      id: `m-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       createdAt: new Date().toISOString()
     };
     this.guideMeetings.push(newMeeting);

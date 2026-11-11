@@ -165,8 +165,9 @@ export default function AdminFacultyPage() {
                   <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
                     Phone: {f.phone || 'N/A'}
                   </span>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
-                    Password: {f.password || f.phone || 'N/A'}
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center space-x-1">
+                    <ShieldCheck className="h-3 w-3 text-emerald-600" />
+                    <span>{f.password ? '••••••••' : 'Pending Signup'}</span>
                   </span>
                 </div>
 
@@ -257,7 +258,7 @@ export default function AdminFacultyPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Registered Mobile Phone (Initial Password)</label>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Registered Mobile Phone</label>
                   <input
                     type="text"
                     required

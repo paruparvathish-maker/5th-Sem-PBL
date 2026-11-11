@@ -55,7 +55,16 @@ export async function GET(request: Request) {
       );
     }
 
-    return NextResponse.json(teams);
+    const sanitizedTeams = teams.map((t) => ({
+      ...t,
+      members: t.members?.map(({ password, ...mRest }) => ({
+        ...mRest,
+        password: password ? '••••••••' : undefined,
+        hasPassword: !!password
+      }))
+    }));
+
+    return NextResponse.json(sanitizedTeams);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

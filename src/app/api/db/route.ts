@@ -276,6 +276,11 @@ export async function POST(request: Request) {
     if (payload.profiles && Array.isArray(payload.profiles)) {
       payload.profiles.forEach((p: any) => {
         if (p && p.id) {
+          // Strict institutional guard: Mrs. Megha D email is megha-cse@dsatm.edu.in
+          if (p.id === 'fac-18' || p.email === 'shreyajayanth27@gmail.com' || (p.name && p.name.toLowerCase().includes('megha d'))) {
+            p.email = 'megha-cse@dsatm.edu.in';
+          }
+
           const existing = profMap.get(p.id);
           if (!existing) {
             profMap.set(p.id, p);
@@ -287,6 +292,7 @@ export async function POST(request: Request) {
             profMap.set(p.id, {
               ...existing,
               ...p,
+              email: (p.id === 'fac-18' || (p.name && p.name.toLowerCase().includes('megha d'))) ? 'megha-cse@dsatm.edu.in' : (p.email || existing.email),
               password: finalPass,
               isFirstLogin: finalIsFirstLogin,
               phone: p.phone || existing.phone,
@@ -308,6 +314,11 @@ export async function POST(request: Request) {
     if (payload.teams && Array.isArray(payload.teams)) {
       payload.teams.forEach((t: any) => {
         if (t && t.id) {
+          // Strict institutional guard: Mrs. Megha D guide email is megha-cse@dsatm.edu.in
+          if (t.guideEmail === 'shreyajayanth27@gmail.com' || (t.guideName && t.guideName.toLowerCase().includes('megha d'))) {
+            t.guideEmail = 'megha-cse@dsatm.edu.in';
+          }
+
           const existing = teamMap.get(t.id);
           if (!existing) {
             teamMap.set(t.id, t);
@@ -315,9 +326,24 @@ export async function POST(request: Request) {
             const existingTime = existing.researchPaperUpdatedAt ? new Date(existing.researchPaperUpdatedAt).getTime() : 0;
             const incomingTime = t.researchPaperUpdatedAt ? new Date(t.researchPaperUpdatedAt).getTime() : 0;
             const useIncomingProof = incomingTime >= existingTime && Boolean(t.researchPaperProofName || t.researchPaperProofPath);
+
+            // Preserve customized project details against stale default overwrite
+            const projectTitle = (t.projectTitle && t.projectTitle !== 'To Be Decided (TBD)')
+              ? t.projectTitle
+              : (existing.projectTitle || t.projectTitle);
+
+            const projectDescription = (t.projectDescription && t.projectDescription.trim() !== '')
+              ? t.projectDescription
+              : (existing.projectDescription || t.projectDescription);
+
             teamMap.set(t.id, {
               ...existing,
               ...t,
+              projectTitle,
+              projectDescription,
+              guideEmail: (t.guideEmail === 'shreyajayanth27@gmail.com' || (t.guideName && t.guideName.toLowerCase().includes('megha d')))
+                ? 'megha-cse@dsatm.edu.in'
+                : (t.guideEmail || existing.guideEmail),
               researchPaperStatus: useIncomingProof ? (t.researchPaperStatus || existing.researchPaperStatus) : (existing.researchPaperStatus || t.researchPaperStatus),
               researchPaperProofName: useIncomingProof ? t.researchPaperProofName : (existing.researchPaperProofName || t.researchPaperProofName),
               researchPaperProofPath: useIncomingProof ? t.researchPaperProofPath : (existing.researchPaperProofPath || t.researchPaperProofPath),

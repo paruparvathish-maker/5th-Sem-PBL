@@ -5,7 +5,7 @@ import { useAuth } from '@/lib/auth/auth-context';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { store } from '@/lib/data/store';
 import Link from 'next/link';
-import { Users, Search, Plus, KeyRound, Edit, Trash2, CheckCircle2, ShieldAlert, Lock } from 'lucide-react';
+import { Users, Search, Plus, KeyRound, Edit, Trash2, CheckCircle2, ShieldAlert, Lock, ShieldCheck } from 'lucide-react';
 import { UserProfile, SectionCode } from '@/lib/types/pbl';
 import { isExecutiveViewer } from '@/lib/auth/roles';
 
@@ -183,7 +183,7 @@ export default function AdminStudentsPage() {
                   <th className="py-3.5 px-4">USN</th>
                   <th className="py-3.5 px-4">Section</th>
                   <th className="py-3.5 px-4">Assigned Team</th>
-                  <th className="py-3.5 px-4">Password</th>
+                  <th className="py-3.5 px-4">Security Credentials</th>
                   <th className="py-3.5 px-4">Login Status</th>
                   <th className="py-3.5 px-4 rounded-r-lg text-right">Actions</th>
                 </tr>
@@ -209,8 +209,11 @@ export default function AdminStudentsPage() {
                           </div>
                         ) : 'Unassigned'}
                       </td>
-                      <td className="py-3.5 px-4 font-mono font-bold text-slate-700">
-                        {s.password || s.usn}
+                      <td className="py-3.5 px-4">
+                        <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                          <ShieldCheck className="h-3 w-3 text-emerald-600" />
+                          <span>{s.password ? '••••••••' : 'Not Set'}</span>
+                        </span>
                       </td>
                       <td className="py-3.5 px-4">
                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${

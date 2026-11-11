@@ -1363,7 +1363,7 @@ const FACULTY_DATA = [
   { name: "Mrs. MANASA SANDEEP", mobile: "8884401410", email: "manasa-cs@dsatm.edu.in" },
   { name: "Ms. Mamatha A", mobile: "7022539072", email: "mamatha-cse@dsatm.edu.in" },
   { name: "Ms. MANUSHA A", mobile: "7411052155", email: "manusha-cse@dsatm.edu.in" },
-  { name: "Ms. MEGHA D", mobile: "9035204428", email: "shreyajayanth27@gmail.com" },
+  { name: "Ms. MEGHA D", mobile: "9035204428", email: "megha-cse@dsatm.edu.in" },
   { name: "Ms. MEGHANA NIGAM", mobile: "8431864012", email: "meghana-cse@dsatm.edu.in" },
   { name: "Dr. NAGARAJ M LUTIMATH", mobile: "8105510183", email: "Nagarajml-cse@dsatm.edu.in" },
   { name: "Mr. ORCHU VENKATA KOTESWARA RAO", mobile: "9514348881", email: "orchuvenkata-cse@dsatm.edu.in" },
