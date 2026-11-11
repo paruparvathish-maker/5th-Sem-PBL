@@ -196,11 +196,8 @@ Portal: ${getAppOrigin()}
           html: htmlContent,
           headers: {
             'X-Entity-Ref-ID': `pbl-otp-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-            'X-Auto-Response-Suppress': 'OOF, AutoReply',
-            'Auto-Submitted': 'auto-generated',
-            'X-Mailer': 'DSATM Industrial PBL Mailer v2.0',
-            'X-Priority': '3',
-            'Importance': 'Normal'
+            'X-Mailer': 'DSATM Industrial PBL Platform',
+            'X-Priority': '3'
           }
         });
 
@@ -374,11 +371,8 @@ Portal: ${getAppOrigin()}
           html: htmlContent,
           headers: {
             'X-Entity-Ref-ID': `pbl-act-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-            'X-Auto-Response-Suppress': 'OOF, AutoReply',
-            'Auto-Submitted': 'auto-generated',
-            'X-Mailer': 'DSATM Industrial PBL Mailer v2.0',
-            'X-Priority': '3',
-            'Importance': 'Normal'
+            'X-Mailer': 'DSATM Industrial PBL Platform',
+            'X-Priority': '3'
           }
         });
 

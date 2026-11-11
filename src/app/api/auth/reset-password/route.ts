@@ -38,6 +38,7 @@ export async function POST(request: Request) {
     const user = resolved.user;
     user.password = cleanPass;
     user.isFirstLogin = false;
+    user.isActivated = true;
     user.passwordUpdatedAt = new Date().toISOString();
 
     // Persist to disk (server-side persistence)
@@ -49,6 +50,7 @@ export async function POST(request: Request) {
     await saveCloudCredentials(user.id, {
       password: cleanPass,
       isFirstLogin: false,
+      isActivated: true,
       passwordUpdatedAt: user.passwordUpdatedAt,
       email: user.email,
       name: user.name,

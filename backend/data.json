@@ -5286,6 +5286,45 @@
       "isActivated": true,
       "createdAt": "2026-11-11T04:37:52.591Z",
       "passwordUpdatedAt": "2026-11-11T04:37:52.591Z"
+    },
+    {
+      "id": "stud-1DT24CS777",
+      "usn": "1DT24CS777",
+      "name": "Test Student 777",
+      "email": "1dt24cs777@dsatm.edu.in",
+      "role": "student",
+      "section": "B",
+      "password": "BrandNewPassword@777",
+      "isFirstLogin": false,
+      "isActivated": true,
+      "createdAt": "2026-11-11T05:45:48.854Z",
+      "passwordUpdatedAt": "2026-11-11T05:46:08.118Z"
+    },
+    {
+      "id": "fac-1794375954483",
+      "staffCode": "EMP7777",
+      "name": "Dr. Test Professor 7777",
+      "email": "faculty7777@dsatm.edu.in",
+      "phone": "9876543210",
+      "role": "faculty",
+      "password": "ProfPassword@777",
+      "isFirstLogin": false,
+      "isActivated": true,
+      "createdAt": "2026-11-11T05:45:54.483Z",
+      "passwordUpdatedAt": "2026-11-11T05:45:54.483Z"
+    },
+    {
+      "id": "stud-1DT22CS438",
+      "usn": "1DT22CS438",
+      "name": "Sample Student 1DT22CS438",
+      "email": "1dt22cs438@dsatm.edu.in",
+      "role": "student",
+      "section": "A",
+      "password": "SampleSecure@2026",
+      "isFirstLogin": false,
+      "isActivated": true,
+      "createdAt": "2026-11-11T05:58:36.286Z",
+      "passwordUpdatedAt": "2026-11-11T05:58:36.286Z"
     }
   ],
   "teams": [

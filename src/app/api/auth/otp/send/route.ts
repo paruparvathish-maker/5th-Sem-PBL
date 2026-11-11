@@ -30,14 +30,17 @@ export async function POST(request: Request) {
       }, { status: 400 });
     }
 
-    // Generate 5-minute OTP and save in memory & Cloud KV
-    const otp = await createAndSaveOtp(clean, targetEmail);
-    if (resolved.user.usn && resolved.user.usn !== clean) {
-      await createAndSaveOtp(resolved.user.usn, targetEmail);
-    }
-    if (resolved.user.email && resolved.user.email !== targetEmail) {
-      await createAndSaveOtp(resolved.user.email, targetEmail);
-    }
+    // Generate single 10-minute OTP and register across all user aliases
+    const aliases = [
+      clean,
+      targetEmail,
+      resolved.user.usn,
+      resolved.user.email,
+      resolved.user.id,
+      resolved.user.staffCode
+    ].filter(Boolean) as string[];
+
+    const otp = await createAndSaveOtp(clean, targetEmail, aliases);
 
     // Send the verification code directly to user's registered email inbox
     const mailResult = await sendOtpEmail({

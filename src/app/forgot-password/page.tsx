@@ -89,13 +89,14 @@ export default function ForgotPasswordPage() {
       const data = await res.json();
 
       if (!res.ok || !data.success) {
-        // Code is wrong or burned: immediately invalidate and return to Step 1
         setEnteredOtp('');
-        setError(data.error || 'Incorrect OTP code. For security, this code has been invalidated. Please request a new code.');
+        setError(data.error || 'Incorrect OTP code. Please check your email and try again.');
         setSuccess('');
-        setTimeout(() => {
-          setStep(1);
-        }, 1800);
+        if (data.codeBurned) {
+          setTimeout(() => {
+            setStep(1);
+          }, 2000);
+        }
       } else {
         setError('');
         setSuccess('Verification code confirmed! You can now create your new password.');

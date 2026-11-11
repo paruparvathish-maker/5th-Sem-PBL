@@ -77,7 +77,7 @@ export async function POST(request: Request) {
         student.email = cleanEmail;
         student.password = cleanPass;
         student.isFirstLogin = false;
-        student.isActivated = false;
+        student.isActivated = true;
         student.passwordUpdatedAt = new Date().toISOString();
         if (name && (!student.name || student.name === student.usn)) {
           student.name = String(name).trim();
@@ -93,7 +93,7 @@ export async function POST(request: Request) {
           section: section || 'A',
           password: cleanPass,
           isFirstLogin: false,
-          isActivated: false,
+          isActivated: true,
           createdAt: new Date().toISOString(),
           passwordUpdatedAt: new Date().toISOString()
         };
@@ -132,7 +132,7 @@ export async function POST(request: Request) {
       await saveCloudCredentials(student.id, {
         password: cleanPass,
         isFirstLogin: false,
-        isActivated: false,
+        isActivated: true,
         activationToken,
         passwordUpdatedAt: student.passwordUpdatedAt,
         email: cleanEmail,
@@ -149,14 +149,14 @@ export async function POST(request: Request) {
           success: true,
           user: student,
           warning: mailResult.error,
-          message: `Account created successfully! However, the activation email could not be delivered to ${cleanEmail} (${mailResult.error}). You can use "Resend Activation Link" on the Login screen, or ask your administrator to verify your email.`
+          message: `Account created successfully! You can log in immediately with your USN and password. (Email notification note: ${mailResult.error})`
         }, { status: 201 });
       }
 
       return NextResponse.json({
         success: true,
         user: student,
-        message: `Account created successfully! An activation link has been sent to your college email (${cleanEmail}). Please check your inbox (and spam folder) and click the link to activate your account.`
+        message: `Account created successfully! You can now log in immediately with your USN (${cleanUsn}) and password. A confirmation email has also been sent to your college email (${cleanEmail}).`
       }, { status: 201 });
     }
 
@@ -197,7 +197,7 @@ export async function POST(request: Request) {
         if (cleanPhone) faculty.phone = cleanPhone;
         faculty.password = cleanPass;
         faculty.isFirstLogin = false;
-        faculty.isActivated = false;
+        faculty.isActivated = true;
         faculty.passwordUpdatedAt = new Date().toISOString();
       } else {
         const newFac: UserProfile = {
@@ -209,7 +209,7 @@ export async function POST(request: Request) {
           role: 'faculty',
           password: cleanPass,
           isFirstLogin: false,
-          isActivated: false,
+          isActivated: true,
           createdAt: new Date().toISOString(),
           passwordUpdatedAt: new Date().toISOString()
         };
@@ -260,7 +260,7 @@ export async function POST(request: Request) {
       await saveCloudCredentials(faculty.id, {
         password: cleanPass,
         isFirstLogin: false,
-        isActivated: false,
+        isActivated: true,
         activationToken,
         passwordUpdatedAt: faculty.passwordUpdatedAt,
         email: cleanEmail,
@@ -276,14 +276,14 @@ export async function POST(request: Request) {
           success: true,
           user: faculty,
           warning: mailResult.error,
-          message: `Faculty account created! However, the activation email could not be delivered to ${cleanEmail} (${mailResult.error}). Please use "Resend Activation Link" on the login page or check your spam folder.`
+          message: `Faculty account created! You can now log in immediately with your Staff Code/email and password. (Email note: ${mailResult.error})`
         }, { status: 201 });
       }
 
       return NextResponse.json({
         success: true,
         user: faculty,
-        message: `Faculty account created successfully! An activation link has been sent to your institutional email (${cleanEmail}). Please click the link to activate your account.`
+        message: `Faculty account created successfully! You can now log in immediately with your Staff Code (${cleanEmpId}) and password. A confirmation email has also been sent to your institutional email (${cleanEmail}).`
       }, { status: 201 });
     }
 
@@ -324,7 +324,7 @@ export async function POST(request: Request) {
         if (cleanPhone) industryUser.phone = cleanPhone;
         industryUser.password = cleanPass;
         industryUser.isFirstLogin = false;
-        industryUser.isActivated = false;
+        industryUser.isActivated = true;
         industryUser.passwordUpdatedAt = new Date().toISOString();
       } else {
         const idSlug = cleanName.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -336,7 +336,7 @@ export async function POST(request: Request) {
           role: 'admin',
           password: cleanPass,
           isFirstLogin: false,
-          isActivated: false,
+          isActivated: true,
           createdAt: new Date().toISOString(),
           passwordUpdatedAt: new Date().toISOString()
         };
@@ -371,7 +371,7 @@ export async function POST(request: Request) {
       await saveCloudCredentials(industryUser.id, {
         password: cleanPass,
         isFirstLogin: false,
-        isActivated: false,
+        isActivated: true,
         activationToken,
         passwordUpdatedAt: industryUser.passwordUpdatedAt,
         email: cleanEmail,
@@ -386,14 +386,14 @@ export async function POST(request: Request) {
           success: true,
           user: industryUser,
           warning: mailResult.error,
-          message: `Industry account created! However, the activation email could not be delivered to ${cleanEmail} (${mailResult.error}). Please use "Resend Activation Link" on the login page or check your spam folder.`
+          message: `Industry account created! You can now log in immediately with your email and password. (Email note: ${mailResult.error})`
         }, { status: 201 });
       }
 
       return NextResponse.json({
         success: true,
         user: industryUser,
-        message: `Account created successfully! An activation link has been sent to your email (${cleanEmail}). Please click the link to activate your account.`
+        message: `Account created successfully! You can now log in immediately with your email (${cleanEmail}) and password. A confirmation email has also been sent to your email.`
       }, { status: 201 });
     }
 

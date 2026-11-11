@@ -238,37 +238,28 @@ export async function POST(request: Request) {
       }, { status: 401 });
     }
 
-    // 5. Check if account has been activated via email link
-    if (user.isActivated === false && user.role !== 'admin') {
-      // Secondary check against Cloud KV and disk resolver before rejecting
-      try {
-        const { resolveUserForAuth, persistProfileToDisk } = await import('@/lib/data/user-resolver');
-        const directResolved = await resolveUserForAuth(user.email || user.usn || cleanId);
-        if (directResolved?.isActivated) {
-          user.isActivated = true;
-          user.isFirstLogin = false;
-          persistProfileToDisk(user);
-          const allP = store.getAllProfiles();
-          const inMem = allP.find(p => p.id === user.id || (user.usn && p.usn === user.usn));
-          if (inMem) inMem.isActivated = true;
-        }
-      } catch {}
-
-      if (user.isActivated === false) {
-        return NextResponse.json({
-          error: `Your account (${user.email || cleanId}) is pending activation. Please check your email inbox and click the activation link to activate your account.`,
-          needsActivation: true,
-          email: user.email
-        }, { status: 403 });
-      }
-    }
-
-    // 6. Verify password
+    // 5. Verify password
     const isVerified = verifyPassword(user, cleanPass);
     if (!isVerified) {
       return NextResponse.json({
         error: 'Invalid credentials. Incorrect password. If you forgot your password, please click "Forgot Password".'
       }, { status: 401 });
+    }
+
+    // 6. Guarantee active account status upon verified password authentication
+    if (user.isActivated === false) {
+      user.isActivated = true;
+      user.isFirstLogin = false;
+      try {
+        const { persistProfileToDisk } = await import('@/lib/data/user-resolver');
+        persistProfileToDisk(user);
+        const allP = store.getAllProfiles();
+        const inMem = allP.find(p => p.id === user.id || (user.usn && p.usn === user.usn));
+        if (inMem) {
+          inMem.isActivated = true;
+          inMem.isFirstLogin = false;
+        }
+      } catch {}
     }
 
     return NextResponse.json({
