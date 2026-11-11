@@ -90,14 +90,14 @@ export default function AdminStudentsPage() {
         name,
         usn: cleanUsn,
         section,
-        email: `${cleanUsn.toLowerCase()}@student.dsatm.edu.in`
+        email: `${cleanUsn.toLowerCase()}@dsatm.edu.in`
       });
       setMessage(`Updated student profile for ${cleanUsn}.`);
     } else {
       store.createProfile({
         name,
         usn: cleanUsn,
-        email: `${cleanUsn.toLowerCase()}@student.dsatm.edu.in`,
+        email: `${cleanUsn.toLowerCase()}@dsatm.edu.in`,
         role: 'student',
         section,
         isFirstLogin: true

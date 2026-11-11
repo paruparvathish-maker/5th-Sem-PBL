@@ -155,9 +155,13 @@ export async function POST(request: Request) {
       const staffCode = p.staffCode?.toLowerCase();
       const emailPrefix = email ? email.split('@')[0] : '';
 
+      const cleanIdPrefix = cleanId.includes('@') ? cleanId.split('@')[0] : '';
+
       return (
         email === cleanId ||
         emailPrefix === cleanId ||
+        (cleanIdPrefix && usn === cleanIdPrefix) ||
+        (cleanId.endsWith('@dsatm.edu.in') && usn === cleanIdPrefix) ||
         usn === cleanId ||
         id === cleanId ||
         staffCode === cleanId ||

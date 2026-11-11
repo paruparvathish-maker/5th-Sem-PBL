@@ -88,11 +88,11 @@ export async function sendOtpEmail({ to, otp, userName }: SendOtpEmailOptions): 
       return { success: true };
     }
 
-    // Safeguard 2: Prevent sending to non-existent student.dsatm.edu.in (no MX record)
-    if (cleanTo.endsWith('@student.dsatm.edu.in')) {
-      const errMsg = 'DSATM students do not have active mailboxes on @student.dsatm.edu.in. Please use your working personal or college Gmail address (e.g. name@gmail.com).';
-      console.warn(`[Mailer] Blocked dispatch to non-existent mailbox: ${cleanTo}`);
-      return { success: false, error: errMsg };
+    // Safeguard 2: Auto-correct legacy or mistyped student.dsatm.edu.in to active dsatm.edu.in mailbox
+    let effectiveTo = cleanTo;
+    if (effectiveTo.endsWith('@student.dsatm.edu.in')) {
+      effectiveTo = effectiveTo.replace('@student.dsatm.edu.in', '@dsatm.edu.in');
+      console.log(`[Mailer] Auto-corrected recipient domain to active institutional address: ${effectiveTo}`);
     }
 
     const textContent = `Dayananda Sagar Academy of Technology & Management (DSATM)
@@ -190,7 +190,7 @@ Portal: ${getAppOrigin()}
           from: smtpFrom,
           sender: smtpUser,
           replyTo: smtpUser,
-          to: cleanTo,
+          to: effectiveTo,
           subject: `Your DSATM PBL Portal verification code: ${otp}`,
           text: textContent,
           html: htmlContent,
@@ -255,11 +255,11 @@ export async function sendActivationEmail({ to, userName, activationLink }: Send
       return { success: true };
     }
 
-    // Safeguard 2: Prevent sending to non-existent student.dsatm.edu.in (no MX record)
-    if (cleanTo.endsWith('@student.dsatm.edu.in')) {
-      const errMsg = 'DSATM students do not have active mailboxes on @student.dsatm.edu.in. Please use your working personal or college Gmail address (e.g. name@gmail.com).';
-      console.warn(`[Mailer] Blocked dispatch to non-existent mailbox: ${cleanTo}`);
-      return { success: false, error: errMsg };
+    // Safeguard 2: Auto-correct legacy or mistyped student.dsatm.edu.in to active dsatm.edu.in mailbox
+    let effectiveTo = cleanTo;
+    if (effectiveTo.endsWith('@student.dsatm.edu.in')) {
+      effectiveTo = effectiveTo.replace('@student.dsatm.edu.in', '@dsatm.edu.in');
+      console.log(`[Mailer] Auto-corrected recipient domain to active institutional address: ${effectiveTo}`);
     }
 
     const textContent = `Dayananda Sagar Academy of Technology & Management (DSATM)
@@ -368,7 +368,7 @@ Portal: ${getAppOrigin()}
           from: smtpFrom,
           sender: smtpUser,
           replyTo: smtpUser,
-          to: cleanTo,
+          to: effectiveTo,
           subject: `Activate your DSATM PBL account - ${userName || 'Student'}`,
           text: textContent,
           html: htmlContent,

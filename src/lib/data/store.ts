@@ -162,7 +162,7 @@ class PBLStore {
                   if (!studProfile) {
                     studProfile = {
                       id: `stud-${cleanUsn}`,
-                      email: `${cleanUsn.toLowerCase()}@student.dsatm.edu.in`,
+                      email: `${cleanUsn.toLowerCase()}@dsatm.edu.in`,
                       name: s.name,
                       usn: cleanUsn,
                       role: 'student',
@@ -214,7 +214,7 @@ class PBLStore {
                 if (!stud) {
                   stud = {
                     id: `stud-${cleanUsn}`,
-                    email: `${cleanUsn.toLowerCase()}@student.dsatm.edu.in`,
+                    email: `${cleanUsn.toLowerCase()}@dsatm.edu.in`,
                     name: s.name,
                     usn: cleanUsn,
                     role: 'student',
@@ -396,7 +396,7 @@ class PBLStore {
 
           studProfile = {
             id: `stud-${cleanUsn}`,
-            email: `${cleanUsn.toLowerCase()}@student.dsatm.edu.in`,
+            email: `${cleanUsn.toLowerCase()}@dsatm.edu.in`,
             name: s.name,
             usn: cleanUsn,
             role: 'student',
@@ -459,7 +459,7 @@ class PBLStore {
         if (!studProfile) {
           studProfile = {
             id: `stud-${cleanUsn}`,
-            email: `${cleanUsn.toLowerCase()}@student.dsatm.edu.in`,
+            email: `${cleanUsn.toLowerCase()}@dsatm.edu.in`,
             name: s.name,
             usn: cleanUsn,
             role: 'student',
@@ -773,7 +773,7 @@ class PBLStore {
               if (!stud) {
                 stud = {
                   id: `stud-${cleanUsn}`,
-                  email: `${cleanUsn.toLowerCase()}@student.dsatm.edu.in`,
+                  email: `${cleanUsn.toLowerCase()}@dsatm.edu.in`,
                   name: s.name,
                   usn: cleanUsn,
                   role: 'student',
@@ -978,6 +978,8 @@ class PBLStore {
     const cleanDigits = clean.replace(/\D/g, '');
     const cleanAlpha = clean.replace(/[^a-z0-9]/g, '');
 
+    const cleanPrefix = clean.includes('@') ? clean.split('@')[0] : '';
+
     // 1. Direct matches (email, USN, ID, staff code, phone, exact industry ID)
     let found = this.profiles.find(p => {
       const email = p.email?.toLowerCase();
@@ -991,6 +993,8 @@ class PBLStore {
       return (
         email === clean ||
         emailPrefix === clean ||
+        (cleanPrefix && usn === cleanPrefix) ||
+        (clean.endsWith('@dsatm.edu.in') && usn === cleanPrefix) ||
         usn === clean ||
         uid === clean ||
         staffCode === clean ||

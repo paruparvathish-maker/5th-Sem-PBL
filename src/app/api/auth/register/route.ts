@@ -35,19 +35,38 @@ export async function POST(request: Request) {
     // ==========================================
     if (role === 'student') {
       const { usn, email, name, section } = body;
-      if (!usn) {
-        return NextResponse.json({ error: 'USN is required for student registration.' }, { status: 400 });
-      }
-      if (!email) {
-        return NextResponse.json({ error: 'College Email ID is required for student registration.' }, { status: 400 });
+
+      let cleanUsn = usn ? String(usn).trim().toUpperCase() : '';
+      let cleanEmail = email ? String(email).trim().toLowerCase() : '';
+
+      // Auto-extract USN from DSATM email (e.g. 1dt24cs010@dsatm.edu.in -> 1DT24CS010)
+      if (cleanEmail && !cleanUsn && cleanEmail.includes('@dsatm.edu.in')) {
+        const prefix = cleanEmail.split('@')[0].toUpperCase();
+        if (prefix.startsWith('1DT')) {
+          cleanUsn = prefix;
+        }
       }
 
-      const cleanUsn = String(usn).trim().toUpperCase();
-      const cleanEmail = String(email).trim().toLowerCase();
+      // Auto-populate DSATM email from USN
+      if (cleanUsn && !cleanEmail) {
+        cleanEmail = `${cleanUsn.toLowerCase()}@dsatm.edu.in`;
+      }
 
-      if (cleanEmail.endsWith('@student.dsatm.edu.in')) {
+      if (!cleanUsn) {
+        return NextResponse.json({ error: 'USN or official DSATM college email is required.' }, { status: 400 });
+      }
+
+      // Strictly allow ONLY @dsatm.edu.in student emails!
+      if (!cleanEmail.endsWith('@dsatm.edu.in')) {
         return NextResponse.json({
-          error: 'DSATM student mailboxes are not hosted on @student.dsatm.edu.in. Please enter your working personal or college Gmail address (e.g. name@gmail.com) so you can receive the activation email.'
+          error: 'Registration restricted: Only official DSATM student email IDs (e.g. 1dt24cs***@dsatm.edu.in or 1dt25cs***@dsatm.edu.in) are allowed. Other personal email domains are not permitted.'
+        }, { status: 400 });
+      }
+
+      const emailPrefix = cleanEmail.split('@')[0].toUpperCase();
+      if (emailPrefix !== cleanUsn) {
+        return NextResponse.json({
+          error: `Your student email (${cleanEmail}) does not match your USN (${cleanUsn}). Expected: ${cleanUsn.toLowerCase()}@dsatm.edu.in.`
         }, { status: 400 });
       }
 

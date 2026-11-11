@@ -118,6 +118,15 @@ export async function resolveUserForAuth(identifier: string): Promise<ResolvedUs
   const cleanLower = clean.toLowerCase();
   const cleanUpper = clean.toUpperCase();
 
+  // Auto-extract student USN from DSATM email (e.g. 1dt24cs010@dsatm.edu.in -> 1DT24CS010)
+  let inferredUsn = '';
+  if (cleanLower.endsWith('@dsatm.edu.in') || cleanLower.endsWith('@student.dsatm.edu.in')) {
+    const prefix = cleanLower.split('@')[0].toUpperCase();
+    if (prefix.startsWith('1DT')) {
+      inferredUsn = prefix;
+    }
+  }
+
   // 1. Fetch Cloud Credentials KV snapshot
   let cloudCreds: Record<string, any> = {};
   try {
@@ -127,6 +136,9 @@ export async function resolveUserForAuth(identifier: string): Promise<ResolvedUs
   const cred = cloudCreds[clean] || 
                cloudCreds[cleanLower] || 
                cloudCreds[cleanUpper] || 
+               (inferredUsn && cloudCreds[inferredUsn]) ||
+               (inferredUsn && cloudCreds[inferredUsn.toLowerCase()]) ||
+               (inferredUsn && cloudCreds[`stud-${inferredUsn}`]) ||
                cloudCreds[`stud-${cleanUpper}`] ||
                cloudCreds[`fac-${clean}`];
 
@@ -139,6 +151,7 @@ export async function resolveUserForAuth(identifier: string): Promise<ResolvedUs
         if (
           (v.email && v.email.toLowerCase() === cleanLower) ||
           (v.usn && v.usn.toUpperCase() === cleanUpper) ||
+          (inferredUsn && v.usn && v.usn.toUpperCase() === inferredUsn) ||
           (key.toLowerCase() === cleanLower)
         ) {
           matchedCred = v;
@@ -158,6 +171,7 @@ export async function resolveUserForAuth(identifier: string): Promise<ResolvedUs
     return (
       e === cleanLower ||
       u === cleanUpper ||
+      (inferredUsn && u === inferredUsn) ||
       id === cleanLower ||
       sc === cleanUpper
     );
@@ -165,6 +179,9 @@ export async function resolveUserForAuth(identifier: string): Promise<ResolvedUs
 
   // 3. Search in-memory store
   let inMemUser = store.findUserByUsernameOrEmail(clean);
+  if (!inMemUser && inferredUsn) {
+    inMemUser = store.findUserByUsernameOrEmail(inferredUsn);
+  }
 
   // Combine and pick the most up-to-date representation
   let baseUser = diskUser || inMemUser;
@@ -193,7 +210,10 @@ export async function resolveUserForAuth(identifier: string): Promise<ResolvedUs
   // Priority 4: User profile email if not dummy
   // Priority 5: User profile email
   let realEmail = '';
-  if (matchedCred && matchedCred.email && matchedCred.email.includes('@') && !matchedCred.email.endsWith('@student.dsatm.edu.in')) {
+  if (baseUser.role === 'student' && (baseUser.usn || inferredUsn)) {
+    const studentUsn = (baseUser.usn || inferredUsn).toLowerCase();
+    realEmail = `${studentUsn}@dsatm.edu.in`;
+  } else if (matchedCred && matchedCred.email && matchedCred.email.includes('@') && !matchedCred.email.endsWith('@student.dsatm.edu.in')) {
     realEmail = matchedCred.email.toLowerCase().trim();
   } else if (clean.includes('@') && !cleanLower.endsWith('@student.dsatm.edu.in')) {
     realEmail = cleanLower;

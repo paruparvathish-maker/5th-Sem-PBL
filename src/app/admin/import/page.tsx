@@ -196,7 +196,7 @@ export default function AdminImportPage() {
       const studentProf = store.createProfile({
         name: r.studentName,
         usn: r.usn,
-        email: `${r.usn.toLowerCase()}@student.dsatm.edu.in`,
+        email: `${r.usn.toLowerCase()}@dsatm.edu.in`,
         role: 'student',
         section: r.section as any,
         isFirstLogin: true

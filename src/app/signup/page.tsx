@@ -51,6 +51,27 @@ export default function SignUpPage() {
     setSuccessMessage('');
   };
 
+  const handleUsnChange = (val: string) => {
+    const clean = val.trim().toUpperCase();
+    setUsn(clean);
+    if (clean.length >= 3) {
+      setStudentEmail(`${clean.toLowerCase()}@dsatm.edu.in`);
+    }
+  };
+
+  const handleStudentEmailChange = (val: string) => {
+    const clean = val.trim().toLowerCase();
+    setStudentEmail(clean);
+    if (clean.includes('@dsatm.edu.in')) {
+      const prefix = clean.split('@')[0].toUpperCase();
+      if (prefix.startsWith('1DT')) {
+        setUsn(prefix);
+      }
+    } else if (clean.startsWith('1dt') && !clean.includes('@')) {
+      setUsn(clean.toUpperCase());
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -71,25 +92,48 @@ export default function SignUpPage() {
     let payload: any = { role, password, confirmPassword };
 
     if (role === 'student') {
-      if (!usn.trim()) {
+      let cleanUsn = usn.trim().toUpperCase();
+      let cleanEmail = studentEmail.trim().toLowerCase();
+
+      // Auto-extract USN from DSATM email if USN is blank
+      if (!cleanUsn && cleanEmail.includes('@dsatm.edu.in')) {
+        const prefix = cleanEmail.split('@')[0].toUpperCase();
+        if (prefix.startsWith('1DT')) {
+          cleanUsn = prefix;
+          setUsn(prefix);
+        }
+      }
+
+      if (!cleanUsn) {
         setError('Please enter your University Seat Number (USN).');
         setIsSubmitting(false);
         return;
       }
-      if (!studentEmail.trim()) {
-        setError('Please enter your Email address.');
+
+      // Auto-populate DSATM email if blank
+      if (!cleanEmail) {
+        cleanEmail = `${cleanUsn.toLowerCase()}@dsatm.edu.in`;
+        setStudentEmail(cleanEmail);
+      }
+
+      // Strictly allow ONLY @dsatm.edu.in student emails!
+      if (!cleanEmail.endsWith('@dsatm.edu.in')) {
+        setError('Registration restricted: Only official DSATM college emails (e.g. 1dt24cs***@dsatm.edu.in or 1dt25cs***@dsatm.edu.in) are permitted for students. Other email providers are not allowed.');
         setIsSubmitting(false);
         return;
       }
-      if (studentEmail.trim().toLowerCase().endsWith('@student.dsatm.edu.in')) {
-        setError('DSATM student mailboxes are not hosted on @student.dsatm.edu.in. Please enter your working personal or college Gmail address (e.g. yourname@gmail.com) so you can receive the activation email.');
+
+      const emailPrefix = cleanEmail.split('@')[0].toUpperCase();
+      if (emailPrefix !== cleanUsn) {
+        setError(`Your college email (${cleanEmail}) does not match your USN (${cleanUsn}). Expected: ${cleanUsn.toLowerCase()}@dsatm.edu.in.`);
         setIsSubmitting(false);
         return;
       }
+
       payload = {
         ...payload,
-        usn: usn.trim().toUpperCase(),
-        email: studentEmail.trim(),
+        usn: cleanUsn,
+        email: cleanEmail,
         name: studentName.trim() || undefined,
         section
       };
@@ -275,19 +319,19 @@ export default function SignUpPage() {
                       type="text"
                       required
                       value={usn}
-                      onChange={(e) => setUsn(e.target.value.toUpperCase())}
+                      onChange={(e) => handleUsnChange(e.target.value)}
                       placeholder="e.g. 1DT24CS010"
                       className="block w-full pl-10 pr-3 py-2.5 bg-slate-900/90 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent uppercase font-mono"
                     />
                   </div>
                   <p className="text-[11px] text-indigo-400 mt-1 font-medium">
-                    Important: You will log in using your USN as your username.
+                    Auto-triggers your institutional email: {usn ? `${usn.toLowerCase()}@dsatm.edu.in` : '1dt...cs...@dsatm.edu.in'}
                   </p>
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
-                    Student Email Address *
+                    Student College Email Address (@dsatm.edu.in) *
                   </label>
                   <div className="relative rounded-xl shadow-sm">
                     <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
@@ -297,13 +341,13 @@ export default function SignUpPage() {
                       type="email"
                       required
                       value={studentEmail}
-                      onChange={(e) => setStudentEmail(e.target.value)}
-                      placeholder="e.g. yourname@gmail.com or active email"
-                      className="block w-full pl-10 pr-3 py-2.5 bg-slate-900/90 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      onChange={(e) => handleStudentEmailChange(e.target.value)}
+                      placeholder="e.g. 1dt24cs010@dsatm.edu.in"
+                      className="block w-full pl-10 pr-3 py-2.5 bg-slate-900/90 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-mono"
                     />
                   </div>
-                  <p className="text-[11px] text-slate-400 mt-1">
-                    Enter your active personal or college Gmail ID to receive your activation link (do not use @student.dsatm.edu.in).
+                  <p className="text-[11px] text-emerald-400 mt-1 font-medium">
+                    ✓ Official DSATM Student Email (<span className="font-mono">USN@dsatm.edu.in</span>). Only @dsatm.edu.in emails are allowed.
                   </p>
                 </div>
 
