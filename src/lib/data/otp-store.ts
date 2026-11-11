@@ -266,42 +266,73 @@ const memoryActivationMap = new Map<string, ActivationEntry>();
 
 export async function createAndSaveActivationToken(email: string): Promise<string> {
   const cleanKey = normalizeKey(email);
+  const cleanEmail = email.toLowerCase().trim();
   // Generate high-entropy secure activation token
   const token = typeof crypto !== 'undefined' && crypto.randomUUID 
     ? crypto.randomUUID() 
     : `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
   
-  // 24 hours activation window
-  const expiresAt = Date.now() + 24 * 60 * 60 * 1000;
+  // 48 hours activation window
+  const expiresAt = Date.now() + 48 * 60 * 60 * 1000;
 
   const entry: ActivationEntry = {
     token,
-    email: email.toLowerCase().trim(),
+    email: cleanEmail,
     expiresAt
   };
 
   memoryActivationMap.set(cleanKey, entry);
+  memoryActivationMap.set(cleanEmail, entry);
   memoryActivationMap.set(token, entry);
+  if (email.includes('@')) {
+    memoryActivationMap.set(normalizeKey(email.split('@')[0]), entry);
+  }
 
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 2000);
-    await fetch(`${KV_BASE_URL}/pbl_act_${cleanKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(entry),
-      signal: controller.signal
-    });
-    clearTimeout(timeout);
-  } catch {}
+  // Persist to Cloud KV for both cleanKey and token
+  const keysToSave = [cleanKey, token];
+  for (const k of keysToSave) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 2000);
+      await fetch(`${KV_BASE_URL}/pbl_act_${k}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(entry),
+        signal: controller.signal
+      });
+      clearTimeout(timeout);
+    } catch {}
+  }
 
   return token;
 }
 
 export async function verifyActivationToken(email: string, token: string): Promise<{ valid: boolean; error?: string }> {
   const cleanKey = normalizeKey(email);
-  let entry = memoryActivationMap.get(cleanKey) || memoryActivationMap.get(token);
+  const cleanToken = token.trim();
+  const cleanEmail = email.toLowerCase().trim();
 
+  let entry = memoryActivationMap.get(cleanToken) || 
+              memoryActivationMap.get(cleanKey) || 
+              memoryActivationMap.get(cleanEmail);
+
+  // 1. Fallback to Cloud KV by token
+  if (!entry) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 2000);
+      const res = await fetch(`${KV_BASE_URL}/pbl_act_${cleanToken}`, {
+        cache: 'no-store',
+        signal: controller.signal
+      });
+      clearTimeout(timeout);
+      if (res.ok) {
+        entry = await res.json();
+      }
+    } catch {}
+  }
+
+  // 2. Fallback to Cloud KV by email key
   if (!entry) {
     try {
       const controller = new AbortController();
@@ -317,11 +348,31 @@ export async function verifyActivationToken(email: string, token: string): Promi
     } catch {}
   }
 
+  // 3. Fallback to persisted disk/memory user record
+  if (!entry) {
+    try {
+      const { resolveUserForAuth } = await import('@/lib/data/user-resolver');
+      const resolved = await resolveUserForAuth(cleanEmail);
+      if (resolved?.user) {
+        if (resolved.user.isActivated) {
+          return { valid: true };
+        }
+        if (resolved.user.activationToken === cleanToken) {
+          entry = {
+            token: cleanToken,
+            email: cleanEmail,
+            expiresAt: Date.now() + 24 * 60 * 60 * 1000
+          };
+        }
+      }
+    } catch {}
+  }
+
   if (!entry) {
     return { valid: false, error: 'Invalid activation link or account is already activated. Please try signing in.' };
   }
 
-  if (entry.token !== token.trim()) {
+  if (entry.token !== cleanToken) {
     return { valid: false, error: 'Invalid activation token. Please request a new activation email.' };
   }
 
@@ -330,8 +381,6 @@ export async function verifyActivationToken(email: string, token: string): Promi
     return { valid: false, error: 'Activation link has expired. Please request a new activation email.' };
   }
 
-  // Clear token upon successful activation
-  clearActivationToken(email);
   return { valid: true };
 }
 

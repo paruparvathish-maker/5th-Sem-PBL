@@ -192,10 +192,11 @@ export default function SignUpPage() {
       if (!res.ok || !data.success) {
         setError(data.error || 'Failed to create account.');
       } else {
-        setSuccessMessage(data.message || 'Account created successfully!');
+        setSuccessMessage(data.message || 'Account created successfully! Redirecting to account activation...');
+        const targetEmail = data.email || (role === 'student' ? studentEmail : role === 'faculty' ? facultyEmail : industryEmail);
         setTimeout(() => {
-          router.push('/login');
-        }, 2200);
+          router.push(`/activate?email=${encodeURIComponent(targetEmail.trim().toLowerCase())}&pending=true`);
+        }, 1200);
       }
     } catch (err: any) {
       setError(err.message || 'Network error occurred during registration.');

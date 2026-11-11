@@ -5325,6 +5325,32 @@
       "isActivated": true,
       "createdAt": "2026-11-11T05:58:36.286Z",
       "passwordUpdatedAt": "2026-11-11T05:58:36.286Z"
+    },
+    {
+      "id": "stud-1DT24CS650",
+      "usn": "1DT24CS650",
+      "name": "Activation Flow Student",
+      "email": "1dt24cs650@dsatm.edu.in",
+      "role": "student",
+      "section": "C",
+      "password": "ActivationPass@650",
+      "isFirstLogin": false,
+      "isActivated": true,
+      "createdAt": "2026-11-11T07:33:22.778Z",
+      "passwordUpdatedAt": "2026-11-11T07:33:22.778Z"
+    },
+    {
+      "id": "fac-1794382410819",
+      "staffCode": "EMP6500",
+      "name": "Prof. Activation Guide",
+      "email": "faculty6500@dsatm.edu.in",
+      "phone": "9876543211",
+      "role": "faculty",
+      "password": "FacActivationPass@650",
+      "isFirstLogin": false,
+      "isActivated": true,
+      "createdAt": "2026-11-11T07:33:30.819Z",
+      "passwordUpdatedAt": "2026-11-11T07:33:30.819Z"
     }
   ],
   "teams": [

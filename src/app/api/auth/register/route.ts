@@ -77,7 +77,7 @@ export async function POST(request: Request) {
         student.email = cleanEmail;
         student.password = cleanPass;
         student.isFirstLogin = false;
-        student.isActivated = true;
+        student.isActivated = false;
         student.passwordUpdatedAt = new Date().toISOString();
         if (name && (!student.name || student.name === student.usn)) {
           student.name = String(name).trim();
@@ -93,7 +93,7 @@ export async function POST(request: Request) {
           section: section || 'A',
           password: cleanPass,
           isFirstLogin: false,
-          isActivated: true,
+          isActivated: false,
           createdAt: new Date().toISOString(),
           passwordUpdatedAt: new Date().toISOString()
         };
@@ -101,14 +101,14 @@ export async function POST(request: Request) {
         student = newStud;
       }
 
-      // Persist profile to disk (server-side persistence)
-      persistProfileToDisk(student);
-      store.save(true);
-
       // Generate secure activation token and dispatch email
       const activationToken = await createAndSaveActivationToken(cleanEmail);
       student.activationToken = activationToken;
       const activationLink = `${origin}/activate?token=${activationToken}&email=${encodeURIComponent(cleanEmail)}`;
+
+      // Persist profile to disk (server-side persistence)
+      persistProfileToDisk(student);
+      store.save(true);
 
       const mailResult = await sendActivationEmail({
         to: cleanEmail,
@@ -132,7 +132,7 @@ export async function POST(request: Request) {
       await saveCloudCredentials(student.id, {
         password: cleanPass,
         isFirstLogin: false,
-        isActivated: true,
+        isActivated: false,
         activationToken,
         passwordUpdatedAt: student.passwordUpdatedAt,
         email: cleanEmail,
@@ -148,15 +148,19 @@ export async function POST(request: Request) {
         return NextResponse.json({
           success: true,
           user: student,
+          activationRequired: true,
+          email: cleanEmail,
           warning: mailResult.error,
-          message: `Account created successfully! You can log in immediately with your USN and password. (Email notification note: ${mailResult.error})`
+          message: `Account created successfully! We attempted to send your activation link to ${cleanEmail} (${mailResult.error}). Please use "Resend Activation Link" to complete activation.`
         }, { status: 201 });
       }
 
       return NextResponse.json({
         success: true,
         user: student,
-        message: `Account created successfully! You can now log in immediately with your USN (${cleanUsn}) and password. A confirmation email has also been sent to your college email (${cleanEmail}).`
+        activationRequired: true,
+        email: cleanEmail,
+        message: `Account created successfully! An activation link has been sent to your college email (${cleanEmail}). Please check your inbox and click the link to activate your account.`
       }, { status: 201 });
     }
 
@@ -197,7 +201,7 @@ export async function POST(request: Request) {
         if (cleanPhone) faculty.phone = cleanPhone;
         faculty.password = cleanPass;
         faculty.isFirstLogin = false;
-        faculty.isActivated = true;
+        faculty.isActivated = false;
         faculty.passwordUpdatedAt = new Date().toISOString();
       } else {
         const newFac: UserProfile = {
@@ -209,7 +213,7 @@ export async function POST(request: Request) {
           role: 'faculty',
           password: cleanPass,
           isFirstLogin: false,
-          isActivated: true,
+          isActivated: false,
           createdAt: new Date().toISOString(),
           passwordUpdatedAt: new Date().toISOString()
         };
@@ -217,14 +221,14 @@ export async function POST(request: Request) {
         faculty = newFac;
       }
 
-      // Persist profile to disk (server-side persistence)
-      persistProfileToDisk(faculty);
-      store.save(true);
-
       // Generate activation link and dispatch email
       const activationToken = await createAndSaveActivationToken(cleanEmail);
       faculty.activationToken = activationToken;
       const activationLink = `${origin}/activate?token=${activationToken}&email=${encodeURIComponent(cleanEmail)}`;
+
+      // Persist profile to disk (server-side persistence)
+      persistProfileToDisk(faculty);
+      store.save(true);
 
       const mailResult = await sendActivationEmail({
         to: cleanEmail,
@@ -260,7 +264,7 @@ export async function POST(request: Request) {
       await saveCloudCredentials(faculty.id, {
         password: cleanPass,
         isFirstLogin: false,
-        isActivated: true,
+        isActivated: false,
         activationToken,
         passwordUpdatedAt: faculty.passwordUpdatedAt,
         email: cleanEmail,
@@ -275,15 +279,19 @@ export async function POST(request: Request) {
         return NextResponse.json({
           success: true,
           user: faculty,
+          activationRequired: true,
+          email: cleanEmail,
           warning: mailResult.error,
-          message: `Faculty account created! You can now log in immediately with your Staff Code/email and password. (Email note: ${mailResult.error})`
+          message: `Faculty account created! We attempted to send the activation link to ${cleanEmail} (${mailResult.error}). Please use "Resend Activation Link" to complete activation.`
         }, { status: 201 });
       }
 
       return NextResponse.json({
         success: true,
         user: faculty,
-        message: `Faculty account created successfully! You can now log in immediately with your Staff Code (${cleanEmpId}) and password. A confirmation email has also been sent to your institutional email (${cleanEmail}).`
+        activationRequired: true,
+        email: cleanEmail,
+        message: `Faculty account created successfully! An activation link has been sent to your institutional email (${cleanEmail}). Please click the link to activate your account.`
       }, { status: 201 });
     }
 
@@ -324,7 +332,7 @@ export async function POST(request: Request) {
         if (cleanPhone) industryUser.phone = cleanPhone;
         industryUser.password = cleanPass;
         industryUser.isFirstLogin = false;
-        industryUser.isActivated = true;
+        industryUser.isActivated = false;
         industryUser.passwordUpdatedAt = new Date().toISOString();
       } else {
         const idSlug = cleanName.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -336,13 +344,18 @@ export async function POST(request: Request) {
           role: 'admin',
           password: cleanPass,
           isFirstLogin: false,
-          isActivated: true,
+          isActivated: false,
           createdAt: new Date().toISOString(),
           passwordUpdatedAt: new Date().toISOString()
         };
         allProfiles.push(newInd);
         industryUser = newInd;
       }
+
+      // Generate activation link and dispatch email
+      const activationToken = await createAndSaveActivationToken(cleanEmail);
+      industryUser.activationToken = activationToken;
+      const activationLink = `${origin}/activate?token=${activationToken}&email=${encodeURIComponent(cleanEmail)}`;
 
       // Persist profile to disk (server-side persistence)
       persistProfileToDisk(industryUser);
@@ -357,10 +370,6 @@ export async function POST(request: Request) {
       });
       store.save(true);
 
-      const activationToken = await createAndSaveActivationToken(cleanEmail);
-      industryUser.activationToken = activationToken;
-      const activationLink = `${origin}/activate?token=${activationToken}&email=${encodeURIComponent(cleanEmail)}`;
-
       const mailResult = await sendActivationEmail({
         to: cleanEmail,
         userName: industryUser.name,
@@ -371,7 +380,7 @@ export async function POST(request: Request) {
       await saveCloudCredentials(industryUser.id, {
         password: cleanPass,
         isFirstLogin: false,
-        isActivated: true,
+        isActivated: false,
         activationToken,
         passwordUpdatedAt: industryUser.passwordUpdatedAt,
         email: cleanEmail,
@@ -385,15 +394,19 @@ export async function POST(request: Request) {
         return NextResponse.json({
           success: true,
           user: industryUser,
+          activationRequired: true,
+          email: cleanEmail,
           warning: mailResult.error,
-          message: `Industry account created! You can now log in immediately with your email and password. (Email note: ${mailResult.error})`
+          message: `Industry account created! We attempted to send the activation email to ${cleanEmail} (${mailResult.error}). Please use "Resend Activation Link" to complete activation.`
         }, { status: 201 });
       }
 
       return NextResponse.json({
         success: true,
         user: industryUser,
-        message: `Account created successfully! You can now log in immediately with your email (${cleanEmail}) and password. A confirmation email has also been sent to your email.`
+        activationRequired: true,
+        email: cleanEmail,
+        message: `Account created successfully! An activation link has been sent to your email (${cleanEmail}). Please click the link to activate your account.`
       }, { status: 201 });
     }
 

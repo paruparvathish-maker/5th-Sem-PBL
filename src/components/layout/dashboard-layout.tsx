@@ -47,6 +47,12 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const isExec = isExecutiveViewer(user);
   const industryAccess = getIndustryPersonAccess(user);
 
+  const userHomeHref = user.role === 'student'
+    ? '/student/dashboard'
+    : user.role === 'faculty'
+    ? '/faculty/dashboard'
+    : '/admin/dashboard';
+
   const navItems = user.role === 'student' ? [
     { label: 'Dashboard', href: '/student/dashboard', icon: LayoutDashboard },
     { label: 'My Team', href: '/student/team', icon: Users },
@@ -79,8 +85,8 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row">
       {/* Sidebar Desktop */}
       <aside className="hidden md:flex flex-col w-64 bg-slate-900 text-slate-100 border-r border-slate-800 shrink-0">
-        <div className="p-5 border-b border-slate-800 flex items-center space-x-3">
-          <div className="h-11 w-11 rounded-full bg-white p-0.5 ring-2 ring-indigo-500/40 shadow-lg shadow-indigo-500/30 flex items-center justify-center shrink-0">
+        <Link href={userHomeHref} className="p-5 border-b border-slate-800 flex items-center space-x-3 hover:bg-slate-800/40 transition-colors cursor-pointer group">
+          <div className="h-11 w-11 rounded-full bg-white p-0.5 ring-2 ring-indigo-500/40 shadow-lg shadow-indigo-500/30 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
             <img
               src="/dsatm-logo.png"
               alt="DSATM Logo"
@@ -88,10 +94,10 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
             />
           </div>
           <div>
-            <h1 className="font-bold text-base text-white leading-tight">Industrial PBL</h1>
+            <h1 className="font-bold text-base text-white leading-tight group-hover:text-indigo-300 transition-colors">Industrial PBL</h1>
             <p className="text-xs text-slate-400 font-medium">DSATM CSE Dept</p>
           </div>
-        </div>
+        </Link>
 
         {/* User Card with Quick Profile & AI Options */}
         <div className="p-4 mx-3 my-3 rounded-2xl bg-slate-800/90 border border-slate-700/60 shadow-lg">
@@ -212,14 +218,14 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
             >
               {mobileOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </button>
-            <div className="flex items-center space-x-2 md:hidden">
+            <Link href={userHomeHref} className="flex items-center space-x-2 md:hidden">
               <img
                 src="/dsatm-logo.png"
                 alt="DSATM Logo"
                 className="h-8 w-8 rounded-full object-contain bg-white p-0.5 ring-1 ring-slate-300 shadow-sm"
               />
               <span className="font-bold text-sm text-slate-900">Industrial PBL</span>
-            </div>
+            </Link>
             <h2 className="text-lg font-bold text-slate-800 capitalize hidden sm:block">
               {pathname.split('/')[2]?.replace('-', ' ') || 'Dashboard'}
             </h2>
@@ -268,12 +274,12 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
             <div className="h-6 w-px bg-slate-200" />
 
             <Link
-              href="/"
-              className="text-xs font-semibold text-slate-500 hover:text-indigo-600 transition flex items-center space-x-1 px-2.5 py-1.5 rounded-lg hover:bg-slate-100"
-              title="Return to Public Landing Page"
+              href={userHomeHref}
+              className="text-xs font-semibold text-slate-600 hover:text-indigo-600 transition flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg hover:bg-slate-100"
+              title="Go to My Dashboard Home"
             >
-              <Globe className="h-3.5 w-3.5 text-indigo-500" />
-              <span className="hidden sm:inline">Home</span>
+              <LayoutDashboard className="h-3.5 w-3.5 text-indigo-600" />
+              <span className="hidden sm:inline font-bold">Home</span>
             </Link>
 
             <div className="h-6 w-px bg-slate-200" />

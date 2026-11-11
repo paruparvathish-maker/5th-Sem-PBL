@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { useAuth } from '@/lib/auth/auth-context';
 import {
   GraduationCap,
   ArrowRight,
@@ -30,11 +31,21 @@ import {
   Star,
   CheckCheck,
   ShieldAlert,
-  FolderGit2
+  FolderGit2,
+  LayoutDashboard
 } from 'lucide-react';
 
 export default function HomePage() {
+  const { user } = useAuth();
   const [activePreviewTab, setActivePreviewTab] = useState<'sem4' | 'sem5'>('sem5');
+
+  const userDashboardHref = user
+    ? user.role === 'student'
+      ? '/student/dashboard'
+      : user.role === 'faculty'
+      ? '/faculty/dashboard'
+      : '/admin/dashboard'
+    : '/login';
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-indigo-500 selection:text-white relative overflow-x-hidden">
@@ -84,21 +95,33 @@ export default function HomePage() {
             <a href="#security" className="hover:text-indigo-400 transition-colors">Security &amp; Auth</a>
           </nav>
 
-          {/* Action Buttons: Login & Sign Up */}
+          {/* Action Buttons: My Dashboard if logged in, otherwise Login & Sign Up */}
           <div className="flex items-center space-x-3">
-            <Link
-              href="/login"
-              className="px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold text-slate-200 bg-slate-900/90 hover:bg-slate-800 hover:text-white border border-slate-700/80 hover:border-slate-600 shadow-sm transition-all"
-            >
-              Login
-            </Link>
-            <Link
-              href="/signup"
-              className="px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-lg shadow-indigo-600/30 hover:shadow-indigo-600/50 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center space-x-1.5"
-            >
-              <span>Sign Up / Create Account</span>
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
+            {user ? (
+              <Link
+                href={userDashboardHref}
+                className="px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-500 shadow-lg shadow-indigo-600/30 hover:scale-[1.02] transition-all flex items-center space-x-2"
+              >
+                <LayoutDashboard className="h-4 w-4" />
+                <span>Go to My Dashboard ({user.name.split(' ')[0]})</span>
+              </Link>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  className="px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold text-slate-200 bg-slate-900/90 hover:bg-slate-800 hover:text-white border border-slate-700/80 hover:border-slate-600 shadow-sm transition-all"
+                >
+                  Login
+                </Link>
+                <Link
+                  href="/signup"
+                  className="px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-lg shadow-indigo-600/30 hover:shadow-indigo-600/50 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center space-x-1.5"
+                >
+                  <span>Sign Up / Create Account</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -159,20 +182,33 @@ export default function HomePage() {
 
         {/* Primary Action Buttons: Sign Up / Create Account and Login */}
         <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-5 max-w-md mx-auto">
-          <Link
-            href="/login"
-            className="w-full sm:w-auto px-8 py-4 rounded-2xl text-base font-bold text-white bg-indigo-600 hover:bg-indigo-500 shadow-xl shadow-indigo-600/35 hover:shadow-indigo-600/50 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center space-x-2.5 group"
-          >
-            <span>Login to Portal</span>
-            <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
-          </Link>
-          <Link
-            href="/signup"
-            className="w-full sm:w-auto px-8 py-4 rounded-2xl text-base font-bold text-slate-100 bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 hover:border-slate-600 shadow-xl shadow-black/30 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center space-x-2"
-          >
-            <span>Sign Up / Create Account</span>
-            <Sparkles className="h-4 w-4 text-purple-400" />
-          </Link>
+          {user ? (
+            <Link
+              href={userDashboardHref}
+              className="w-full sm:w-auto px-8 py-4 rounded-2xl text-base font-bold text-white bg-indigo-600 hover:bg-indigo-500 shadow-xl shadow-indigo-600/35 hover:shadow-indigo-600/50 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center space-x-2.5 group"
+            >
+              <LayoutDashboard className="h-5 w-5" />
+              <span>Continue to My Dashboard ({user.name})</span>
+              <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+            </Link>
+          ) : (
+            <>
+              <Link
+                href="/login"
+                className="w-full sm:w-auto px-8 py-4 rounded-2xl text-base font-bold text-white bg-indigo-600 hover:bg-indigo-500 shadow-xl shadow-indigo-600/35 hover:shadow-indigo-600/50 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center space-x-2.5 group"
+              >
+                <span>Login to Portal</span>
+                <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+              </Link>
+              <Link
+                href="/signup"
+                className="w-full sm:w-auto px-8 py-4 rounded-2xl text-base font-bold text-slate-100 bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 hover:border-slate-600 shadow-xl shadow-black/30 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center space-x-2"
+              >
+                <span>Sign Up / Create Account</span>
+                <Sparkles className="h-4 w-4 text-purple-400" />
+              </Link>
+            </>
+          )}
         </div>
 
         {/* Trust Badges */}
