@@ -30,7 +30,7 @@ function getSmtpConfig() {
   const smtpPass = rawPass.replace(/\s+/g, '');
   const smtpHost = (process.env.SMTP_HOST || 'smtp.gmail.com').trim();
   const smtpPort = Number(process.env.SMTP_PORT) || 465;
-  const smtpFrom = process.env.SMTP_FROM || `"Industrial PBL Portal - DSATM" <${smtpUser}>`;
+  const smtpFrom = process.env.SMTP_FROM || `"DSATM Industrial PBL" <${smtpUser}>`;
 
   return { smtpUser, smtpPass, smtpHost, smtpPort, smtpFrom };
 }
@@ -76,57 +76,108 @@ export async function sendOtpEmail({ to, otp, userName }: SendOtpEmailOptions): 
       return { success: false, error: `Invalid recipient email address: "${to}"` };
     }
 
+    // Safeguard 1: Intercept synthetic test domains from automated test runners
+    if (
+      cleanTo.includes('@teststudent.') ||
+      cleanTo.includes('teststudent.dsatm.edu.in') ||
+      cleanTo.endsWith('@example.com') ||
+      cleanTo.endsWith('@test.com') ||
+      cleanTo.endsWith('.test')
+    ) {
+      console.log(`[Mailer] Simulated OTP email dispatch for synthetic test address: ${cleanTo} (Skipped SMTP network call to prevent Gmail bounce alerts)`);
+      return { success: true };
+    }
+
+    // Safeguard 2: Prevent sending to non-existent student.dsatm.edu.in (no MX record)
+    if (cleanTo.endsWith('@student.dsatm.edu.in')) {
+      const errMsg = 'DSATM students do not have active mailboxes on @student.dsatm.edu.in. Please use your working personal or college Gmail address (e.g. name@gmail.com).';
+      console.warn(`[Mailer] Blocked dispatch to non-existent mailbox: ${cleanTo}`);
+      return { success: false, error: errMsg };
+    }
+
+    const textContent = `Dayananda Sagar Academy of Technology & Management (DSATM)
+Industrial Project Based Learning (PBL) Portal
+
+Hello ${userName || 'User'},
+
+We received a request to verify your identity or reset your password on the DSATM Industrial PBL Portal.
+
+Your 6-Digit Verification Code is: ${otp}
+(This code is strictly confidential and expires in 5 minutes)
+
+Enter this code on the password reset screen to confirm your identity and create your new password.
+
+Security Notice:
+Never share this verification code with anyone. DSATM staff will never ask for your verification code or password. If you did not initiate this request, you can safely disregard this message.
+
+---
+Department of Computer Science & Engineering
+Dayananda Sagar Academy of Technology & Management (DSATM)
+Kanakapura Road, Udayapura, Bangalore, Karnataka - 560082
+Portal: ${getAppOrigin()}
+`;
+
     const htmlContent = `
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 24px; color: #1e293b; }
-    .card { max-width: 540px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-    .header { background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%); padding: 32px 24px; text-align: center; color: #ffffff; }
-    .header h1 { margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.5px; }
-    .header p { margin: 6px 0 0; font-size: 13px; color: #c7d2fe; }
-    .content { padding: 32px 28px; }
-    .greeting { font-size: 16px; font-weight: 600; margin-bottom: 12px; }
-    .otp-box { background: #f1f5f9; border: 2px dashed #cbd5e1; border-radius: 12px; padding: 20px; text-align: center; margin: 24px 0; }
-    .otp-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #64748b; margin-bottom: 8px; display: block; }
-    .otp-code { font-size: 38px; font-weight: 900; letter-spacing: 8px; color: #4338ca; font-family: monospace; }
-    .otp-expiry { font-size: 12px; color: #94a3b8; margin-top: 8px; display: block; }
-    .warning { font-size: 12px; color: #64748b; line-height: 1.6; border-top: 1px solid #e2e8f0; padding-top: 20px; margin-top: 20px; }
-    .footer { background: #f8fafc; padding: 16px 24px; text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #e2e8f0; }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DSATM PBL Verification Code</title>
 </head>
-<body>
-  <div class="card">
-    <div class="header">
-      <h1>Industrial PBL Portal</h1>
-      <p>Dayananda Sagar Academy of Technology &amp; Management (DSATM)</p>
-    </div>
-    <div class="content">
-      <div class="greeting">Hello ${userName || 'User'},</div>
-      <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #475569;">
-        We received a request to verify your account or reset your password on the <strong>Industrial PBL Portal</strong>.
-      </p>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f1f5f9; margin: 0; padding: 24px; color: #1e293b;">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f1f5f9; padding: 20px 0;">
+    <tr>
+      <td align="center">
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 560px; background-color: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.06);">
+          <!-- Header -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%); padding: 32px 24px; text-align: center; color: #ffffff;">
+              <h1 style="margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.5px; color: #ffffff;">Industrial PBL Portal</h1>
+              <p style="margin: 6px 0 0; font-size: 13px; color: #c7d2fe;">Dayananda Sagar Academy of Technology &amp; Management (DSATM)</p>
+            </td>
+          </tr>
+          <!-- Body -->
+          <tr>
+            <td style="padding: 32px 28px;">
+              <p style="font-size: 16px; font-weight: 600; margin: 0 0 12px 0; color: #1e293b;">Hello ${userName || 'User'},</p>
+              <p style="margin: 0 0 20px 0; font-size: 14px; line-height: 1.6; color: #475569;">
+                We received a request to verify your account or reset your password on the <strong>DSATM Industrial PBL Portal</strong>.
+              </p>
 
-      <div class="otp-box">
-        <span class="otp-label">Your 6-Digit Verification Code</span>
-        <div class="otp-code">${otp}</div>
-        <span class="otp-expiry">Valid for 5 minutes</span>
-      </div>
+              <!-- OTP Box -->
+              <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 12px; margin: 24px 0;">
+                <tr>
+                  <td align="center" style="padding: 24px 16px;">
+                    <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; color: #64748b; margin-bottom: 8px;">Your 6-Digit Verification Code</div>
+                    <div style="font-size: 38px; font-weight: 900; letter-spacing: 8px; color: #4338ca; font-family: 'Courier New', Courier, monospace;">${otp}</div>
+                    <div style="font-size: 12px; color: #94a3b8; margin-top: 8px;">Valid for 5 minutes</div>
+                  </td>
+                </tr>
+              </table>
 
-      <p style="margin: 0; font-size: 13px; line-height: 1.5; color: #475569;">
-        Enter this code on the password reset screen to confirm your identity and create your new password.
-      </p>
+              <p style="margin: 0 0 20px 0; font-size: 13px; line-height: 1.5; color: #475569;">
+                Enter this 6-digit code on the portal screen to verify your identity and set your new password.
+              </p>
 
-      <div class="warning">
-        <strong>Security Notice:</strong> Never share this verification code with anyone. If you did not initiate this request, please ignore this email or notify the system administrator.
-      </div>
-    </div>
-    <div class="footer">
-      &copy; ${new Date().getFullYear()} Industrial PBL Management System &bull; DSATM Bangalore
-    </div>
-  </div>
+              <div style="font-size: 12px; color: #64748b; line-height: 1.6; border-top: 1px solid #e2e8f0; padding-top: 18px; margin-top: 20px;">
+                <strong>Security Notice:</strong> Never share this verification code with anyone. If you did not initiate this request, you can safely ignore this email.
+              </div>
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f8fafc; padding: 20px 24px; text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #e2e8f0; line-height: 1.5;">
+              Department of Computer Science &amp; Engineering<br>
+              Dayananda Sagar Academy of Technology &amp; Management (DSATM)<br>
+              Kanakapura Road, Udayapura, Bangalore, Karnataka - 560082<br>
+              &copy; ${new Date().getFullYear()} DSATM PBL Portal &bull; All rights reserved
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>
     `;
@@ -137,10 +188,20 @@ export async function sendOtpEmail({ to, otp, userName }: SendOtpEmailOptions): 
         const transporter = createTransporter();
         const info = await transporter.sendMail({
           from: smtpFrom,
+          sender: smtpUser,
+          replyTo: smtpUser,
           to: cleanTo,
-          subject: `[Industrial PBL DSATM] Your Verification Code: ${otp}`,
-          text: `Your Industrial PBL verification code is: ${otp}. It is valid for 5 minutes. Enter this code to verify your account.`,
+          subject: `Your DSATM PBL Portal verification code: ${otp}`,
+          text: textContent,
           html: htmlContent,
+          headers: {
+            'X-Entity-Ref-ID': `pbl-otp-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+            'X-Auto-Response-Suppress': 'OOF, AutoReply',
+            'Auto-Submitted': 'auto-generated',
+            'X-Mailer': 'DSATM Industrial PBL Mailer v2.0',
+            'X-Priority': '3',
+            'Importance': 'Normal'
+          }
         });
 
         console.log(`[Mailer] OTP email dispatched successfully to ${cleanTo} on attempt ${attempt} (MessageId: ${info.messageId})`);
@@ -182,57 +243,119 @@ export async function sendActivationEmail({ to, userName, activationLink }: Send
       return { success: false, error: `Invalid recipient email address: "${to}"` };
     }
 
+    // Safeguard 1: Intercept synthetic test domains from automated test runners
+    if (
+      cleanTo.includes('@teststudent.') ||
+      cleanTo.includes('teststudent.dsatm.edu.in') ||
+      cleanTo.endsWith('@example.com') ||
+      cleanTo.endsWith('@test.com') ||
+      cleanTo.endsWith('.test')
+    ) {
+      console.log(`[Mailer] Simulated OTP email dispatch for synthetic test address: ${cleanTo} (Skipped SMTP network call to prevent Gmail bounce alerts)`);
+      return { success: true };
+    }
+
+    // Safeguard 2: Prevent sending to non-existent student.dsatm.edu.in (no MX record)
+    if (cleanTo.endsWith('@student.dsatm.edu.in')) {
+      const errMsg = 'DSATM students do not have active mailboxes on @student.dsatm.edu.in. Please use your working personal or college Gmail address (e.g. name@gmail.com).';
+      console.warn(`[Mailer] Blocked dispatch to non-existent mailbox: ${cleanTo}`);
+      return { success: false, error: errMsg };
+    }
+
+    const textContent = `Dayananda Sagar Academy of Technology & Management (DSATM)
+Industrial Project Based Learning (PBL) Portal
+
+Hello ${userName || 'User'},
+
+Thank you for registering on the DSATM Industrial PBL Portal.
+
+To complete your registration and activate your account, please click or open the link below:
+${activationLink}
+
+This link is valid for 24 hours.
+
+Once activated, you can log in to the portal using your registered email/USN and password to submit reports, track phase deadlines, and view guide evaluations.
+
+Security Notice:
+If you did not create an account on the DSATM Industrial PBL Portal, you can safely ignore this message.
+
+---
+Department of Computer Science & Engineering
+Dayananda Sagar Academy of Technology & Management (DSATM)
+Kanakapura Road, Udayapura, Bangalore, Karnataka - 560082
+Portal: ${getAppOrigin()}
+`;
+
     const htmlContent = `
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 24px; color: #1e293b; }
-    .card { max-width: 540px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-    .header { background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%); padding: 32px 24px; text-align: center; color: #ffffff; }
-    .header h1 { margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.5px; }
-    .header p { margin: 6px 0 0; font-size: 13px; color: #c7d2fe; }
-    .content { padding: 32px 28px; }
-    .greeting { font-size: 16px; font-weight: 600; margin-bottom: 12px; color: #1e293b; }
-    .btn-box { text-align: center; margin: 32px 0; }
-    .btn { display: inline-block; background: #4338ca; color: #ffffff !important; padding: 14px 32px; font-size: 14px; font-weight: 800; text-decoration: none; border-radius: 12px; letter-spacing: 0.5px; box-shadow: 0 4px 14px rgba(67, 56, 202, 0.4); }
-    .alt-link { font-size: 11px; color: #64748b; word-break: break-all; margin-top: 16px; background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0; }
-    .warning { font-size: 12px; color: #64748b; line-height: 1.6; border-top: 1px solid #e2e8f0; padding-top: 20px; margin-top: 24px; }
-    .footer { background: #f8fafc; padding: 16px 24px; text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #e2e8f0; }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Activate Your DSATM PBL Account</title>
 </head>
-<body>
-  <div class="card">
-    <div class="header">
-      <h1>Industrial PBL Portal</h1>
-      <p>Dayananda Sagar Academy of Technology &amp; Management (DSATM)</p>
-    </div>
-    <div class="content">
-      <div class="greeting">Hello ${userName || 'User'},</div>
-      <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #475569;">
-        Thank you for registering on the <strong>Industrial PBL Portal</strong>. To complete your registration and activate your account, please click the button below:
-      </p>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f1f5f9; margin: 0; padding: 24px; color: #1e293b;">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f1f5f9; padding: 20px 0;">
+    <tr>
+      <td align="center">
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 560px; background-color: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.06);">
+          <!-- Header -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%); padding: 32px 24px; text-align: center; color: #ffffff;">
+              <h1 style="margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.5px; color: #ffffff;">Industrial PBL Portal</h1>
+              <p style="margin: 6px 0 0; font-size: 13px; color: #c7d2fe;">Dayananda Sagar Academy of Technology &amp; Management (DSATM)</p>
+            </td>
+          </tr>
+          <!-- Body -->
+          <tr>
+            <td style="padding: 32px 28px;">
+              <p style="font-size: 16px; font-weight: 600; margin: 0 0 12px 0; color: #1e293b;">Hello ${userName || 'User'},</p>
+              <p style="margin: 0 0 20px 0; font-size: 14px; line-height: 1.6; color: #475569;">
+                Thank you for registering on the <strong>DSATM Industrial PBL Portal</strong>. To complete your registration and activate your account, please click the button below:
+              </p>
 
-      <div class="btn-box">
-        <a href="${activationLink}" class="btn" target="_blank" style="color: #ffffff !important;">Activate My Account</a>
-      </div>
+              <!-- Action Button Table -->
+              <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 28px 0;">
+                <tr>
+                  <td align="center">
+                    <table cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td align="center" bgcolor="#4338ca" style="border-radius: 12px;">
+                          <a href="${activationLink}" target="_blank" style="display: inline-block; padding: 14px 36px; font-size: 14px; font-weight: 800; color: #ffffff; text-decoration: none; border-radius: 12px; letter-spacing: 0.5px; font-family: sans-serif; background-color: #4338ca;">
+                            Activate My Account
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
 
-      <p style="margin: 0; font-size: 12px; color: #64748b;">
-        If the button does not work, you can copy and paste the following link into your browser:
-      </p>
-      <div class="alt-link">
-        ${activationLink}
-      </div>
+              <p style="margin: 0 0 8px 0; font-size: 12px; color: #64748b;">
+                If the button above does not work, copy and paste this link into your browser:
+              </p>
+              <div style="font-size: 11px; color: #4338ca; word-break: break-all; margin-bottom: 20px; background-color: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0; font-family: 'Courier New', Courier, monospace;">
+                ${activationLink}
+              </div>
 
-      <div class="warning">
-        <strong>Security Notice:</strong> This activation link is valid for 24 hours. If you did not create an account on the Industrial PBL Portal, you can safely ignore this email.
-      </div>
-    </div>
-    <div class="footer">
-      &copy; ${new Date().getFullYear()} Industrial PBL Management System &bull; DSATM Bangalore
-    </div>
-  </div>
+              <div style="font-size: 12px; color: #64748b; line-height: 1.6; border-top: 1px solid #e2e8f0; padding-top: 18px; margin-top: 20px;">
+                <strong>Security Notice:</strong> This activation link is valid for 24 hours. If you did not register for an account, please ignore this email.
+              </div>
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f8fafc; padding: 20px 24px; text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #e2e8f0; line-height: 1.5;">
+              Department of Computer Science &amp; Engineering<br>
+              Dayananda Sagar Academy of Technology &amp; Management (DSATM)<br>
+              Kanakapura Road, Udayapura, Bangalore, Karnataka - 560082<br>
+              &copy; ${new Date().getFullYear()} DSATM PBL Portal &bull; All rights reserved
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>
     `;
@@ -243,10 +366,20 @@ export async function sendActivationEmail({ to, userName, activationLink }: Send
         const transporter = createTransporter();
         const info = await transporter.sendMail({
           from: smtpFrom,
+          sender: smtpUser,
+          replyTo: smtpUser,
           to: cleanTo,
-          subject: `[Industrial PBL DSATM] Activate Your Account`,
-          text: `Hello ${userName || 'User'},\n\nPlease activate your Industrial PBL account by visiting this link:\n${activationLink}\n\nThis link is valid for 24 hours.`,
+          subject: `Activate your DSATM PBL account - ${userName || 'Student'}`,
+          text: textContent,
           html: htmlContent,
+          headers: {
+            'X-Entity-Ref-ID': `pbl-act-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+            'X-Auto-Response-Suppress': 'OOF, AutoReply',
+            'Auto-Submitted': 'auto-generated',
+            'X-Mailer': 'DSATM Industrial PBL Mailer v2.0',
+            'X-Priority': '3',
+            'Importance': 'Normal'
+          }
         });
 
         console.log(`[Mailer] Activation email dispatched successfully to ${cleanTo} on attempt ${attempt} (MessageId: ${info.messageId})`);

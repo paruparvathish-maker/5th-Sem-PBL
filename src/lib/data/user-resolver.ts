@@ -9,16 +9,49 @@ const TMP_DATA_PATH = '/tmp/pbl_backend_data.json';
 
 function getDiskProfiles(): UserProfile[] {
   try {
-    const targetPath = fs.existsSync(TMP_DATA_PATH) 
-      ? TMP_DATA_PATH 
-      : (fs.existsSync(BACKEND_DATA_PATH) ? BACKEND_DATA_PATH : null);
-    
-    if (targetPath) {
-      const raw = fs.readFileSync(targetPath, 'utf8');
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed.profiles)) {
-        return parsed.profiles;
+    let profiles: UserProfile[] = [];
+
+    // 1. Primary: backend/data.json
+    if (fs.existsSync(BACKEND_DATA_PATH)) {
+      try {
+        const raw = fs.readFileSync(BACKEND_DATA_PATH, 'utf8');
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed.profiles)) {
+          profiles = parsed.profiles;
+        }
+      } catch (e) {
+        console.warn('[UserResolver] Error reading BACKEND_DATA_PATH:', e);
       }
+    }
+
+    // 2. Secondary: TMP_DATA_PATH (merge any serverless ephemeral updates)
+    if (fs.existsSync(TMP_DATA_PATH) && TMP_DATA_PATH !== BACKEND_DATA_PATH) {
+      try {
+        const raw = fs.readFileSync(TMP_DATA_PATH, 'utf8');
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed.profiles)) {
+          const pMap = new Map(profiles.map(p => [p.id, p]));
+          parsed.profiles.forEach((p: any) => {
+            if (pMap.has(p.id)) {
+              const existing = pMap.get(p.id)!;
+              pMap.set(p.id, {
+                ...existing,
+                ...p,
+                isActivated: p.isActivated === true || existing.isActivated === true,
+                password: p.password || existing.password,
+                email: (p.email && !p.email.endsWith('@student.dsatm.edu.in')) ? p.email : existing.email
+              });
+            } else {
+              pMap.set(p.id, p);
+            }
+          });
+          profiles = Array.from(pMap.values());
+        }
+      } catch {}
+    }
+
+    if (profiles.length > 0) {
+      return profiles;
     }
   } catch (err) {
     console.warn('[UserResolver] Error reading profiles from disk:', err);
@@ -48,7 +81,12 @@ export function persistProfileToDisk(updatedProfile: UserProfile): void {
         );
 
         if (idx >= 0) {
-          data.profiles[idx] = { ...data.profiles[idx], ...updatedProfile };
+          data.profiles[idx] = { 
+            ...data.profiles[idx], 
+            ...updatedProfile,
+            // Guarantee isActivated never reverts from true to false
+            isActivated: updatedProfile.isActivated === true ? true : (data.profiles[idx].isActivated === true ? true : updatedProfile.isActivated)
+          };
         } else {
           data.profiles.push(updatedProfile);
         }
@@ -155,13 +193,11 @@ export async function resolveUserForAuth(identifier: string): Promise<ResolvedUs
   // Priority 4: User profile email if not dummy
   // Priority 5: User profile email
   let realEmail = '';
-  if (matchedCred && matchedCred.email && matchedCred.email.includes('@')) {
+  if (matchedCred && matchedCred.email && matchedCred.email.includes('@') && !matchedCred.email.endsWith('@student.dsatm.edu.in')) {
     realEmail = matchedCred.email.toLowerCase().trim();
-  } else if (clean.includes('@')) {
+  } else if (clean.includes('@') && !cleanLower.endsWith('@student.dsatm.edu.in')) {
     realEmail = cleanLower;
   } else if (baseUser.email && !baseUser.email.endsWith('@student.dsatm.edu.in')) {
-    realEmail = baseUser.email.toLowerCase().trim();
-  } else if (baseUser.email) {
     realEmail = baseUser.email.toLowerCase().trim();
   }
 
@@ -170,9 +206,7 @@ export async function resolveUserForAuth(identifier: string): Promise<ResolvedUs
     baseUser.email = realEmail;
   }
 
-  const isActivated = matchedCred?.isActivated !== undefined 
-    ? Boolean(matchedCred.isActivated) 
-    : Boolean(baseUser.isActivated);
+  const isActivated = matchedCred?.isActivated === true || baseUser.isActivated === true;
 
   const hasCustomPassword = Boolean(matchedCred?.password || baseUser.password);
 

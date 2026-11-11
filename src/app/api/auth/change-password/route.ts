@@ -27,7 +27,7 @@ export async function POST(request: Request) {
     // 2. Persist directly into disk backend/data.json or /tmp with automatic fallback
     let persisted = false;
     let data: any = null;
-    let sourcePath = fs.existsSync(TMP_DATA_PATH) ? TMP_DATA_PATH : (fs.existsSync(BACKEND_DATA_PATH) ? BACKEND_DATA_PATH : null);
+    let sourcePath = fs.existsSync(BACKEND_DATA_PATH) ? BACKEND_DATA_PATH : (fs.existsSync(TMP_DATA_PATH) ? TMP_DATA_PATH : null);
     if (sourcePath) {
       try {
         const raw = fs.readFileSync(sourcePath, 'utf8');

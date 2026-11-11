@@ -83,18 +83,24 @@ export async function GET() {
       }
     }
 
-    // 3. Read base data from /tmp or local backend/data.json; fallback to built-in seed dataset
+    // 3. Read base data from local backend/data.json; fallback to /tmp or in-memory store
     let baseData: any = null;
-    if (fs.existsSync(TMP_DATA_PATH)) {
-      try {
-        const raw = fs.readFileSync(TMP_DATA_PATH, 'utf8');
-        baseData = JSON.parse(raw);
-      } catch {}
-    }
-    if (!baseData && fs.existsSync(BACKEND_DATA_PATH)) {
+    if (fs.existsSync(BACKEND_DATA_PATH)) {
       try {
         const raw = fs.readFileSync(BACKEND_DATA_PATH, 'utf8');
         baseData = JSON.parse(raw);
+      } catch {}
+    }
+    if ((!baseData || !baseData.profiles?.length) && fs.existsSync(TMP_DATA_PATH)) {
+      try {
+        const raw = fs.readFileSync(TMP_DATA_PATH, 'utf8');
+        const tmpData = JSON.parse(raw);
+        if (!baseData) baseData = tmpData;
+        else if (Array.isArray(tmpData.profiles)) {
+          const profMap = new Map((baseData.profiles || []).map((p: any) => [p.id, p]));
+          tmpData.profiles.forEach((p: any) => profMap.set(p.id, { ...(profMap.get(p.id) || {}), ...p }));
+          baseData.profiles = Array.from(profMap.values());
+        }
       } catch {}
     }
 
@@ -223,10 +229,11 @@ export async function POST(request: Request) {
 
     // 2. Persist to local backend/data.json or /tmp fallback with intelligent non-destructive merge
     let currentData: any = {};
-    if (fs.existsSync(TMP_DATA_PATH)) {
-      try { currentData = JSON.parse(fs.readFileSync(TMP_DATA_PATH, 'utf8')); } catch {}
-    } else if (fs.existsSync(BACKEND_DATA_PATH)) {
+    if (fs.existsSync(BACKEND_DATA_PATH)) {
       try { currentData = JSON.parse(fs.readFileSync(BACKEND_DATA_PATH, 'utf8')); } catch {}
+    }
+    if ((!currentData.profiles || currentData.profiles.length === 0) && fs.existsSync(TMP_DATA_PATH)) {
+      try { currentData = JSON.parse(fs.readFileSync(TMP_DATA_PATH, 'utf8')); } catch {}
     }
 
     // Non-destructive ID-based merging to safely handle 500+ concurrent users

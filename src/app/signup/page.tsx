@@ -81,6 +81,11 @@ export default function SignUpPage() {
         setIsSubmitting(false);
         return;
       }
+      if (studentEmail.trim().toLowerCase().endsWith('@student.dsatm.edu.in')) {
+        setError('DSATM student mailboxes are not hosted on @student.dsatm.edu.in. Please enter your working personal or college Gmail address (e.g. yourname@gmail.com) so you can receive the activation email.');
+        setIsSubmitting(false);
+        return;
+      }
       payload = {
         ...payload,
         usn: usn.trim().toUpperCase(),
@@ -192,17 +197,16 @@ export default function SignUpPage() {
       {/* Main Card */}
       <div className="mt-6 sm:mx-auto sm:w-full sm:max-w-lg z-10 px-4">
         <div className="bg-slate-800/90 backdrop-blur-xl py-8 px-6 shadow-2xl rounded-2xl border border-slate-700/60 sm:px-10">
-          
+
           {/* Role Tabs */}
           <div className="grid grid-cols-3 gap-1 p-1 bg-slate-900/80 rounded-xl mb-6 border border-slate-700/50">
             <button
               type="button"
               onClick={() => handleRoleChange('student')}
-              className={`py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center space-x-1.5 ${
-                role === 'student'
+              className={`py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center space-x-1.5 ${role === 'student'
                   ? 'bg-indigo-600 text-white shadow-md'
                   : 'text-slate-400 hover:text-white'
-              }`}
+                }`}
             >
               <UserCheck className="h-3.5 w-3.5" />
               <span>Student</span>
@@ -210,11 +214,10 @@ export default function SignUpPage() {
             <button
               type="button"
               onClick={() => handleRoleChange('faculty')}
-              className={`py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center space-x-1.5 ${
-                role === 'faculty'
+              className={`py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center space-x-1.5 ${role === 'faculty'
                   ? 'bg-amber-600 text-white shadow-md'
                   : 'text-slate-400 hover:text-white'
-              }`}
+                }`}
             >
               <GraduationCap className="h-3.5 w-3.5" />
               <span>Faculty</span>
@@ -222,11 +225,10 @@ export default function SignUpPage() {
             <button
               type="button"
               onClick={() => handleRoleChange('industry')}
-              className={`py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center space-x-1.5 ${
-                role === 'industry'
+              className={`py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center space-x-1.5 ${role === 'industry'
                   ? 'bg-emerald-600 text-white shadow-md'
                   : 'text-slate-400 hover:text-white'
-              }`}
+                }`}
             >
               <Briefcase className="h-3.5 w-3.5" />
               <span>Industry</span>
@@ -240,6 +242,9 @@ export default function SignUpPage() {
               <div>
                 <p className="font-bold text-sm text-emerald-200">Registration Successful!</p>
                 <p className="mt-1">{successMessage}</p>
+                <p className="mt-2 text-slate-300 font-normal">
+                  💡 <strong>Tip:</strong> If you don&apos;t see the activation email in your Primary Inbox, please check your <strong>Spam / Junk</strong> folder. Clicking <em>&quot;Report Not Spam&quot;</em> ensures all future evaluation marks and phase notices land directly in your Inbox.
+                </p>
                 <p className="mt-2 text-emerald-400 font-semibold">Redirecting to login in a moment...</p>
               </div>
             </div>
@@ -254,7 +259,7 @@ export default function SignUpPage() {
           )}
 
           <form className="space-y-4" onSubmit={handleSubmit}>
-            
+
             {/* ==================== STUDENT FIELDS ==================== */}
             {role === 'student' && (
               <>
@@ -293,10 +298,13 @@ export default function SignUpPage() {
                       required
                       value={studentEmail}
                       onChange={(e) => setStudentEmail(e.target.value)}
-                      placeholder="student@dsatm.edu.in or personal email"
+                      placeholder="e.g. yourname@gmail.com or active email"
                       className="block w-full pl-10 pr-3 py-2.5 bg-slate-900/90 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     />
                   </div>
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Enter your active personal or college Gmail ID to receive your activation link (do not use @student.dsatm.edu.in).
+                  </p>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -567,11 +575,10 @@ export default function SignUpPage() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className={`w-full flex justify-center items-center space-x-2 py-3 px-4 rounded-xl text-sm font-bold text-white shadow-lg transition-all ${
-                  role === 'student' ? 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-600/30' :
-                  role === 'faculty' ? 'bg-amber-600 hover:bg-amber-500 shadow-amber-600/30' :
-                  'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/30'
-                }`}
+                className={`w-full flex justify-center items-center space-x-2 py-3 px-4 rounded-xl text-sm font-bold text-white shadow-lg transition-all ${role === 'student' ? 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-600/30' :
+                    role === 'faculty' ? 'bg-amber-600 hover:bg-amber-500 shadow-amber-600/30' :
+                      'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/30'
+                  }`}
               >
                 <span>{isSubmitting ? 'Creating Account...' : 'Create Account & Continue to Login'}</span>
                 <ArrowRight className="h-4 w-4" />

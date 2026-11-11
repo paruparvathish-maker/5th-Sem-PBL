@@ -45,6 +45,12 @@ export async function POST(request: Request) {
       const cleanUsn = String(usn).trim().toUpperCase();
       const cleanEmail = String(email).trim().toLowerCase();
 
+      if (cleanEmail.endsWith('@student.dsatm.edu.in')) {
+        return NextResponse.json({
+          error: 'DSATM student mailboxes are not hosted on @student.dsatm.edu.in. Please enter your working personal or college Gmail address (e.g. name@gmail.com) so you can receive the activation email.'
+        }, { status: 400 });
+      }
+
       let student = allProfiles.find(p => p.usn?.toUpperCase() === cleanUsn);
 
       if (student) {
@@ -78,6 +84,7 @@ export async function POST(request: Request) {
 
       // Persist profile to disk (server-side persistence)
       persistProfileToDisk(student);
+      store.save(true);
 
       // Generate secure activation token and dispatch email
       const activationToken = await createAndSaveActivationToken(cleanEmail);
@@ -193,6 +200,7 @@ export async function POST(request: Request) {
 
       // Persist profile to disk (server-side persistence)
       persistProfileToDisk(faculty);
+      store.save(true);
 
       // Generate activation link and dispatch email
       const activationToken = await createAndSaveActivationToken(cleanEmail);

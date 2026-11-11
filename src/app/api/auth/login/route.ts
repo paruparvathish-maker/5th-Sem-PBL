@@ -55,29 +55,57 @@ export async function POST(request: Request) {
     const cleanEmailPrefix = cleanId.includes('@') ? cleanId.split('@')[0].replace(/[^a-z0-9]/g, '') : cleanAlpha;
     const cleanPass = password !== undefined ? String(password).trim() : '';
 
-    // 1. Read profiles from disk and merge with in-memory store
-    let profiles: any[] = [];
-    const targetPath = fs.existsSync(TMP_DATA_PATH) ? TMP_DATA_PATH : (fs.existsSync(BACKEND_DATA_PATH) ? BACKEND_DATA_PATH : null);
-    if (targetPath) {
+    // 1. Read profiles from disk (preferring backend/data.json) and merge with in-memory store
+    let diskProfiles: any[] = [];
+    if (fs.existsSync(BACKEND_DATA_PATH)) {
       try {
-        const raw = fs.readFileSync(targetPath, 'utf8');
+        const raw = fs.readFileSync(BACKEND_DATA_PATH, 'utf8');
         const data = JSON.parse(raw);
         if (Array.isArray(data.profiles)) {
-          profiles = data.profiles;
+          diskProfiles = data.profiles;
+        }
+      } catch {}
+    }
+    if (fs.existsSync(TMP_DATA_PATH) && TMP_DATA_PATH !== BACKEND_DATA_PATH) {
+      try {
+        const raw = fs.readFileSync(TMP_DATA_PATH, 'utf8');
+        const data = JSON.parse(raw);
+        if (Array.isArray(data.profiles)) {
+          const dMap = new Map(diskProfiles.map(p => [p.id, p]));
+          data.profiles.forEach((p: any) => {
+            if (dMap.has(p.id)) {
+              dMap.set(p.id, { ...dMap.get(p.id), ...p });
+            } else {
+              dMap.set(p.id, p);
+            }
+          });
+          diskProfiles = Array.from(dMap.values());
         }
       } catch {}
     }
 
+    // Merge in-memory store and disk profiles:
+    // Base is storeProfiles; diskProfiles represent persisted user states (passwords, activations, registered emails)
     const storeProfiles = store.getAllProfiles();
-    const profileMap = new Map<string, any>(profiles.map(p => [p.id, p]));
-    storeProfiles.forEach(p => {
-      if (!profileMap.has(p.id)) {
-        profileMap.set(p.id, p);
+    const profileMap = new Map<string, any>(storeProfiles.map(p => [p.id, { ...p }]));
+    
+    diskProfiles.forEach(dp => {
+      if (!profileMap.has(dp.id)) {
+        profileMap.set(dp.id, dp);
       } else {
-        profileMap.set(p.id, { ...profileMap.get(p.id), ...p });
+        const base = profileMap.get(dp.id);
+        profileMap.set(dp.id, {
+          ...base,
+          ...dp,
+          // Guarantee that once activated on disk or in memory, it stays activated!
+          isActivated: (dp.isActivated === true || base.isActivated === true) ? true : (dp.isActivated ?? base.isActivated),
+          password: dp.password || base.password,
+          email: (dp.email && !dp.email.endsWith('@student.dsatm.edu.in')) ? dp.email : base.email,
+          isFirstLogin: dp.isFirstLogin !== undefined ? dp.isFirstLogin : base.isFirstLogin,
+        });
       }
     });
-    profiles = Array.from(profileMap.values());
+    let profiles = Array.from(profileMap.values());
 
     // 2. Fetch and merge cloud credentials (ensures passwords changed on laptops are instantly available to phones)
     try {
@@ -86,22 +114,26 @@ export async function POST(request: Request) {
         profiles.forEach((p: any) => {
           const uLower = (p.id || '').toLowerCase();
           const usnLower = (p.usn || '').toLowerCase();
+          const usnUpper = (p.usn || '').toUpperCase();
           const emailLower = (p.email || '').toLowerCase();
           const phoneClean = p.phone || '';
 
           const record = cloudCreds[p.id] ||
             cloudCreds[uLower] ||
             (usnLower && cloudCreds[usnLower]) ||
+            (usnUpper && cloudCreds[usnUpper]) ||
             (emailLower && cloudCreds[emailLower]) ||
             (phoneClean && cloudCreds[phoneClean]);
 
           if (record) {
             if (record.password) p.password = record.password;
             p.isFirstLogin = record.isFirstLogin ?? false;
-            if (record.isActivated !== undefined) {
+            if (record.isActivated === true || p.isActivated === true) {
+              p.isActivated = true;
+            } else if (record.isActivated !== undefined) {
               p.isActivated = record.isActivated;
             }
-            if (record.email) {
+            if (record.email && !record.email.endsWith('@student.dsatm.edu.in')) {
               p.email = record.email;
             }
             p.passwordUpdatedAt = record.passwordUpdatedAt || record.updatedAt || p.passwordUpdatedAt;
@@ -204,11 +236,27 @@ export async function POST(request: Request) {
 
     // 5. Check if account has been activated via email link
     if (user.isActivated === false && user.role !== 'admin') {
-      return NextResponse.json({
-        error: `Your account (${user.email || cleanId}) is pending activation. Please check your email inbox and click the activation link to activate your account.`,
-        needsActivation: true,
-        email: user.email
-      }, { status: 403 });
+      // Secondary check against Cloud KV and disk resolver before rejecting
+      try {
+        const { resolveUserForAuth, persistProfileToDisk } = await import('@/lib/data/user-resolver');
+        const directResolved = await resolveUserForAuth(user.email || user.usn || cleanId);
+        if (directResolved?.isActivated) {
+          user.isActivated = true;
+          user.isFirstLogin = false;
+          persistProfileToDisk(user);
+          const allP = store.getAllProfiles();
+          const inMem = allP.find(p => p.id === user.id || (user.usn && p.usn === user.usn));
+          if (inMem) inMem.isActivated = true;
+        }
+      } catch {}
+
+      if (user.isActivated === false) {
+        return NextResponse.json({
+          error: `Your account (${user.email || cleanId}) is pending activation. Please check your email inbox and click the activation link to activate your account.`,
+          needsActivation: true,
+          email: user.email
+        }, { status: 403 });
+      }
     }
 
     // 6. Verify password
