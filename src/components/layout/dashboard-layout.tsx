@@ -38,6 +38,11 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Universal database hydration for mobile phones and desktop clients
+  useEffect(() => {
+    store.syncFromSupabase().catch(() => {});
+  }, []);
+
   if (!user) return <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white font-medium">Loading session...</div>;
 
   const notifications = store.getNotificationsForUser(user.id);
@@ -128,7 +133,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
               user.role === 'faculty' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
               'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
             }`}>
-              {industryAccess.isIndustry ? 'Industry Expert' : isExec ? 'Executive Observer' : user.role === 'admin' ? 'Super Admin' : user.role}
+              {industryAccess.isIndustry ? 'Industry Expert' : (user.email === 'vp@dsatm.edu.in' || user.id === 'admin-hod') ? 'Vice Principal & HOD' : isExec ? 'Executive Observer' : user.role === 'admin' ? 'Super Admin' : user.role}
             </span>
             {industryAccess.isIndustry ? (
               <span className="text-[10px] font-semibold text-slate-300 bg-slate-700 px-2 py-0.5 rounded">

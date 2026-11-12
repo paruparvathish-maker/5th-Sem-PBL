@@ -39,6 +39,15 @@ export async function POST(request: Request) {
       let cleanUsn = usn ? String(usn).trim().toUpperCase() : '';
       let cleanEmail = email ? String(email).trim().toLowerCase() : '';
 
+      // Normalize any teststudent or student subdomain to official @dsatm.edu.in
+      if (cleanEmail) {
+        cleanEmail = cleanEmail
+          .replace(/@(teststudent|student)\.dsatm\.edu\.in/gi, '@dsatm.edu.in')
+          .replace(/@([a-z0-9_-]+)\.teststudent\.dsatm\.edu\.in/gi, '@dsatm.edu.in')
+          .replace(/@teststudent\./gi, '@')
+          .trim();
+      }
+
       // Auto-extract USN from DSATM email (e.g. 1dt24cs010@dsatm.edu.in -> 1DT24CS010)
       if (cleanEmail && !cleanUsn && cleanEmail.includes('@dsatm.edu.in')) {
         const prefix = cleanEmail.split('@')[0].toUpperCase();

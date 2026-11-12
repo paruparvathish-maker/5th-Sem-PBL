@@ -94,12 +94,20 @@ export default function AdminTeamsPage() {
   const sem4SubmittedCount = sem4AllTeams.filter(t => Boolean(t.researchPaperProofName || t.researchPaperProofPath)).length;
   const sem4PendingCount = sem4AllTeams.length - sem4SubmittedCount;
 
+  const sem5AllowedSections = industryAccess.isIndustry
+    ? (industryAccess.allowedSectionsBySemester[5] || [])
+    : ['A', 'B', 'C', 'D', 'E', 'F'];
+
+  const sem5AllTeams = teams.filter(t => (t.semester || 5) === 5 && (!industryAccess.isIndustry || sem5AllowedSections.includes(t.section)));
+  const sem5SubmittedCount = sem5AllTeams.filter(t => store.getSubmissionsForTeam(t.id).length > 0).length;
+  const sem5PendingCount = sem5AllTeams.length - sem5SubmittedCount;
+
   // Unique faculty guides in current semester view
   const uniqueGuides = Array.from(
     new Set(currentTabTeams.map(t => t.guideName).filter(Boolean))
   ).sort() as string[];
 
-  // Filtered teams based on search, section, faculty, and proof filter
+  // Filtered teams based on search, section, faculty, and proof / submission filter
   const filteredTeams = currentTabTeams.filter(t => {
     const q = searchTerm.toLowerCase();
     const matchesSearch =
@@ -115,18 +123,23 @@ export default function AdminTeamsPage() {
     const matchesSection = selectedSection === 'ALL' || t.section === selectedSection;
     const matchesFaculty = facultyFilter === 'ALL' || t.guideName === facultyFilter;
 
-    const hasProof = Boolean(t.researchPaperProofName || t.researchPaperProofPath);
+    const has4thProof = Boolean(t.researchPaperProofName || t.researchPaperProofPath);
+    const has5thSubmission = store.getSubmissionsForTeam(t.id).length > 0;
+    const isSubmitted = (t.semester || 5) === 4 ? has4thProof : has5thSubmission;
+
     const matchesProof =
-      activeTab !== 4 ||
       proofFilter === 'ALL' ||
-      (proofFilter === 'SUBMITTED' && hasProof) ||
-      (proofFilter === 'PENDING' && !hasProof);
+      (proofFilter === 'SUBMITTED' && isSubmitted) ||
+      (proofFilter === 'PENDING' && !isSubmitted);
 
     return matchesSearch && matchesSection && matchesFaculty && matchesProof;
   });
 
   const submittedFiltered = filteredTeams.filter(t => Boolean(t.researchPaperProofName || t.researchPaperProofPath));
   const pendingFiltered = filteredTeams.filter(t => !t.researchPaperProofName && !t.researchPaperProofPath);
+
+  const submitted5thFiltered = filteredTeams.filter(t => store.getSubmissionsForTeam(t.id).length > 0);
+  const pending5thFiltered = filteredTeams.filter(t => store.getSubmissionsForTeam(t.id).length === 0);
 
   const handleOpenAddModal = () => {
     if (isReadOnly) return;
@@ -238,16 +251,16 @@ export default function AdminTeamsPage() {
   // Helper renderer for a single team card
   const renderTeamCard = (t: Team, isProofSubmitted: boolean) => {
     const submissions = store.getSubmissionsForTeam(t.id);
+    const hasSubmission = submissions.length > 0;
+    const isSubmitted = (t.semester || 5) === 4 ? isProofSubmitted : hasSubmission;
 
     return (
       <div
         key={t.id}
         className={`bg-white rounded-2xl border p-6 shadow-sm space-y-4 transition flex flex-col justify-between ${
-          activeTab === 4
-            ? isProofSubmitted
-              ? 'border-emerald-200 hover:border-emerald-400 hover:shadow-md'
-              : 'border-amber-200 hover:border-amber-400 hover:shadow-md'
-            : 'border-slate-200 hover:border-emerald-300'
+          isSubmitted
+            ? 'border-emerald-200 hover:border-emerald-400 hover:shadow-md'
+            : 'border-amber-200 hover:border-amber-400 hover:shadow-md'
         }`}
       >
         <div className="space-y-3">
@@ -257,6 +270,19 @@ export default function AdminTeamsPage() {
               Sec {t.section} • Group {t.teamNumber}
             </span>
             <div className="flex items-center gap-1.5 flex-wrap justify-end">
+              {(t.semester || 5) === 5 && (
+                isSubmitted ? (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-extrabold text-emerald-800 bg-emerald-50 border border-emerald-300">
+                    <FileCheck className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Deliverable Submitted</span>
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-extrabold text-amber-800 bg-amber-50 border border-amber-300">
+                    <Clock className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Pending Submission</span>
+                  </span>
+                )
+              )}
               <span className={`text-xs font-bold px-2.5 py-1 rounded-lg border ${
                 activeTab === 4 && !isProofSubmitted
                   ? 'text-amber-800 bg-amber-50 border-amber-300'
@@ -451,10 +477,15 @@ export default function AdminTeamsPage() {
               <AlertCircle className="w-4 h-4" />
             </div>
             <div className="text-xs">
-              <p className="font-extrabold text-amber-950">Executive Observer Access ({user.name})</p>
+              <p className="font-extrabold text-amber-950">
+                {(user.email === 'vp@dsatm.edu.in' || user.id === 'admin-hod')
+                  ? `Vice Principal & HOD Supervisory Access (${user.name})`
+                  : `Executive Observer Access (${user.name})`}
+              </p>
               <p className="text-amber-800 mt-0.5 leading-relaxed">
-                You have read-only supervision access to 4th Semester Research Papers and 5th Semester PBL Projects.
-                Data modifications, deletions, and deadline configurations are strictly restricted to the Main Administrator account.
+                {(user.email === 'vp@dsatm.edu.in' || user.id === 'admin-hod')
+                  ? 'Full institutional supervision access to check the status of 4th Semester Research Papers (proof uploads, review status) and 5th Semester Industrial PBL Projects across Sections A through F.'
+                  : 'You have read-only supervision access to 4th Semester Research Papers and 5th Semester PBL Projects. Data modifications, deletions, and deadline configurations are strictly restricted to the Main Administrator account.'}
               </p>
             </div>
           </div>
@@ -585,6 +616,59 @@ export default function AdminTeamsPage() {
           </div>
         )}
 
+        {/* 5th Sem Metric Filter Cards */}
+        {activeTab === 5 && (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <button
+              onClick={() => setProofFilter('ALL')}
+              className={`p-5 rounded-2xl border text-left transition-all ${
+                proofFilter === 'ALL'
+                  ? 'bg-indigo-600 text-white border-indigo-700 shadow-md ring-2 ring-indigo-400/30'
+                  : 'bg-white border-slate-200 text-slate-800 hover:border-indigo-300'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider opacity-90">All 5th Sem Groups</span>
+                <GraduationCap className="w-5 h-5 opacity-80" />
+              </div>
+              <p className="text-3xl font-black mt-2">{sem5AllTeams.length}</p>
+              <p className="text-[11px] mt-1 opacity-80">All Industrial PBL teams across Sections A-F</p>
+            </button>
+
+            <button
+              onClick={() => setProofFilter('SUBMITTED')}
+              className={`p-5 rounded-2xl border text-left transition-all ${
+                proofFilter === 'SUBMITTED'
+                  ? 'bg-emerald-600 text-white border-emerald-700 shadow-md ring-2 ring-emerald-400/30'
+                  : 'bg-white border-slate-200 text-slate-800 hover:border-emerald-300'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider opacity-90">Deliverables Submitted</span>
+                <FileCheck className={`w-5 h-5 ${proofFilter === 'SUBMITTED' ? 'text-white' : 'text-emerald-600'}`} />
+              </div>
+              <p className="text-3xl font-black mt-2 text-emerald-600 sm:text-inherit">{sem5SubmittedCount}</p>
+              <p className="text-[11px] mt-1 opacity-80">Teams uploaded Phase 1 Review Deliverables</p>
+            </button>
+
+            <button
+              onClick={() => setProofFilter('PENDING')}
+              className={`p-5 rounded-2xl border text-left transition-all ${
+                proofFilter === 'PENDING'
+                  ? 'bg-amber-600 text-white border-amber-700 shadow-md ring-2 ring-amber-400/30'
+                  : 'bg-white border-slate-200 text-slate-800 hover:border-amber-300'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider opacity-90">Pending Submission</span>
+                <Clock className={`w-5 h-5 ${proofFilter === 'PENDING' ? 'text-white' : 'text-amber-600'}`} />
+              </div>
+              <p className="text-3xl font-black mt-2 text-amber-600 sm:text-inherit">{sem5PendingCount}</p>
+              <p className="text-[11px] mt-1 opacity-80">Teams awaiting deliverable upload</p>
+            </button>
+          </div>
+        )}
+
         {message && (
           <div className="p-4 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold flex items-center space-x-2">
             <CheckCircle2 className="h-4 w-4 shrink-0" />
@@ -642,53 +726,51 @@ export default function AdminTeamsPage() {
             </select>
           </div>
 
-          {/* 4th Sem Proof Status Buttons Filter */}
-          {activeTab === 4 && (
-            <div className="flex items-center justify-between pt-2 border-t border-slate-100 flex-wrap gap-2">
-              <div className="flex items-center gap-1.5">
-                <span className="text-[11px] font-bold text-slate-500 mr-1 uppercase">Filter Submission:</span>
-                <button
-                  onClick={() => setProofFilter('ALL')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                    proofFilter === 'ALL'
-                      ? 'bg-slate-900 text-white shadow-sm'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  All ({sem4AllTeams.length})
-                </button>
-                <button
-                  onClick={() => setProofFilter('SUBMITTED')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-                    proofFilter === 'SUBMITTED'
-                      ? 'bg-emerald-600 text-white shadow-sm'
-                      : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200'
-                  }`}
-                >
-                  <FileCheck className="w-3.5 h-3.5" />
-                  <span>Proof Uploaded ({sem4SubmittedCount})</span>
-                </button>
-                <button
-                  onClick={() => setProofFilter('PENDING')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-                    proofFilter === 'PENDING'
-                      ? 'bg-amber-600 text-white shadow-sm'
-                      : 'bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200'
-                  }`}
-                >
-                  <Clock className="w-3.5 h-3.5" />
-                  <span>Pending Upload ({sem4PendingCount})</span>
-                </button>
-              </div>
-
-              {facultyFilter !== 'ALL' && (
-                <div className="text-xs text-indigo-700 font-bold bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-200 flex items-center gap-1">
-                  <span>Filtered to: {facultyFilter}</span>
-                  <button onClick={() => setFacultyFilter('ALL')} className="text-indigo-400 hover:text-indigo-800 ml-1">✕</button>
-                </div>
-              )}
+          {/* Submission / Proof Status Buttons Filter */}
+          <div className="flex items-center justify-between pt-2 border-t border-slate-100 flex-wrap gap-2">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[11px] font-bold text-slate-500 mr-1 uppercase">Filter Submission:</span>
+              <button
+                onClick={() => setProofFilter('ALL')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                  proofFilter === 'ALL'
+                    ? 'bg-slate-900 text-white shadow-sm'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                All ({activeTab === 4 ? sem4AllTeams.length : sem5AllTeams.length})
+              </button>
+              <button
+                onClick={() => setProofFilter('SUBMITTED')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                  proofFilter === 'SUBMITTED'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200'
+                }`}
+              >
+                <FileCheck className="w-3.5 h-3.5" />
+                <span>{activeTab === 4 ? `Proof Uploaded (${sem4SubmittedCount})` : `Deliverables Submitted (${sem5SubmittedCount})`}</span>
+              </button>
+              <button
+                onClick={() => setProofFilter('PENDING')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                  proofFilter === 'PENDING'
+                    ? 'bg-amber-600 text-white shadow-sm'
+                    : 'bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200'
+                }`}
+              >
+                <Clock className="w-3.5 h-3.5" />
+                <span>{activeTab === 4 ? `Pending Upload (${sem4PendingCount})` : `Pending Submission (${sem5PendingCount})`}</span>
+              </button>
             </div>
-          )}
+
+            {facultyFilter !== 'ALL' && (
+              <div className="text-xs text-indigo-700 font-bold bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-200 flex items-center gap-1">
+                <span>Filtered to: {facultyFilter}</span>
+                <button onClick={() => setFacultyFilter('ALL')} className="text-indigo-400 hover:text-indigo-800 ml-1">✕</button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* ========================================================================= */}
@@ -768,9 +850,78 @@ export default function AdminTeamsPage() {
             )}
           </div>
         ) : (
-          /* 5TH SEMESTER PBL PROJECTS DISPLAY */
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {filteredTeams.map(t => renderTeamCard(t, false))}
+          /* 5TH SEMESTER PBL PROJECTS DISPLAY: SUBMITTED TEAMS AT TOP, PENDING TEAMS BELOW */
+          <div className="space-y-8">
+            {/* SECTION 1: 5TH SEMESTER DELIVERABLES SUBMITTED */}
+            {(proofFilter === 'ALL' || proofFilter === 'SUBMITTED') && (
+              <div className="space-y-4">
+                <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-xl bg-emerald-600 text-white">
+                      <FileCheck className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-extrabold text-emerald-950">
+                        Deliverables Submitted by Student Teams (1st Review Reports)
+                      </h3>
+                      <p className="text-xs text-emerald-700">
+                        Teams who have successfully uploaded project reports, IEEE papers, or phase deliverables.
+                      </p>
+                    </div>
+                  </div>
+                  <span className="px-3 py-1 rounded-full bg-emerald-600 text-white font-extrabold text-xs shadow-sm self-start sm:self-auto">
+                    {submitted5thFiltered.length} Teams Submitted
+                  </span>
+                </div>
+
+                {submitted5thFiltered.length === 0 ? (
+                  <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center space-y-2">
+                    <FileX className="w-8 h-8 text-slate-300 mx-auto" />
+                    <p className="text-xs font-bold text-slate-600">No submitted deliverables match this filter.</p>
+                    <p className="text-[11px] text-slate-400">Try adjusting section filters or check pending teams below.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {submitted5thFiltered.map(t => renderTeamCard(t, true))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* SECTION 2: 5TH SEMESTER SUBMISSIONS PENDING */}
+            {(proofFilter === 'ALL' || proofFilter === 'PENDING') && (
+              <div className="space-y-4">
+                <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-xl bg-amber-600 text-white">
+                      <Clock className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-extrabold text-amber-950">
+                        Pending Deliverable Submissions (Student Team Upload Awaiting)
+                      </h3>
+                      <p className="text-xs text-amber-800">
+                        These 5th semester teams have not yet uploaded their Phase 1 Review Report document.
+                      </p>
+                    </div>
+                  </div>
+                  <span className="px-3 py-1 rounded-full bg-amber-600 text-white font-extrabold text-xs shadow-sm self-start sm:self-auto">
+                    {pending5thFiltered.length} Teams Pending
+                  </span>
+                </div>
+
+                {pending5thFiltered.length === 0 ? (
+                  <div className="bg-white border border-emerald-200 rounded-2xl p-8 text-center space-y-2">
+                    <CheckCircle className="w-8 h-8 text-emerald-500 mx-auto" />
+                    <p className="text-xs font-bold text-emerald-800">Outstanding! All teams in this selection have submitted their deliverables.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {pending5thFiltered.map(t => renderTeamCard(t, false))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 

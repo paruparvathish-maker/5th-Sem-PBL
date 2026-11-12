@@ -1,17 +1,19 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth/auth-context';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { store } from '@/lib/data/store';
-import { Users, BookOpen, Mail, ShieldCheck, UserCheck, AlertCircle, Edit2, Save, X, CheckCircle2 } from 'lucide-react';
+import { Users, BookOpen, Mail, ShieldCheck, UserCheck, AlertCircle, Edit2, Save, X, CheckCircle2, RefreshCw } from 'lucide-react';
 
 export default function StudentTeamPage() {
   const { user } = useAuth();
   if (!user) return null;
 
-  // Strict isolation: fetch ONLY the student's own team
-  const [team, setTeam] = useState(store.getTeamByStudentId(user.id));
+  // Strict isolation: fetch student's own 5th sem team with multiple identifier fallbacks
+  const [team, setTeam] = useState(store.getTeamByStudentId(user.id || user.usn || user.email));
+  const [isLoading, setIsLoading] = useState(!team);
+
   const deadline = store.getAllDeadlines().find(d => d.id === 'dl-003');
   const isPastDeadline = deadline ? new Date() > new Date(deadline.dueDate) : false;
 
@@ -19,6 +21,25 @@ export default function StudentTeamPage() {
   const [editTitle, setEditTitle] = useState(team?.projectTitle || '');
   const [editDesc, setEditDesc] = useState(team?.projectDescription || '');
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  useEffect(() => {
+    const initial = store.getTeamByStudentId(user.id || user.usn || user.email);
+    if (initial) {
+      setTeam(initial);
+      setEditTitle(initial.projectTitle || '');
+      setEditDesc(initial.projectDescription || '');
+      setIsLoading(false);
+    }
+    store.syncFromSupabase().then(() => {
+      const refreshed = store.getTeamByStudentId(user.id || user.usn || user.email);
+      setTeam(refreshed);
+      if (refreshed) {
+        setEditTitle(refreshed.projectTitle || '');
+        setEditDesc(refreshed.projectDescription || '');
+      }
+      setIsLoading(false);
+    });
+  }, [user.id, user.usn, user.email]);
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,6 +54,18 @@ export default function StudentTeamPage() {
       setMessage({ type: 'error', text: result.error || 'Failed to update details.' });
     }
   };
+
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <div className="p-12 text-center bg-white rounded-2xl border border-slate-200 shadow-sm max-w-lg mx-auto space-y-3">
+          <RefreshCw className="h-8 w-8 text-indigo-600 animate-spin mx-auto" />
+          <h3 className="text-base font-bold text-slate-800">Loading Team Allocation...</h3>
+          <p className="text-xs text-slate-500">Fetching project assignment from database.</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   if (!team) {
     return (

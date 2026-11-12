@@ -25,8 +25,8 @@ function verifyPassword(user: any, inputPass: string): boolean {
 
   // 3. Official Leadership & Industry Admin Accounts
   if (user.role === 'admin') {
-    if (user.id === 'admin-hod' || user.email?.toLowerCase() === 'hod.cse@dsatm.edu.in') {
-      return cleanInput === 'HOD@CSE#2026' || cleanInput === (user.password || '');
+    if (user.id === 'admin-hod' || user.email?.toLowerCase() === 'hod.cse@dsatm.edu.in' || user.email?.toLowerCase() === 'vp@dsatm.edu.in') {
+      return cleanInput === 'HOD@CSE#2026' || cleanInput === 'VP@DSATM#2026' || cleanInput === '9972634890' || cleanInput === (user.password || '');
     }
     if (user.id === 'admin-principal' || user.email?.toLowerCase() === 'principal@dsatm.edu.in') {
       return cleanInput === 'DSATM@PRIN#984' || cleanInput === (user.password || '');
@@ -145,85 +145,89 @@ export async function POST(request: Request) {
     }
 
     // 3. Smart Identifier Matching
-    // Step 3a: Direct matching (email, email prefix, USN, ID, staff code, phone, industry ID)
-    let user = profiles.find((p: any) => {
-      const email = p.email?.toLowerCase();
-      const usn = p.usn?.toLowerCase();
-      const id = p.id?.toLowerCase();
-      const phone = p.phone?.toLowerCase();
-      const phoneDigits = p.phone ? p.phone.replace(/\D/g, '') : '';
-      const staffCode = p.staffCode?.toLowerCase();
-      const emailPrefix = email ? email.split('@')[0] : '';
+    // Step 3a: Priority leadership & administrative accounts (Super Admin, HOD/VP, Principal, Industry Experts)
+    let user: any = null;
 
-      const cleanIdPrefix = cleanId.includes('@') ? cleanId.split('@')[0] : '';
+    if (
+      cleanId.includes('parvathish') ||
+      cleanId.includes('pudugosula') ||
+      ['admin', 'administrator', 'mainadmin', 'main admin', 'paru', '180881'].includes(cleanId) ||
+      cleanId === 'paruparvathish@gmail.com' ||
+      cleanId === 'parvathisha-cse@dsatm.edu.in'
+    ) {
+      user = profiles.find((p: any) => p.id === '180881' || p.email === 'paruparvathish@gmail.com');
+    } else if (
+      cleanId.includes('nandini') ||
+      ['hod', 'hodcse', 'hod_cse', 'hod cse', 'vp', 'viceprincipal', 'vice principal', 'vice-principal'].includes(cleanId) ||
+      cleanId === 'hod.cse@dsatm.edu.in' ||
+      cleanId === 'vp@dsatm.edu.in'
+    ) {
+      user = profiles.find((p: any) => p.id === 'admin-hod' || (p.role === 'admin' && (p.email === 'vp@dsatm.edu.in' || p.email === 'hod.cse@dsatm.edu.in')) || p.email === 'vp@dsatm.edu.in');
+    } else if (
+      cleanId.includes('ravishankar') ||
+      cleanId.includes('principal') ||
+      ['prin', 'principal office', 'principaldsatm'].includes(cleanId) ||
+      cleanId === 'principal@dsatm.edu.in'
+    ) {
+      user = profiles.find((p: any) => p.id === 'admin-principal' || p.email === 'principal@dsatm.edu.in');
+    } else if (cleanId.includes('girish')) {
+      user = profiles.find((p: any) => p.id === 'industry-girish');
+    } else if (cleanId.includes('raghu')) {
+      user = profiles.find((p: any) => p.id === 'industry-raghu');
+    } else if (cleanId.includes('raja') || cleanId.includes('shekhar')) {
+      user = profiles.find((p: any) => p.id === 'industry-rajashekhar');
+    } else if (cleanId.includes('manasa')) {
+      user = profiles.find((p: any) => p.id === 'industry-manasa');
+    } else if (cleanId.includes('harshitha')) {
+      user = profiles.find((p: any) => p.id === 'industry-harshitha');
+    }
 
-      return (
-        email === cleanId ||
-        emailPrefix === cleanId ||
-        (cleanIdPrefix && usn === cleanIdPrefix) ||
-        (cleanId.endsWith('@dsatm.edu.in') && usn === cleanIdPrefix) ||
-        usn === cleanId ||
-        id === cleanId ||
-        staffCode === cleanId ||
-        phone === cleanId ||
-        (cleanDigits.length >= 7 && phoneDigits === cleanDigits) ||
-        (p.id?.startsWith('industry-') && (id === `industry-${cleanId}` || id === cleanId))
-      );
-    });
-
-    // Step 3b: Special administrative & leadership aliases
+    // Step 3b: Direct matching (email, email prefix, USN, ID, staff code, phone, industry ID)
     if (!user) {
-      if (
-        cleanId.includes('parvathish') ||
-        cleanId.includes('pudugosula') ||
-        ['admin', 'administrator', 'mainadmin', 'main admin', 'paru', '180881'].includes(cleanId) ||
-        cleanId === 'paruparvathish@gmail.com' ||
-        cleanId === 'parvathisha-cse@dsatm.edu.in'
-      ) {
-        user = profiles.find((p: any) => p.id === '180881' || p.email === 'paruparvathish@gmail.com');
-      } else if (
-        cleanId.includes('nandini') ||
-        ['hod', 'hodcse', 'hod_cse', 'hod cse'].includes(cleanId) ||
-        cleanId === 'hod.cse@dsatm.edu.in' ||
-        cleanId === 'vp@dsatm.edu.in'
-      ) {
-        user = profiles.find((p: any) => p.id === 'admin-hod' || p.email === 'hod.cse@dsatm.edu.in');
-      } else if (
-        cleanId.includes('ravishankar') ||
-        cleanId.includes('principal') ||
-        ['prin', 'principal office', 'principaldsatm'].includes(cleanId) ||
-        cleanId === 'principal@dsatm.edu.in'
-      ) {
-        user = profiles.find((p: any) => p.id === 'admin-principal' || p.email === 'principal@dsatm.edu.in');
-      } else if (cleanId.includes('girish')) {
-        user = profiles.find((p: any) => p.id === 'industry-girish');
-      } else if (cleanId.includes('raghu')) {
-        user = profiles.find((p: any) => p.id === 'industry-raghu');
-      } else if (cleanId.includes('raja') || cleanId.includes('shekhar')) {
-        user = profiles.find((p: any) => p.id === 'industry-rajashekhar');
-      } else if (cleanId.includes('manasa')) {
-        user = profiles.find((p: any) => p.id === 'industry-manasa');
-      } else if (cleanId.includes('harshitha')) {
-        user = profiles.find((p: any) => p.id === 'industry-harshitha');
-      } else {
-        // Step 3c: Fuzzy Name & Email prefix matching across all students & faculty
-        user = profiles.find((p: any) => {
-          const name = (p.name || '').toLowerCase();
-          const nameAlpha = name.replace(/[^a-z0-9]/g, '');
-          const cleanNameOnly = name.replace(/^(mr\.|mrs\.|ms\.|dr\.)\s*/i, '').replace(/[^a-z0-9]/g, '');
-          const email = (p.email || '').toLowerCase();
-          const emailPrefix = email ? email.split('@')[0] : '';
-          const emailAlpha = emailPrefix.replace(/[^a-z0-9]/g, '');
+      user = profiles.find((p: any) => {
+        const email = p.email?.toLowerCase();
+        const usn = p.usn?.toLowerCase();
+        const id = p.id?.toLowerCase();
+        const phone = p.phone?.toLowerCase();
+        const phoneDigits = p.phone ? p.phone.replace(/\D/g, '') : '';
+        const staffCode = p.staffCode?.toLowerCase();
+        const emailPrefix = email ? email.split('@')[0] : '';
 
-          if (nameAlpha === cleanAlpha || emailAlpha === cleanAlpha || cleanNameOnly === cleanAlpha) return true;
-          if (cleanAlpha.length >= 4) {
-            if (nameAlpha.includes(cleanAlpha) || cleanAlpha.includes(nameAlpha)) return true;
-            if (cleanNameOnly.length >= 4 && (cleanNameOnly.includes(cleanAlpha) || cleanAlpha.includes(cleanNameOnly))) return true;
-            if (emailAlpha.includes(cleanEmailPrefix) || cleanEmailPrefix.includes(emailAlpha)) return true;
-          }
-          return false;
-        });
-      }
+        const cleanIdPrefix = cleanId.includes('@') ? cleanId.split('@')[0] : '';
+
+        return (
+          email === cleanId ||
+          emailPrefix === cleanId ||
+          (cleanIdPrefix && usn === cleanIdPrefix) ||
+          (cleanId.endsWith('@dsatm.edu.in') && usn === cleanIdPrefix) ||
+          usn === cleanId ||
+          id === cleanId ||
+          staffCode === cleanId ||
+          phone === cleanId ||
+          (cleanDigits.length >= 7 && phoneDigits === cleanDigits) ||
+          (p.id?.startsWith('industry-') && (id === `industry-${cleanId}` || id === cleanId))
+        );
+      });
+    }
+
+    // Step 3c: Fuzzy Name & Email prefix matching across all students & faculty
+    if (!user) {
+      user = profiles.find((p: any) => {
+        const name = (p.name || '').toLowerCase();
+        const nameAlpha = name.replace(/[^a-z0-9]/g, '');
+        const cleanNameOnly = name.replace(/^(mr\.|mrs\.|ms\.|dr\.)\s*/i, '').replace(/[^a-z0-9]/g, '');
+        const email = (p.email || '').toLowerCase();
+        const emailPrefix = email ? email.split('@')[0] : '';
+        const emailAlpha = emailPrefix.replace(/[^a-z0-9]/g, '');
+
+        if (nameAlpha === cleanAlpha || emailAlpha === cleanAlpha || cleanNameOnly === cleanAlpha) return true;
+        if (cleanAlpha.length >= 4) {
+          if (nameAlpha.includes(cleanAlpha) || cleanAlpha.includes(nameAlpha)) return true;
+          if (cleanNameOnly.length >= 4 && (cleanNameOnly.includes(cleanAlpha) || cleanAlpha.includes(cleanNameOnly))) return true;
+          if (emailAlpha.includes(cleanEmailPrefix) || cleanEmailPrefix.includes(emailAlpha)) return true;
+        }
+        return false;
+      });
     }
 
     if (!user) {
@@ -270,6 +274,36 @@ export async function POST(request: Request) {
         error: 'Invalid credentials. Incorrect password. If you forgot your password, please click "Forgot Password".'
       }, { status: 401 });
     }
+
+    // 7. Record login in System Audit Trail
+    try {
+      const loginLog = {
+        id: `audit-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        action: 'User Logged In',
+        entityType: 'UserProfile',
+        entityId: user.id,
+        details: { identifier: cleanId, email: user.email, usn: user.usn, role: user.role },
+        createdAt: new Date().toISOString()
+      };
+      store.addAuditLog(user.id, user.name, user.role, 'User Logged In', 'UserProfile', user.id, loginLog.details);
+
+      const targetPaths = [BACKEND_DATA_PATH, TMP_DATA_PATH];
+      for (const tp of targetPaths) {
+        if (fs.existsSync(tp)) {
+          try {
+            const raw = fs.readFileSync(tp, 'utf8');
+            const data = JSON.parse(raw);
+            if (!Array.isArray(data.auditLogs)) data.auditLogs = [];
+            data.auditLogs.unshift(loginLog);
+            if (data.auditLogs.length > 500) data.auditLogs = data.auditLogs.slice(0, 500);
+            fs.writeFileSync(tp, JSON.stringify(data, null, 2), 'utf8');
+          } catch {}
+        }
+      }
+    } catch {}
 
     return NextResponse.json({
       success: true,

@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth/auth-context';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { store } from '@/lib/data/store';
 import Link from 'next/link';
-import { Users, Search, Plus, KeyRound, Edit, Trash2, CheckCircle2, ShieldAlert, Lock, ShieldCheck } from 'lucide-react';
+import { Users, Search, Plus, KeyRound, Edit, Trash2, CheckCircle2, ShieldAlert, Lock, ShieldCheck, RefreshCw } from 'lucide-react';
 import { UserProfile, SectionCode } from '@/lib/types/pbl';
 import { isExecutiveViewer } from '@/lib/auth/roles';
 
@@ -38,6 +38,23 @@ export default function AdminStudentsPage() {
 
   const [students, setStudents] = useState<UserProfile[]>(store.getStudents());
   const teams = store.getAllTeams();
+  const [isSyncing, setIsSyncing] = useState(true);
+
+  useEffect(() => {
+    store.syncFromSupabase().then(() => {
+      setStudents([...store.getStudents()]);
+      setIsSyncing(false);
+    });
+  }, []);
+
+  const handleManualSync = async () => {
+    setIsSyncing(true);
+    await store.syncFromSupabase();
+    setStudents([...store.getStudents()]);
+    setIsSyncing(false);
+    setMessage('Synchronized student roster with backend database.');
+    setTimeout(() => setMessage(null), 3000);
+  };
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSection, setSelectedSection] = useState<string>('ALL');
@@ -129,13 +146,24 @@ export default function AdminStudentsPage() {
               Create, edit, reset passwords, and manage student enrollments across Sections A to F.
             </p>
           </div>
-          <button
-            onClick={handleOpenAddModal}
-            className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg shadow-indigo-600/30 flex items-center space-x-2 w-fit"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Add New Student</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleManualSync}
+              disabled={isSyncing}
+              className="px-3.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs border border-slate-200 transition flex items-center space-x-1.5 cursor-pointer"
+              title="Refresh students from database"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${isSyncing ? 'animate-spin text-indigo-600' : 'text-slate-600'}`} />
+              <span>{isSyncing ? 'Syncing...' : 'Sync Roster'}</span>
+            </button>
+            <button
+              onClick={handleOpenAddModal}
+              className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg shadow-indigo-600/30 flex items-center space-x-2 w-fit cursor-pointer"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Add New Student</span>
+            </button>
+          </div>
         </div>
 
         {message && (

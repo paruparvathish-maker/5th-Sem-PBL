@@ -1,6 +1,14 @@
 import { Team, UserProfile, Deadline, Submission, Evaluation, GuideMeeting } from '../types/pbl';
 
 const getFastApiBaseUrl = () => {
+  if (typeof window !== 'undefined') {
+    if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+      return '';
+    }
+    if (window.location.protocol === 'https:' && process.env.NEXT_PUBLIC_FASTAPI_URL?.startsWith('http://')) {
+      return '';
+    }
+  }
   if (process.env.NEXT_PUBLIC_FASTAPI_URL && !process.env.NEXT_PUBLIC_FASTAPI_URL.includes('backend-beta-kohl-9pcedk6q96.vercel.app')) {
     return process.env.NEXT_PUBLIC_FASTAPI_URL;
   }

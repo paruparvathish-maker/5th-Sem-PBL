@@ -21,8 +21,16 @@ export async function POST(request: Request) {
       }, { status: 404 });
     }
 
-    const targetEmail = resolved.targetEmail || 
+    let targetEmail = resolved.targetEmail || 
       (clean.includes('@') ? clean.toLowerCase() : resolved.user.email?.toLowerCase());
+
+    if (targetEmail) {
+      targetEmail = targetEmail
+        .replace(/@(teststudent|student)\.dsatm\.edu\.in/gi, '@dsatm.edu.in')
+        .replace(/@([a-z0-9_-]+)\.teststudent\.dsatm\.edu\.in/gi, '@dsatm.edu.in')
+        .replace(/@teststudent\./gi, '@')
+        .trim();
+    }
 
     if (!targetEmail || !targetEmail.includes('@')) {
       return NextResponse.json({

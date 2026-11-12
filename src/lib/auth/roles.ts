@@ -21,11 +21,14 @@ export function isExecutiveViewer(user?: { id?: string; email?: string; role?: s
 
   return (
     id === 'admin-hod' ||
+    id === 'admin-vp' ||
     id === 'admin-principal' ||
     id === 'admin-industry' ||
     id.startsWith('industry-') ||
+    email === 'vp@dsatm.edu.in' ||
     email === 'hod.cse@dsatm.edu.in' ||
     email === 'principal@dsatm.edu.in' ||
+    email.startsWith('vp@') ||
     email.includes('industry') ||
     email.includes('hod') ||
     email.includes('principal')

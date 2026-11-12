@@ -76,23 +76,22 @@ export async function sendOtpEmail({ to, otp, userName }: SendOtpEmailOptions): 
       return { success: false, error: `Invalid recipient email address: "${to}"` };
     }
 
-    // Safeguard 1: Intercept synthetic test domains from automated test runners
-    if (
-      cleanTo.includes('@teststudent.') ||
-      cleanTo.includes('teststudent.dsatm.edu.in') ||
-      cleanTo.endsWith('@example.com') ||
-      cleanTo.endsWith('@test.com') ||
-      cleanTo.endsWith('.test')
-    ) {
-      console.log(`[Mailer] Simulated OTP email dispatch for synthetic test address: ${cleanTo} (Skipped SMTP network call to prevent Gmail bounce alerts)`);
-      return { success: true };
-    }
+    // Step 1: Normalize any legacy or mistyped subdomains (teststudent, student) to official @dsatm.edu.in
+    let effectiveTo = cleanTo
+      .replace(/@(teststudent|student)\.dsatm\.edu\.in/gi, '@dsatm.edu.in')
+      .replace(/@([a-z0-9_-]+)\.teststudent\.dsatm\.edu\.in/gi, '@dsatm.edu.in')
+      .replace(/@teststudent\./gi, '@')
+      .trim();
 
-    // Safeguard 2: Auto-correct legacy or mistyped student.dsatm.edu.in to active dsatm.edu.in mailbox
-    let effectiveTo = cleanTo;
-    if (effectiveTo.endsWith('@student.dsatm.edu.in')) {
-      effectiveTo = effectiveTo.replace('@student.dsatm.edu.in', '@dsatm.edu.in');
-      console.log(`[Mailer] Auto-corrected recipient domain to active institutional address: ${effectiveTo}`);
+    // Step 2: Intercept unresolvable synthetic test domains to prevent Gmail bounce alerts
+    if (
+      effectiveTo.includes('teststudent') ||
+      effectiveTo.endsWith('@example.com') ||
+      effectiveTo.endsWith('@test.com') ||
+      effectiveTo.endsWith('.test')
+    ) {
+      console.log(`[Mailer] Simulated OTP email dispatch for synthetic test address: ${effectiveTo} (Skipped SMTP network call to prevent Gmail bounce alerts)`);
+      return { success: true };
     }
 
     const textContent = `Dayananda Sagar Academy of Technology & Management (DSATM)
@@ -201,11 +200,11 @@ Portal: ${getAppOrigin()}
           }
         });
 
-        console.log(`[Mailer] OTP email dispatched successfully to ${cleanTo} on attempt ${attempt} (MessageId: ${info.messageId})`);
+        console.log(`[Mailer] OTP email dispatched successfully to ${effectiveTo} on attempt ${attempt} (MessageId: ${info.messageId})`);
         return { success: true };
       } catch (err: any) {
         lastError = err;
-        console.warn(`[Mailer] OTP dispatch attempt ${attempt} failed for ${cleanTo}:`, err.message);
+        console.warn(`[Mailer] OTP dispatch attempt ${attempt} failed for ${effectiveTo}:`, err.message);
         if (attempt === 1) {
           await new Promise(r => setTimeout(r, 600));
         }
@@ -240,23 +239,22 @@ export async function sendActivationEmail({ to, userName, activationLink }: Send
       return { success: false, error: `Invalid recipient email address: "${to}"` };
     }
 
-    // Safeguard 1: Intercept synthetic test domains from automated test runners
-    if (
-      cleanTo.includes('@teststudent.') ||
-      cleanTo.includes('teststudent.dsatm.edu.in') ||
-      cleanTo.endsWith('@example.com') ||
-      cleanTo.endsWith('@test.com') ||
-      cleanTo.endsWith('.test')
-    ) {
-      console.log(`[Mailer] Simulated OTP email dispatch for synthetic test address: ${cleanTo} (Skipped SMTP network call to prevent Gmail bounce alerts)`);
-      return { success: true };
-    }
+    // Step 1: Normalize any legacy or mistyped subdomains (teststudent, student) to official @dsatm.edu.in
+    let effectiveTo = cleanTo
+      .replace(/@(teststudent|student)\.dsatm\.edu\.in/gi, '@dsatm.edu.in')
+      .replace(/@([a-z0-9_-]+)\.teststudent\.dsatm\.edu\.in/gi, '@dsatm.edu.in')
+      .replace(/@teststudent\./gi, '@')
+      .trim();
 
-    // Safeguard 2: Auto-correct legacy or mistyped student.dsatm.edu.in to active dsatm.edu.in mailbox
-    let effectiveTo = cleanTo;
-    if (effectiveTo.endsWith('@student.dsatm.edu.in')) {
-      effectiveTo = effectiveTo.replace('@student.dsatm.edu.in', '@dsatm.edu.in');
-      console.log(`[Mailer] Auto-corrected recipient domain to active institutional address: ${effectiveTo}`);
+    // Step 2: Intercept unresolvable synthetic test domains to prevent Gmail bounce alerts
+    if (
+      effectiveTo.includes('teststudent') ||
+      effectiveTo.endsWith('@example.com') ||
+      effectiveTo.endsWith('@test.com') ||
+      effectiveTo.endsWith('.test')
+    ) {
+      console.log(`[Mailer] Simulated OTP email dispatch for synthetic test address: ${effectiveTo} (Skipped SMTP network call to prevent Gmail bounce alerts)`);
+      return { success: true };
     }
 
     const textContent = `Dayananda Sagar Academy of Technology & Management (DSATM)
@@ -376,11 +374,11 @@ Portal: ${getAppOrigin()}
           }
         });
 
-        console.log(`[Mailer] Activation email dispatched successfully to ${cleanTo} on attempt ${attempt} (MessageId: ${info.messageId})`);
+        console.log(`[Mailer] Activation email dispatched successfully to ${effectiveTo} on attempt ${attempt} (MessageId: ${info.messageId})`);
         return { success: true };
       } catch (err: any) {
         lastError = err;
-        console.warn(`[Mailer] Activation dispatch attempt ${attempt} failed for ${cleanTo}:`, err.message);
+        console.warn(`[Mailer] Activation dispatch attempt ${attempt} failed for ${effectiveTo}:`, err.message);
         if (attempt === 1) {
           await new Promise(r => setTimeout(r, 600));
         }

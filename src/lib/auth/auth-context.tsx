@@ -198,6 +198,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Direct sync to backend authentication APIs
       try {
         const getFastApiUrl = () => {
+          if (typeof window !== 'undefined') {
+            if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+              return '';
+            }
+            if (window.location.protocol === 'https:' && process.env.NEXT_PUBLIC_FASTAPI_URL?.startsWith('http://')) {
+              return '';
+            }
+          }
           if (process.env.NEXT_PUBLIC_FASTAPI_URL && !process.env.NEXT_PUBLIC_FASTAPI_URL.includes('backend-beta-kohl-9pcedk6q96.vercel.app')) {
             return process.env.NEXT_PUBLIC_FASTAPI_URL;
           }
@@ -231,7 +239,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = () => {
     if (user) {
-      store.addAuditLog(user.id, user.name, user.role, 'User Logged Out', 'UserProfile', user.id);
+      store.addAuditLog(user.id, user.name, user.role, 'User Logged Out', 'UserProfile', user.id, {
+        email: user.email,
+        usn: user.usn,
+        role: user.role
+      });
+      try {
+        const payload = JSON.stringify({
+          userId: user.id,
+          userName: user.name,
+          userRole: user.role,
+          action: 'User Logged Out',
+          entityType: 'UserProfile',
+          entityId: user.id,
+          details: { email: user.email, usn: user.usn, role: user.role }
+        });
+        if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
+          navigator.sendBeacon('/api/audit/log', payload);
+        } else {
+          fetch('/api/audit/log', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: payload,
+            keepalive: true
+          }).catch(() => {});
+        }
+      } catch {}
     }
     setUser(null);
     localStorage.removeItem('pbl_session_user');

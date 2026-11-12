@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth/auth-context';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { store } from '@/lib/data/store';
 import Link from 'next/link';
-import { BookOpen, Search, Plus, KeyRound, Edit, CheckCircle2, ShieldCheck, Lock } from 'lucide-react';
+import { BookOpen, Search, Plus, KeyRound, Edit, CheckCircle2, ShieldCheck, Lock, RefreshCw } from 'lucide-react';
 import { UserProfile } from '@/lib/types/pbl';
 import { isExecutiveViewer } from '@/lib/auth/roles';
 
@@ -38,6 +38,23 @@ export default function AdminFacultyPage() {
 
   const [facultyList, setFacultyList] = useState<UserProfile[]>(store.getFaculty());
   const teams = store.getAllTeams();
+  const [isSyncing, setIsSyncing] = useState(true);
+
+  useEffect(() => {
+    store.syncFromSupabase().then(() => {
+      setFacultyList([...store.getFaculty()]);
+      setIsSyncing(false);
+    });
+  }, []);
+
+  const handleManualSync = async () => {
+    setIsSyncing(true);
+    await store.syncFromSupabase();
+    setFacultyList([...store.getFaculty()]);
+    setIsSyncing(false);
+    setMessage('Synchronized faculty roster with backend database.');
+    setTimeout(() => setMessage(null), 3000);
+  };
 
   const [searchTerm, setSearchTerm] = useState('');
   const [message, setMessage] = useState<string | null>(null);
@@ -113,13 +130,24 @@ export default function AdminFacultyPage() {
               Manage faculty profiles, guide allocations across sections, and workload metrics.
             </p>
           </div>
-          <button
-            onClick={handleOpenAddModal}
-            className="px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shadow-lg shadow-amber-600/30 flex items-center space-x-2 w-fit"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Add Faculty Member</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleManualSync}
+              disabled={isSyncing}
+              className="px-3.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs border border-slate-200 transition flex items-center space-x-1.5 cursor-pointer"
+              title="Refresh faculty from database"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${isSyncing ? 'animate-spin text-amber-600' : 'text-slate-600'}`} />
+              <span>{isSyncing ? 'Syncing...' : 'Sync Roster'}</span>
+            </button>
+            <button
+              onClick={handleOpenAddModal}
+              className="px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shadow-lg shadow-amber-600/30 flex items-center space-x-2 w-fit cursor-pointer"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Add Faculty Member</span>
+            </button>
+          </div>
         </div>
 
         {message && (

@@ -266,6 +266,8 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: Profil
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-indigo-500/30 text-indigo-200 border border-indigo-400/30">
                         {industryAccess.isIndustry
                           ? 'Industry Evaluator'
+                          : (user.email === 'vp@dsatm.edu.in' || user.id === 'admin-hod')
+                          ? 'Vice Principal & HOD'
                           : isExec
                           ? 'Executive Leadership'
                           : user.role === 'admin'

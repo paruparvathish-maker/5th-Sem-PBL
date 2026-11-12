@@ -120,7 +120,7 @@ export async function resolveUserForAuth(identifier: string): Promise<ResolvedUs
 
   // Auto-extract student USN from DSATM email (e.g. 1dt24cs010@dsatm.edu.in -> 1DT24CS010)
   let inferredUsn = '';
-  if (cleanLower.endsWith('@dsatm.edu.in') || cleanLower.endsWith('@student.dsatm.edu.in')) {
+  if (cleanLower.endsWith('@dsatm.edu.in') || cleanLower.includes('student.dsatm.edu.in') || cleanLower.includes('teststudent.')) {
     const prefix = cleanLower.split('@')[0].toUpperCase();
     if (prefix.startsWith('1DT')) {
       inferredUsn = prefix;
@@ -213,12 +213,17 @@ export async function resolveUserForAuth(identifier: string): Promise<ResolvedUs
   if (baseUser.role === 'student' && (baseUser.usn || inferredUsn)) {
     const studentUsn = (baseUser.usn || inferredUsn).toLowerCase();
     realEmail = `${studentUsn}@dsatm.edu.in`;
-  } else if (matchedCred && matchedCred.email && matchedCred.email.includes('@') && !matchedCred.email.endsWith('@student.dsatm.edu.in')) {
+  } else if (matchedCred && matchedCred.email && matchedCred.email.includes('@') && !matchedCred.email.includes('student.dsatm.edu.in')) {
     realEmail = matchedCred.email.toLowerCase().trim();
-  } else if (clean.includes('@') && !cleanLower.endsWith('@student.dsatm.edu.in')) {
+  } else if (clean.includes('@') && !cleanLower.includes('student.dsatm.edu.in')) {
     realEmail = cleanLower;
-  } else if (baseUser.email && !baseUser.email.endsWith('@student.dsatm.edu.in')) {
+  } else if (baseUser.email && !baseUser.email.includes('student.dsatm.edu.in')) {
     realEmail = baseUser.email.toLowerCase().trim();
+  }
+
+  // Normalize any teststudent / student subdomains to official @dsatm.edu.in
+  if (realEmail) {
+    realEmail = realEmail.replace(/@(teststudent|student)\.dsatm\.edu\.in/gi, '@dsatm.edu.in');
   }
 
   // Ensure baseUser has the correct email updated

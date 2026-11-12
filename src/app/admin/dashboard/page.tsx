@@ -8,12 +8,29 @@ import Link from 'next/link';
 import { isExecutiveViewer, getIndustryPersonAccess } from '@/lib/auth/roles';
 import {
   Users, BookOpen, GraduationCap, UploadCloud,
-  Award, Calendar, FileSpreadsheet, History, ShieldAlert, ArrowUpRight
+  Award, Calendar, FileSpreadsheet, History, ShieldAlert, ArrowUpRight, RefreshCw
 } from 'lucide-react';
 
 export default function AdminDashboardPage() {
   const { user } = useAuth();
   if (!user) return null;
+
+  const [isSyncing, setIsSyncing] = React.useState(true);
+  const [refreshCount, setRefreshCount] = React.useState(0);
+
+  React.useEffect(() => {
+    store.syncFromSupabase().then(() => {
+      setIsSyncing(false);
+      setRefreshCount(c => c + 1);
+    });
+  }, []);
+
+  const handleManualRefresh = async () => {
+    setIsSyncing(true);
+    await store.syncFromSupabase();
+    setIsSyncing(false);
+    setRefreshCount(c => c + 1);
+  };
 
   const isExec = isExecutiveViewer(user);
   const industryAccess = getIndustryPersonAccess(user);
@@ -93,6 +110,15 @@ export default function AdminDashboardPage() {
             </div>
 
             <div className="flex items-center space-x-3">
+              <button
+                onClick={handleManualRefresh}
+                disabled={isSyncing}
+                className="px-3.5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs border border-white/20 transition flex items-center space-x-1.5 backdrop-blur-sm cursor-pointer"
+                title="Sync live data from backend database"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${isSyncing ? 'animate-spin text-amber-300' : 'text-white'}`} />
+                <span>{isSyncing ? 'Syncing...' : 'Sync Data'}</span>
+              </button>
               {isExec ? (
                 <Link
                   href="/admin/teams"

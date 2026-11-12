@@ -177,14 +177,15 @@ export async function GET() {
           cloudDynamic.teams.forEach((t: any) => {
             if (t && t.id) {
               const existing = tMap.get(t.id) || {};
-              // Merge user-editable fields (paper status, proofs, edited descriptions)
-              // but always preserve canonical guide mappings, semester, section, and team numbers
+              // Merge user and admin edited fields (paper status, proofs, guides, edited titles & descriptions)
               tMap.set(t.id, {
                 ...existing,
                 ...t,
-                guideName: existing.guideName || t.guideName,
-                guideEmail: existing.guideEmail || t.guideEmail,
-                guideId: existing.guideId || t.guideId,
+                guideName: t.guideName || existing.guideName,
+                guideEmail: t.guideEmail || existing.guideEmail,
+                guideId: t.guideId || existing.guideId,
+                projectTitle: t.projectTitle || existing.projectTitle,
+                projectDescription: t.projectDescription || existing.projectDescription,
                 semester: existing.semester || t.semester,
                 section: existing.section || t.section,
                 teamNumber: existing.teamNumber || t.teamNumber,
@@ -193,6 +194,16 @@ export async function GET() {
             }
           });
           baseData.teams = Array.from(tMap.values());
+        }
+
+        if (Array.isArray(cloudDynamic.auditLogs) && cloudDynamic.auditLogs.length > 0) {
+          const aMap = new Map<string, any>((baseData.auditLogs || []).map((a: any) => [a.id, a]));
+          cloudDynamic.auditLogs.forEach((a: any) => {
+            if (a && a.id) {
+              aMap.set(a.id, { ...(aMap.get(a.id) || {}), ...a });
+            }
+          });
+          baseData.auditLogs = Array.from(aMap.values()).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         }
       }
     } catch (kvErr) {
@@ -281,6 +292,17 @@ export async function POST(request: Request) {
             p.email = 'megha-cse@dsatm.edu.in';
           }
 
+          // Strict institutional guard: Vice Principal & HOD Dr. C Nandini email is vp@dsatm.edu.in with admin role
+          if (p.id === 'admin-hod' || p.email === 'hod.cse@dsatm.edu.in' || (p.role === 'admin' && p.email === 'vp@dsatm.edu.in')) {
+            p.id = 'admin-hod';
+            p.role = 'admin';
+            p.email = 'vp@dsatm.edu.in';
+            p.name = 'Dr. C Nandini (Vice Principal & HOD)';
+            p.isActivated = true;
+            p.isFirstLogin = false;
+            if (!p.password) p.password = 'HOD@CSE#2026';
+          }
+
           const existing = profMap.get(p.id);
           if (!existing) {
             profMap.set(p.id, p);
@@ -292,7 +314,12 @@ export async function POST(request: Request) {
             profMap.set(p.id, {
               ...existing,
               ...p,
-              email: (p.id === 'fac-18' || (p.name && p.name.toLowerCase().includes('megha d'))) ? 'megha-cse@dsatm.edu.in' : (p.email || existing.email),
+              name: (p.id === 'admin-hod' || p.email === 'vp@dsatm.edu.in') ? 'Dr. C Nandini (Vice Principal & HOD)' : (p.name || existing.name),
+              email: (p.id === 'fac-18' || (p.name && p.name.toLowerCase().includes('megha d')))
+                ? 'megha-cse@dsatm.edu.in'
+                : (p.id === 'admin-hod' || p.email === 'hod.cse@dsatm.edu.in')
+                ? 'vp@dsatm.edu.in'
+                : (p.email || existing.email),
               password: finalPass,
               isFirstLogin: finalIsFirstLogin,
               phone: p.phone || existing.phone,
@@ -319,6 +346,12 @@ export async function POST(request: Request) {
             t.guideEmail = 'megha-cse@dsatm.edu.in';
           }
 
+          // Strict institutional guard: Dr. C Nandini guide email is vp@dsatm.edu.in
+          if (t.guideEmail === 'hod.cse@dsatm.edu.in' || (t.guideName && t.guideName.toLowerCase().includes('nandini'))) {
+            t.guideEmail = 'vp@dsatm.edu.in';
+            t.guideId = 'admin-hod';
+          }
+
           const existing = teamMap.get(t.id);
           if (!existing) {
             teamMap.set(t.id, t);
@@ -343,6 +376,8 @@ export async function POST(request: Request) {
               projectDescription,
               guideEmail: (t.guideEmail === 'shreyajayanth27@gmail.com' || (t.guideName && t.guideName.toLowerCase().includes('megha d')))
                 ? 'megha-cse@dsatm.edu.in'
+                : (t.guideEmail === 'hod.cse@dsatm.edu.in' || (t.guideName && t.guideName.toLowerCase().includes('nandini')))
+                ? 'vp@dsatm.edu.in'
                 : (t.guideEmail || existing.guideEmail),
               researchPaperStatus: useIncomingProof ? (t.researchPaperStatus || existing.researchPaperStatus) : (existing.researchPaperStatus || t.researchPaperStatus),
               researchPaperProofName: useIncomingProof ? t.researchPaperProofName : (existing.researchPaperProofName || t.researchPaperProofName),
@@ -415,7 +450,8 @@ export async function POST(request: Request) {
     cloudSaves.push(saveCloudDynamicStore({
       evaluations: merged.evaluations.slice(0, 500),
       guideMeetings: merged.guideMeetings.slice(0, 500),
-      teams: merged.teams.filter((t: any) => t.researchPaperProofName || (t.researchPaperStatus && t.researchPaperStatus !== 'submitted') || (t.projectTitle && t.projectTitle !== 'To Be Decided (TBD)')).slice(0, 500)
+      teams: merged.teams.slice(0, 500),
+      auditLogs: merged.auditLogs.slice(0, 300)
     }));
 
     await Promise.all(cloudSaves).catch((kvErr) => {

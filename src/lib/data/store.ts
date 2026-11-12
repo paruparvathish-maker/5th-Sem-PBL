@@ -100,10 +100,15 @@ class PBLStore {
             admin.email = 'paruparvathish@gmail.com';
             admin.password = '03May@2002@';
           }
-          const hod = this.profiles.find((p: UserProfile) => p.role === 'admin' && (p.id === 'admin-hod' || p.email === 'hod.cse@dsatm.edu.in'));
+          const hod = this.profiles.find((p: UserProfile) => p.id === 'admin-hod' || p.email === 'hod.cse@dsatm.edu.in' || p.email === 'vp@dsatm.edu.in');
           if (hod) {
-            hod.name = 'Dr. C Nandini';
-            hod.email = 'hod.cse@dsatm.edu.in';
+            hod.id = 'admin-hod';
+            hod.role = 'admin';
+            hod.name = 'Dr. C Nandini (Vice Principal & HOD)';
+            hod.email = 'vp@dsatm.edu.in';
+            hod.isActivated = true;
+            hod.isFirstLogin = false;
+            if (!hod.password) hod.password = 'HOD@CSE#2026';
           }
           const prin = this.profiles.find((p: UserProfile) => p.role === 'admin' && (p.id === 'admin-principal' || p.email === 'principal@dsatm.edu.in'));
           if (prin) {
@@ -354,6 +359,19 @@ class PBLStore {
               }
             });
 
+            // Ensure HOD & Vice Principal account is strictly vp@dsatm.edu.in with admin executive access
+            this.profiles.forEach(p => {
+              if (p.id === 'admin-hod' || p.email === 'hod.cse@dsatm.edu.in' || (p.role === 'admin' && p.email === 'vp@dsatm.edu.in')) {
+                p.id = 'admin-hod';
+                p.role = 'admin';
+                p.email = 'vp@dsatm.edu.in';
+                p.name = 'Dr. C Nandini (Vice Principal & HOD)';
+                p.isActivated = true;
+                p.isFirstLogin = false;
+                if (!p.password) p.password = 'HOD@CSE#2026';
+              }
+            });
+
             this.initialized = true;
             return;
           }
@@ -379,8 +397,8 @@ class PBLStore {
 
     const hodAdmin: UserProfile = {
       id: 'admin-hod',
-      email: 'hod.cse@dsatm.edu.in',
-      name: 'Dr. C Nandini',
+      email: 'vp@dsatm.edu.in',
+      name: 'Dr. C Nandini (Vice Principal & HOD)',
       role: 'admin',
       phone: '9972634890',
       password: 'HOD@CSE#2026',
@@ -655,6 +673,15 @@ class PBLStore {
   public async syncFromSupabase() {
     try {
       const getFastApiUrl = () => {
+        if (typeof window !== 'undefined') {
+          // On mobile devices or remote clients, NEVER attempt 127.0.0.1 / localhost to avoid connection timeouts and mixed-content security blocks
+          if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+            return '';
+          }
+          if (window.location.protocol === 'https:' && process.env.NEXT_PUBLIC_FASTAPI_URL?.startsWith('http://')) {
+            return '';
+          }
+        }
         if (process.env.NEXT_PUBLIC_FASTAPI_URL && !process.env.NEXT_PUBLIC_FASTAPI_URL.includes('backend-beta-kohl-9pcedk6q96.vercel.app')) {
           return process.env.NEXT_PUBLIC_FASTAPI_URL;
         }
@@ -1028,6 +1055,15 @@ class PBLStore {
       });
 
       const getFastApiUrl = () => {
+        if (typeof window !== 'undefined') {
+          // On mobile devices or remote clients, NEVER attempt 127.0.0.1 / localhost to avoid connection timeouts and mixed-content security blocks
+          if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+            return '';
+          }
+          if (window.location.protocol === 'https:' && process.env.NEXT_PUBLIC_FASTAPI_URL?.startsWith('http://')) {
+            return '';
+          }
+        }
         if (process.env.NEXT_PUBLIC_FASTAPI_URL && !process.env.NEXT_PUBLIC_FASTAPI_URL.includes('backend-beta-kohl-9pcedk6q96.vercel.app')) {
           return process.env.NEXT_PUBLIC_FASTAPI_URL;
         }
@@ -1087,10 +1123,36 @@ class PBLStore {
     const clean = identifier.trim().toLowerCase();
     const cleanDigits = clean.replace(/\D/g, '');
     const cleanAlpha = clean.replace(/[^a-z0-9]/g, '');
-
     const cleanPrefix = clean.includes('@') ? clean.split('@')[0] : '';
 
-    // 1. Direct matches (email, USN, ID, staff code, phone, exact industry ID)
+    // 1. Special Admin & Leadership Accounts (Priority check)
+    if (
+      clean.includes('parvathish') ||
+      clean.includes('pudugosula') ||
+      ['admin', 'administrator', 'mainadmin', 'main admin', 'paru', '180881'].includes(clean) ||
+      clean === 'paruparvathish@gmail.com' ||
+      clean === 'parvathisha-cse@dsatm.edu.in'
+    ) {
+      return this.profiles.find(p => p.id === '180881' || p.email === 'paruparvathish@gmail.com');
+    }
+    if (
+      clean.includes('nandini') ||
+      ['hod', 'hodcse', 'hod_cse', 'hod cse', 'vp', 'viceprincipal', 'vice principal', 'vice-principal'].includes(clean) ||
+      clean === 'hod.cse@dsatm.edu.in' ||
+      clean === 'vp@dsatm.edu.in'
+    ) {
+      return this.profiles.find(p => p.id === 'admin-hod' || (p.role === 'admin' && (p.email === 'vp@dsatm.edu.in' || p.email === 'hod.cse@dsatm.edu.in')) || p.email === 'vp@dsatm.edu.in');
+    }
+    if (
+      clean.includes('ravishankar') ||
+      clean.includes('principal') ||
+      ['prin', 'principal office', 'principaldsatm'].includes(clean) ||
+      clean === 'principal@dsatm.edu.in'
+    ) {
+      return this.profiles.find(p => p.id === 'admin-principal' || p.email === 'principal@dsatm.edu.in');
+    }
+
+    // 2. Direct matches (email, USN, ID, staff code, phone, exact industry ID)
     let found = this.profiles.find(p => {
       const email = p.email?.toLowerCase();
       const usn = p.usn?.toLowerCase();
@@ -1115,33 +1177,6 @@ class PBLStore {
     });
 
     if (found) return found;
-
-    // 2. Special Admin aliases (Main Admin, HOD, Principal)
-    if (
-      clean.includes('parvathish') ||
-      clean.includes('pudugosula') ||
-      ['admin', 'administrator', 'mainadmin', 'main admin', 'paru', '180881'].includes(clean) ||
-      clean === 'paruparvathish@gmail.com' ||
-      clean === 'parvathisha-cse@dsatm.edu.in'
-    ) {
-      return this.profiles.find(p => p.id === '180881' || p.email === 'paruparvathish@gmail.com');
-    }
-    if (
-      clean.includes('nandini') ||
-      ['hod', 'hodcse', 'hod_cse', 'hod cse'].includes(clean) ||
-      clean === 'hod.cse@dsatm.edu.in' ||
-      clean === 'vp@dsatm.edu.in'
-    ) {
-      return this.profiles.find(p => p.id === 'admin-hod' || p.email === 'hod.cse@dsatm.edu.in');
-    }
-    if (
-      clean.includes('ravishankar') ||
-      clean.includes('principal') ||
-      ['prin', 'principal office', 'principaldsatm'].includes(clean) ||
-      clean === 'principal@dsatm.edu.in'
-    ) {
-      return this.profiles.find(p => p.id === 'admin-principal' || p.email === 'principal@dsatm.edu.in');
-    }
 
     // 3. Industry Expert Aliases (Girish, Raghu, Raja Shekhar, Manasa, Harshitha)
     if (clean.includes('raghu')) {
@@ -1205,8 +1240,8 @@ class PBLStore {
 
     // 3. Predefined Leadership Accounts
     if (user.role === 'admin') {
-      if (user.id === 'admin-hod' || user.email?.toLowerCase() === 'hod.cse@dsatm.edu.in') {
-        return cleanPass === 'HOD@CSE#2026' || cleanPass === (user.password || '');
+      if (user.id === 'admin-hod' || user.email?.toLowerCase() === 'hod.cse@dsatm.edu.in' || user.email?.toLowerCase() === 'vp@dsatm.edu.in') {
+        return cleanPass === 'HOD@CSE#2026' || cleanPass === 'VP@DSATM#2026' || cleanPass === '9972634890' || cleanPass === (user.password || '');
       }
       if (user.id === 'admin-principal' || user.email?.toLowerCase() === 'principal@dsatm.edu.in') {
         return cleanPass === 'DSATM@PRIN#984' || cleanPass === (user.password || '');
@@ -1264,7 +1299,7 @@ class PBLStore {
 
   public getStudents(): UserProfile[] { return this.profiles.filter(p => p.role === 'student'); }
 
-  public getFaculty(): UserProfile[] { return this.profiles.filter(p => p.role === 'faculty'); }
+  public getFaculty(): UserProfile[] { return this.profiles.filter(p => p.role === 'faculty' || p.id === 'admin-hod'); }
 
   public createProfile(profile: Omit<UserProfile, 'id' | 'createdAt'>): UserProfile {
     const newProf: UserProfile = {
@@ -1301,10 +1336,24 @@ class PBLStore {
   public getAllTeams(): Team[] { return this.teams; }
 
   public getTeamByStudentId(studentId: string, semester: 4 | 5 = 5): Team | undefined {
+    if (!studentId) return undefined;
+    const clean = studentId.trim().toLowerCase();
+    const cleanUpper = studentId.trim().toUpperCase();
+
+    const matchesMember = (m: UserProfile) => {
+      return (
+        m.id?.toLowerCase() === clean ||
+        m.usn?.toUpperCase() === cleanUpper ||
+        (m.email && m.email.toLowerCase() === clean) ||
+        (cleanUpper.startsWith('1DT') && m.usn?.toUpperCase() === cleanUpper) ||
+        (m.usn && cleanUpper.includes(m.usn.toUpperCase()))
+      );
+    };
+
     // Strictly prioritize 5th semester project by default, preventing accidental 4th sem mapping
-    const semTeam = this.teams.find(t => (t.semester || 5) === semester && t.members?.some(m => m.id === studentId));
+    const semTeam = this.teams.find(t => (t.semester || 5) === semester && t.members?.some(matchesMember));
     if (semTeam) return semTeam;
-    return this.teams.find(t => t.members?.some(m => m.id === studentId));
+    return this.teams.find(t => t.members?.some(matchesMember));
   }
 
   public getTeamsByGuideId(guideIdentifier: string, semester?: 4 | 5): Team[] {
