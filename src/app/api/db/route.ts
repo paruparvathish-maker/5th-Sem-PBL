@@ -358,7 +358,7 @@ export async function POST(request: Request) {
           } else {
             const existingTime = existing.researchPaperUpdatedAt ? new Date(existing.researchPaperUpdatedAt).getTime() : 0;
             const incomingTime = t.researchPaperUpdatedAt ? new Date(t.researchPaperUpdatedAt).getTime() : 0;
-            const useIncomingProof = incomingTime >= existingTime && Boolean(t.researchPaperProofName || t.researchPaperProofPath);
+            const useIncoming = incomingTime >= existingTime;
 
             // Preserve customized project details against stale default overwrite
             const projectTitle = (t.projectTitle && t.projectTitle !== 'To Be Decided (TBD)')
@@ -368,6 +368,11 @@ export async function POST(request: Request) {
             const projectDescription = (t.projectDescription && t.projectDescription.trim() !== '')
               ? t.projectDescription
               : (existing.projectDescription || t.projectDescription);
+
+            const finalStatus = (useIncoming && t.researchPaperStatus) ? t.researchPaperStatus : (existing.researchPaperStatus || t.researchPaperStatus || 'submitted');
+            const finalProofName = (useIncoming && t.researchPaperProofName) ? t.researchPaperProofName : (existing.researchPaperProofName || t.researchPaperProofName);
+            const finalProofPath = (useIncoming && t.researchPaperProofPath) ? t.researchPaperProofPath : (existing.researchPaperProofPath || t.researchPaperProofPath);
+            const finalUpdatedAt = (useIncoming && t.researchPaperUpdatedAt) ? t.researchPaperUpdatedAt : (existing.researchPaperUpdatedAt || t.researchPaperUpdatedAt);
 
             teamMap.set(t.id, {
               ...existing,
@@ -379,10 +384,10 @@ export async function POST(request: Request) {
                 : (t.guideEmail === 'hod.cse@dsatm.edu.in' || (t.guideName && t.guideName.toLowerCase().includes('nandini')))
                 ? 'vp@dsatm.edu.in'
                 : (t.guideEmail || existing.guideEmail),
-              researchPaperStatus: useIncomingProof ? (t.researchPaperStatus || existing.researchPaperStatus) : (existing.researchPaperStatus || t.researchPaperStatus),
-              researchPaperProofName: useIncomingProof ? t.researchPaperProofName : (existing.researchPaperProofName || t.researchPaperProofName),
-              researchPaperProofPath: useIncomingProof ? t.researchPaperProofPath : (existing.researchPaperProofPath || t.researchPaperProofPath),
-              researchPaperUpdatedAt: useIncomingProof ? t.researchPaperUpdatedAt : (existing.researchPaperUpdatedAt || t.researchPaperUpdatedAt),
+              researchPaperStatus: finalStatus,
+              researchPaperProofName: finalProofName,
+              researchPaperProofPath: finalProofPath,
+              researchPaperUpdatedAt: finalUpdatedAt,
             });
           }
         }

@@ -57,25 +57,54 @@ export function openInNewTab(url: string) {
 
 /**
  * Opens a faculty or student proof document or image in another tab.
- * Does not download the file.
+ * Does not download the file. Resolves from data URI, local storage, IndexedDB, or server API.
  */
-export function viewProofFile(proofPath?: string, proofName?: string) {
-  if (!proofPath || proofPath === '#' || proofPath.trim() === '') {
-    alert('No proof document or image has been uploaded yet for this team.');
-    return;
-  }
-
+export async function viewProofFile(proofPath?: string, proofName?: string, teamId?: string) {
   const name = proofName || '';
-  const isImage = name.match(/\.(png|jpe?g|webp|gif|svg)$/i) || proofPath.startsWith('data:image/');
+  const isImage = name.match(/\.(png|jpe?g|webp|gif|svg)$/i) || (proofPath && proofPath.startsWith('data:image/'));
   const defaultMime = isImage ? 'image/jpeg' : 'application/pdf';
 
-  if (proofPath.startsWith('data:')) {
+  // 1. Direct Data URI
+  if (proofPath && proofPath.startsWith('data:')) {
     const blobUrl = dataUriToBlobUrl(proofPath, defaultMime);
     openInNewTab(blobUrl);
     return;
   }
 
-  openInNewTab(proofPath);
+  // 2. Direct HTTP or static storage path
+  if (proofPath && (proofPath.startsWith('http://') || proofPath.startsWith('https://') || proofPath.startsWith('/storage/'))) {
+    openInNewTab(proofPath);
+    return;
+  }
+
+  // 3. Check IndexedDB if teamId is provided
+  if (teamId) {
+    try {
+      const idbData = await getFileFromIdb(`proof_${teamId}`);
+      if (idbData && idbData.startsWith('data:')) {
+        const blobUrl = dataUriToBlobUrl(idbData, defaultMime);
+        openInNewTab(blobUrl);
+        return;
+      }
+    } catch {}
+
+    // 4. Check backend API endpoint: /api/teams/proof?teamId=${teamId}
+    try {
+      const apiProofUrl = `/api/teams/proof?teamId=${encodeURIComponent(teamId)}`;
+      const testRes = await fetch(apiProofUrl, { method: 'HEAD' });
+      if (testRes.ok) {
+        openInNewTab(apiProofUrl);
+        return;
+      }
+    } catch {}
+  }
+
+  if (proofPath && proofPath !== '#' && proofPath.trim() !== '') {
+    openInNewTab(proofPath);
+    return;
+  }
+
+  alert('No proof document or image has been uploaded yet for this team.');
 }
 
 /**

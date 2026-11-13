@@ -360,12 +360,37 @@ export async function saveCloudDynamicStore(payload: any): Promise<boolean> {
   }
 
   try {
+    // Only send non-default / modified teams to keep payload lightweight and prevent timeouts
+    const lightweightTeams = Array.isArray(payload.teams)
+      ? payload.teams.filter((t: any) =>
+          t && (
+            t.researchPaperProofName ||
+            t.researchPaperProofPath ||
+            (t.researchPaperStatus && t.researchPaperStatus !== 'submitted') ||
+            (t.projectTitle && t.projectTitle !== 'To Be Decided (TBD)') ||
+            (t.projectDescription && t.projectDescription.trim() !== '') ||
+            t.researchPaperUpdatedAt
+          )
+        ).map((t: any) => {
+          if (t.researchPaperProofPath && t.researchPaperProofPath.length > 5000) {
+            const { researchPaperProofPath, ...rest } = t;
+            return rest;
+          }
+          return t;
+        })
+      : [];
+
+    const compactPayload = {
+      ...payload,
+      teams: lightweightTeams,
+    };
+
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 1500);
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
     const res = await fetch(`${KV_BASE_URL}/${DYNAMIC_STORE_KEY}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(compactPayload),
       signal: controller.signal
     });
     clearTimeout(timeoutId);

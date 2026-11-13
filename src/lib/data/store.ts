@@ -609,8 +609,12 @@ class PBLStore {
         });
 
         // Strip heavy base64 proof images (>5000 chars) from teams to guarantee mobile localStorage never hits QuotaExceededError
+        // Cache heavy proof data into IndexedDB so it is never lost across sessions
         const lightweightTeams = this.teams.map(t => {
           if (t.researchPaperProofPath && t.researchPaperProofPath.length > 5000) {
+            if (typeof window !== 'undefined') {
+              saveFileToIdb(`proof_${t.id}`, t.researchPaperProofPath).catch(() => {});
+            }
             const { researchPaperProofPath, ...rest } = t;
             return rest;
           }
@@ -882,6 +886,30 @@ class PBLStore {
           const hasUnsynced = this.submissions.some(s => !serverIds.has(s.id));
           if (hasUnsynced) {
             this.syncToSupabase().catch(() => {});
+          }
+        }
+
+        // Bidirectional team sync: if local client has teams with research paper proofs, custom statuses, or newer updates missing on server, push local teams to server!
+        if (this.teams.length > 0 && Array.isArray(data.teams)) {
+          const serverTeamsMap = new Map<string, any>((data.teams || []).map((t: any) => [t.id, t]));
+          const unsyncedTeams = this.teams.filter(localTeam => {
+            const serverTeam: any = serverTeamsMap.get(localTeam.id);
+            if (!serverTeam) return false;
+            const localHasProof = Boolean(localTeam.researchPaperProofName || localTeam.researchPaperProofPath);
+            const serverHasProof = Boolean(serverTeam.researchPaperProofName || serverTeam.researchPaperProofPath);
+            const localCustomStatus = localTeam.researchPaperStatus && localTeam.researchPaperStatus !== 'submitted';
+            const serverDefaultStatus = !serverTeam.researchPaperStatus || serverTeam.researchPaperStatus === 'submitted';
+            const localTime = localTeam.researchPaperUpdatedAt ? new Date(localTeam.researchPaperUpdatedAt).getTime() : 0;
+            const serverTime = serverTeam.researchPaperUpdatedAt ? new Date(serverTeam.researchPaperUpdatedAt).getTime() : 0;
+            return (localHasProof && !serverHasProof) || (localCustomStatus && serverDefaultStatus) || (localTime > serverTime);
+          });
+
+          if (unsyncedTeams.length > 0 && typeof window !== 'undefined') {
+            fetch('/api/teams', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ teams: unsyncedTeams })
+            }).catch(() => {});
           }
         }
 
@@ -1534,6 +1562,17 @@ class PBLStore {
     if (proofName !== undefined) team.researchPaperProofName = proofName;
     if (proofPath !== undefined) team.researchPaperProofPath = proofPath;
     team.researchPaperUpdatedAt = new Date().toISOString();
+
+    if (typeof window !== 'undefined') {
+      if (proofPath && proofPath.startsWith('data:')) {
+        saveFileToIdb(`proof_${teamId}`, proofPath).catch(() => {});
+      }
+      fetch('/api/teams', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamId, status, proofName, proofPath })
+      }).catch(() => {});
+    }
 
     this.save(true);
     await this.syncToSupabase();

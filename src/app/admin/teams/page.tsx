@@ -93,8 +93,10 @@ export default function AdminTeamsPage() {
     ? (industryAccess.allowedSectionsBySemester[4] || [])
     : ['A', 'B', 'C', 'D', 'E', 'F'];
 
+  const isSem4Submitted = (t: Team) => Boolean(t.researchPaperProofName || t.researchPaperProofPath || (t.researchPaperStatus && t.researchPaperStatus !== 'submitted'));
+
   const sem4AllTeams = teams.filter(t => (t.semester || 5) === 4 && (!industryAccess.isIndustry || sem4AllowedSections.includes(t.section)));
-  const sem4SubmittedCount = sem4AllTeams.filter(t => Boolean(t.researchPaperProofName || t.researchPaperProofPath)).length;
+  const sem4SubmittedCount = sem4AllTeams.filter(isSem4Submitted).length;
   const sem4PendingCount = sem4AllTeams.length - sem4SubmittedCount;
 
   const sem5AllowedSections = industryAccess.isIndustry
@@ -126,7 +128,7 @@ export default function AdminTeamsPage() {
     const matchesSection = selectedSection === 'ALL' || t.section === selectedSection;
     const matchesFaculty = facultyFilter === 'ALL' || t.guideName === facultyFilter;
 
-    const has4thProof = Boolean(t.researchPaperProofName || t.researchPaperProofPath);
+    const has4thProof = isSem4Submitted(t);
     const has5thSubmission = store.getSubmissionsForTeam(t.id).length > 0;
     const isSubmitted = (t.semester || 5) === 4 ? has4thProof : has5thSubmission;
 
@@ -138,8 +140,8 @@ export default function AdminTeamsPage() {
     return matchesSearch && matchesSection && matchesFaculty && matchesProof;
   });
 
-  const submittedFiltered = filteredTeams.filter(t => Boolean(t.researchPaperProofName || t.researchPaperProofPath));
-  const pendingFiltered = filteredTeams.filter(t => !t.researchPaperProofName && !t.researchPaperProofPath);
+  const submittedFiltered = filteredTeams.filter(isSem4Submitted);
+  const pendingFiltered = filteredTeams.filter(t => !isSem4Submitted(t));
 
   const submitted5thFiltered = filteredTeams.filter(t => store.getSubmissionsForTeam(t.id).length > 0);
   const pending5thFiltered = filteredTeams.filter(t => store.getSubmissionsForTeam(t.id).length === 0);
@@ -320,7 +322,7 @@ export default function AdminTeamsPage() {
                     </span>
                     <button
                       type="button"
-                      onClick={() => viewProofFile(t.researchPaperProofPath, t.researchPaperProofName)}
+                      onClick={() => viewProofFile(t.researchPaperProofPath, t.researchPaperProofName, t.id)}
                       className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-sm flex items-center gap-1 shrink-0 transition cursor-pointer"
                       title="Open proof document or image in new tab"
                     >

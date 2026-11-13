@@ -13,6 +13,7 @@ import {
   Download, Edit2
 } from 'lucide-react';
 import { downloadSubmissionFile, viewSubmissionFile, viewProofFile } from '@/lib/utils/download';
+import { saveFileToIdb } from '@/lib/utils/idb-storage';
 
 export default function FacultyTeamsPage() {
   const { user } = useAuth();
@@ -55,10 +56,25 @@ export default function FacultyTeamsPage() {
       return;
     }
     setIsSaving(true);
-    store.updateTeamProjectDetails(teamId, editTitle, editDesc);
-    await store.syncFromSupabase();
-    setIsSaving(false);
-    setEditingTeamId(null);
+    try {
+      store.updateTeamProjectDetails(teamId, editTitle, editDesc);
+      await fetch('/api/teams', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          teamId,
+          projectTitle: editTitle,
+          projectDescription: editDesc
+        })
+      }).catch(() => {});
+      await store.syncFromSupabase();
+      setAssignedTeams([...store.getTeamsByGuideId(user.id || user.email || user.name)]);
+      setEditingTeamId(null);
+    } catch (err) {
+      console.error('Failed to save project edit:', err);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleCancelEdit = () => {
@@ -69,9 +85,34 @@ export default function FacultyTeamsPage() {
     setIsSaving(true);
     try {
       const finalProofPath = proofFileDataUrl || (proofFileName ? `/storage/proofs/${proofFileName}` : undefined);
+      
+      // 1. Update in-memory store
       await store.updateResearchPaperStatus(teamId, selectedPaperStatus, proofFileName || undefined, finalProofPath);
+
+      // 2. Cache in IndexedDB so large proofs are preserved across refreshes and never hit quota
+      if (finalProofPath && finalProofPath.startsWith('data:')) {
+        await saveFileToIdb(`proof_${teamId}`, finalProofPath).catch(() => {});
+      }
+
+      // 3. Directly call backend PUT /api/teams to persist to disk & cloud database
+      await fetch('/api/teams', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          teamId,
+          status: selectedPaperStatus,
+          proofName: proofFileName || undefined,
+          proofPath: finalProofPath
+        })
+      }).catch((apiErr) => {
+        console.warn('API /teams update failed:', apiErr);
+      });
+
+      // 4. Trigger global sync to notify all active listeners
+      await store.syncFromSupabase();
+
       // Immediately reflect updated state in the view
-      setAssignedTeams([...store.getTeamsByGuideId(user.email || user.id)]);
+      setAssignedTeams([...store.getTeamsByGuideId(user.id || user.email || user.name)]);
       setUploadingTeamId(null);
       setProofFileName('');
       setProofFileDataUrl('');
@@ -356,7 +397,7 @@ export default function FacultyTeamsPage() {
                                 </div>
                                 <button
                                   type="button"
-                                  onClick={() => viewProofFile(t.researchPaperProofPath, t.researchPaperProofName)}
+                                  onClick={() => viewProofFile(t.researchPaperProofPath, t.researchPaperProofName, t.id)}
                                   className="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline flex items-center gap-1 cursor-pointer bg-transparent border-0 p-0"
                                   title="Open proof document or image in new tab"
                                 >
