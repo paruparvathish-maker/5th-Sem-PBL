@@ -17,6 +17,7 @@ const SUPER_ADMIN_ID = '180881';
 const SUPER_ADMIN_EMAIL = 'paruparvathish@gmail.com';
 const DYNAMIC_STORE_KEY = 'pbl_dynamic_store';
 const SUBMISSIONS_KEY = 'pbl_submissions';
+const SUBMISSION_RESET_KEY = 'pbl_submissions_reset';
 const PROFILES_KEY = 'pbl_profiles';
 
 interface CredentialRecord {
@@ -260,6 +261,35 @@ export async function fetchCloudSubmissions(): Promise<any[]> {
     return Object.values(data);
   }
   return cachedSubmissions ? Object.values(cachedSubmissions) : [];
+}
+
+/**
+ * A deliberate wipe of a deadline's submissions. Everything submitted before
+ * `clearedAt` is treated as deleted, so a browser that still caches an old
+ * submission cannot upload it back while students submit afresh.
+ */
+export async function fetchSubmissionReset(): Promise<{ clearedAt: string; deadlineId?: string } | null> {
+  const doc = await readDoc<{ clearedAt?: string; deadlineId?: string }>(SUBMISSION_RESET_KEY);
+  return doc?.clearedAt ? { clearedAt: doc.clearedAt, deadlineId: doc.deadlineId } : null;
+}
+
+export async function saveSubmissionReset(clearedAt: string, deadlineId?: string): Promise<boolean> {
+  return writeDoc(SUBMISSION_RESET_KEY, { clearedAt, deadlineId });
+}
+
+/** True when this submission predates the last deliberate reset of its deadline. */
+export function isSubmissionCleared(
+  submission: any,
+  reset: { clearedAt?: string | null; deadlineId?: string | null } | null | undefined
+): boolean {
+  if (!reset?.clearedAt) return false;
+  if (reset.deadlineId && submission?.deadlineId && submission.deadlineId !== reset.deadlineId) return false;
+  const clearedAt = Date.parse(reset.clearedAt);
+  if (Number.isNaN(clearedAt)) return false;
+  const submittedAt = Date.parse(submission?.submissionTime || submission?.createdAt || '');
+  // Undated legacy records still belong to the wipe when the scope matches.
+  if (Number.isNaN(submittedAt)) return true;
+  return submittedAt <= clearedAt;
 }
 
 export async function saveCloudSubmission(submission: any): Promise<boolean> {

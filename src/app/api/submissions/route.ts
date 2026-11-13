@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
 import { store } from '@/lib/data/store';
-import { fetchCloudSubmissions, saveCloudSubmission, saveCloudSubmissionFile } from '@/lib/data/cloud-sync';
+import {
+  fetchCloudSubmissions,
+  fetchSubmissionReset,
+  isSubmissionCleared,
+  saveCloudSubmission,
+  saveCloudSubmissionFile,
+} from '@/lib/data/cloud-sync';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,10 +17,15 @@ export async function GET(request: Request) {
     const deadlineId = searchParams.get('deadline_id');
 
     // Fetch from serverless cloud KV and merge with local store
-    const cloudSubs = await fetchCloudSubmissions().catch(() => []);
-    const subMap = new Map<string, any>(store.getAllSubmissions().map(s => [s.id, s]));
+    const [cloudSubs, submissionReset] = await Promise.all([
+      fetchCloudSubmissions().catch(() => []),
+      fetchSubmissionReset().catch(() => null),
+    ]);
+    const subMap = new Map<string, any>(
+      store.getAllSubmissions().filter(s => !isSubmissionCleared(s, submissionReset)).map(s => [s.id, s])
+    );
     cloudSubs.forEach(s => {
-      if (s && s.id) {
+      if (s && s.id && !isSubmissionCleared(s, submissionReset)) {
         subMap.set(s.id, { ...(subMap.get(s.id) || {}), ...s });
       }
     });

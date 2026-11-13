@@ -887,6 +887,22 @@ class PBLStore {
           });
         }
 
+        // A deadline that was deliberately cleared must stay empty on this device
+        // too, so students submit their reports afresh instead of inheriting a
+        // cached copy from another browser.
+        const resetAt = (data as any).submissionsResetAt as string | undefined;
+        if (resetAt) {
+          const resetTime = new Date(resetAt).getTime();
+          const resetDeadline = (data as any).submissionsResetDeadlineId as string | undefined;
+          if (!Number.isNaN(resetTime)) {
+            this.submissions = this.submissions.filter(s => {
+              if (resetDeadline && s.deadlineId && s.deadlineId !== resetDeadline) return true;
+              const submittedTime = s.submissionTime ? new Date(s.submissionTime).getTime() : NaN;
+              return !Number.isNaN(submittedTime) && submittedTime > resetTime;
+            });
+          }
+        }
+
         // Bidirectional sync: if local client has submissions that the remote server is missing, push local submissions to the server!
         if (this.submissions.length > 0) {
           const serverIds = new Set((data.submissions || []).map((s: any) => s.id));

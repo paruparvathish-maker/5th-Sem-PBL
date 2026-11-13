@@ -6,7 +6,9 @@ import {
   saveCloudCredentials,
   fetchCloudSubmissions,
   saveCloudSubmissionsBatch,
-  mergeTeamRecords
+  mergeTeamRecords,
+  fetchSubmissionReset,
+  isSubmissionCleared
 } from '@/lib/data/cloud-sync';
 import { store } from '@/lib/data/store';
 import * as fs from 'fs';
@@ -200,6 +202,16 @@ export async function GET() {
       console.warn('Cloud KV merge warning:', kvErr);
     }
 
+    // 5. A deliberate wipe of a deadline's documents wins over any cached copy.
+    const submissionReset = await fetchSubmissionReset().catch(() => null);
+    if (submissionReset) {
+      baseData.submissions = (baseData.submissions || []).filter(
+        (s: any) => !isSubmissionCleared(s, submissionReset)
+      );
+      baseData.submissionsResetAt = submissionReset.clearedAt;
+      baseData.submissionsResetDeadlineId = submissionReset.deadlineId;
+    }
+
     return NextResponse.json(baseData);
   } catch (err: any) {
     console.error('Database query error:', err);
@@ -240,10 +252,16 @@ export async function POST(request: Request) {
     // Non-destructive ID-based merging to safely handle 500+ concurrent users
 
     // 1. Submissions: Merge by ID, preserving existing submissions from all teams
-    const subMap = new Map<string, any>((currentData.submissions || []).map((s: any) => [s.id, s]));
+    //    (except the ones a deliberate reset already deleted)
+    const submissionReset = await fetchSubmissionReset().catch(() => null);
+    const subMap = new Map<string, any>(
+      (currentData.submissions || [])
+        .filter((s: any) => !isSubmissionCleared(s, submissionReset))
+        .map((s: any) => [s.id, s])
+    );
     if (payload.submissions && Array.isArray(payload.submissions)) {
       payload.submissions.forEach((s: any) => {
-        if (s && s.id) {
+        if (s && s.id && !isSubmissionCleared(s, submissionReset)) {
           const existing = subMap.get(s.id);
           subMap.set(s.id, { ...existing, ...s });
         }
