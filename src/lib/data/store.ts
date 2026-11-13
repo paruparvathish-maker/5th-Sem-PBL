@@ -87,7 +87,7 @@ class PBLStore {
 
   private initSeedData() {
     if (typeof window !== 'undefined') {
-      const storedData = localStorage.getItem('pbl_portal_store_v9');
+      const storedData = localStorage.getItem('pbl_portal_store_v10');
       if (storedData) {
         try {
           const parsed = JSON.parse(storedData);
@@ -633,11 +633,11 @@ class PBLStore {
         });
 
         try {
-          localStorage.setItem('pbl_portal_store_v9', storeString);
+          localStorage.setItem('pbl_portal_store_v10', storeString);
         } catch (storageErr) {
           console.warn("Storage quota limit reached, saving minimal store:", storageErr);
           try {
-            localStorage.setItem('pbl_portal_store_v9', JSON.stringify({
+            localStorage.setItem('pbl_portal_store_v10', JSON.stringify({
               profiles: this.profiles.filter(p => !p.isFirstLogin || p.role === 'admin'),
               teams: lightweightTeams.filter(t => t.researchPaperProofName || (t.projectTitle && t.projectTitle !== 'To Be Decided (TBD)')),
               deadlines: this.deadlines,
@@ -807,8 +807,15 @@ class PBLStore {
 
             const localTime = localTeam.researchPaperUpdatedAt ? new Date(localTeam.researchPaperUpdatedAt).getTime() : 0;
             const incomingTime = incoming.researchPaperUpdatedAt ? new Date(incoming.researchPaperUpdatedAt).getTime() : 0;
+            const clearedAt = Math.max(
+              localTeam.researchPaperProofClearedAt ? new Date(localTeam.researchPaperProofClearedAt).getTime() : 0,
+              incoming.researchPaperProofClearedAt ? new Date(incoming.researchPaperProofClearedAt).getTime() : 0
+            );
+            // A proof that was removed on another device must not be restored from
+            // this browser's older cached copy.
+            const localProofCleared = clearedAt > 0 && localTime <= clearedAt;
 
-            if (localTime > incomingTime || (localTeam.researchPaperProofName && !incoming.researchPaperProofName)) {
+            if (!localProofCleared && (localTime > incomingTime || (localTeam.researchPaperProofName && !incoming.researchPaperProofName))) {
               return {
                 ...incoming,
                 researchPaperStatus: localTeam.researchPaperStatus || incoming.researchPaperStatus,
@@ -901,6 +908,12 @@ class PBLStore {
             const serverDefaultStatus = !serverTeam.researchPaperStatus || serverTeam.researchPaperStatus === 'submitted';
             const localTime = localTeam.researchPaperUpdatedAt ? new Date(localTeam.researchPaperUpdatedAt).getTime() : 0;
             const serverTime = serverTeam.researchPaperUpdatedAt ? new Date(serverTeam.researchPaperUpdatedAt).getTime() : 0;
+            const clearedAtMs = Math.max(
+              localTeam.researchPaperProofClearedAt ? new Date(localTeam.researchPaperProofClearedAt).getTime() : 0,
+              serverTeam.researchPaperProofClearedAt ? new Date(serverTeam.researchPaperProofClearedAt).getTime() : 0
+            );
+            // A cleared proof must not be pushed back up from this browser's cache.
+            if (clearedAtMs > 0 && localTime <= clearedAtMs) return false;
             return (localHasProof && !serverHasProof) || (localCustomStatus && serverDefaultStatus) || (localTime > serverTime);
           });
 
@@ -1092,11 +1105,11 @@ class PBLStore {
           });
 
           try {
-            localStorage.setItem('pbl_portal_store_v9', storeString);
+            localStorage.setItem('pbl_portal_store_v10', storeString);
           } catch (storageErr) {
             console.warn("Storage quota limit reached during sync, saving minimal store:", storageErr);
             try {
-              localStorage.setItem('pbl_portal_store_v9', JSON.stringify({
+              localStorage.setItem('pbl_portal_store_v10', JSON.stringify({
                 profiles: this.profiles.filter(p => !p.isFirstLogin || p.role === 'admin'),
                 teams: lightweightTeams.filter(t => t.researchPaperProofName || (t.projectTitle && t.projectTitle !== 'To Be Decided (TBD)')),
                 deadlines: this.deadlines,

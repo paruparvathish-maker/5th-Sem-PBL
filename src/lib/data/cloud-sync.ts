@@ -87,6 +87,19 @@ export function mergeTeamRecords(existing: any, incoming: any): any {
     paperSource.researchPaperProofPath || paperFallback.researchPaperProofPath || undefined;
   merged.researchPaperUpdatedAt =
     paperSource.researchPaperUpdatedAt || paperFallback.researchPaperUpdatedAt || undefined;
+  merged.researchPaperProofClearedAt =
+    paperSource.researchPaperProofClearedAt || paperFallback.researchPaperProofClearedAt || undefined;
+
+  // Removing a proof is an update in its own right. When the removal is newer
+  // than the document it replaced, the proof must stay gone instead of being
+  // restored from an older copy still cached on another device.
+  const clearedAt = timestamp(merged.researchPaperProofClearedAt);
+  if (clearedAt && timestamp(merged.researchPaperUpdatedAt) <= clearedAt) {
+    delete merged.researchPaperProofName;
+    delete merged.researchPaperProofPath;
+    merged.researchPaperStatus = 'submitted';
+    merged.researchPaperUpdatedAt = merged.researchPaperProofClearedAt;
+  }
 
   if (!merged.members || merged.members.length === 0) {
     merged.members = existing.members?.length ? existing.members : incoming.members || [];

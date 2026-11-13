@@ -40,6 +40,9 @@ export interface Team {
   researchPaperProofPath?: string;
   researchPaperProofName?: string;
   researchPaperUpdatedAt?: string;
+  // Set when a proof was removed on purpose, so older cached copies on other
+  // devices cannot upload it again.
+  researchPaperProofClearedAt?: string;
 
   // Industry Expert Mapping
   industryExpertId?: string;
