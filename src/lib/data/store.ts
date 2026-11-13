@@ -87,7 +87,7 @@ class PBLStore {
 
   private initSeedData() {
     if (typeof window !== 'undefined') {
-      const storedData = localStorage.getItem('pbl_portal_store_v7');
+      const storedData = localStorage.getItem('pbl_portal_store_v8');
       if (storedData) {
         try {
           const parsed = JSON.parse(storedData);
@@ -633,11 +633,11 @@ class PBLStore {
         });
 
         try {
-          localStorage.setItem('pbl_portal_store_v7', storeString);
+          localStorage.setItem('pbl_portal_store_v8', storeString);
         } catch (storageErr) {
           console.warn("Storage quota limit reached, saving minimal store:", storageErr);
           try {
-            localStorage.setItem('pbl_portal_store_v7', JSON.stringify({
+            localStorage.setItem('pbl_portal_store_v8', JSON.stringify({
               profiles: this.profiles.filter(p => !p.isFirstLogin || p.role === 'admin'),
               teams: lightweightTeams.filter(t => t.researchPaperProofName || (t.projectTitle && t.projectTitle !== 'To Be Decided (TBD)')),
               deadlines: this.deadlines,
@@ -1092,11 +1092,11 @@ class PBLStore {
           });
 
           try {
-            localStorage.setItem('pbl_portal_store_v7', storeString);
+            localStorage.setItem('pbl_portal_store_v8', storeString);
           } catch (storageErr) {
             console.warn("Storage quota limit reached during sync, saving minimal store:", storageErr);
             try {
-              localStorage.setItem('pbl_portal_store_v7', JSON.stringify({
+              localStorage.setItem('pbl_portal_store_v8', JSON.stringify({
                 profiles: this.profiles.filter(p => !p.isFirstLogin || p.role === 'admin'),
                 teams: lightweightTeams.filter(t => t.researchPaperProofName || (t.projectTitle && t.projectTitle !== 'To Be Decided (TBD)')),
                 deadlines: this.deadlines,

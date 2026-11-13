@@ -111,7 +111,16 @@ async function legacyWrite(key: string, rawValue: string): Promise<boolean> {
   }
 }
 
-/** Reads a JSON document. Returns null when the document does not exist. */
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Reads a JSON document. Returns null when the document does not exist.
+ *
+ * A cold serverless instance can fail its very first database round-trip
+ * (connection setup, DNS, transient 5xx). Such a failure must never be reported
+ * as "no data", otherwise another device would briefly see zero papers, so the
+ * read is retried before giving up.
+ */
 export async function readDoc<T = any>(key: string): Promise<T | null> {
   const client = await getClient().catch((err) => {
     console.error('[storage] Could not open the configured database:', err?.message || err);
@@ -119,18 +128,25 @@ export async function readDoc<T = any>(key: string): Promise<T | null> {
   });
 
   if (client) {
-    try {
-      const result = await client.execute({
-        sql: 'SELECT doc_value FROM pbl_docs WHERE doc_key = ?',
-        args: [key],
-      });
-      const row = result.rows[0] as any;
-      if (!row) return null;
-      return JSON.parse(String(row.doc_value)) as T;
-    } catch (err: any) {
-      console.error(`[storage] Read failed for "${key}":`, err?.message || err);
-      return null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const result = await client.execute({
+          sql: 'SELECT doc_value FROM pbl_docs WHERE doc_key = ?',
+          args: [key],
+        });
+        const row = result.rows[0] as any;
+        if (!row) return null;
+        return JSON.parse(String(row.doc_value)) as T;
+      } catch (err: any) {
+        if (attempt < 2) {
+          await sleep(80 * (attempt + 1));
+          continue;
+        }
+        console.error(`[storage] Read failed for "${key}":`, err?.message || err);
+        return null;
+      }
     }
+    return null;
   }
 
   const raw = await legacyRead(key);
@@ -199,11 +215,19 @@ export async function updateDoc<T = any>(
       const nextVersion = new Date().toISOString();
 
       if (currentVersion === null) {
-        await client.execute({
-          sql: 'INSERT INTO pbl_docs (doc_key, doc_value, updated_at) VALUES (?, ?, ?)',
-          args: [key, nextRaw, nextVersion],
-        });
-        return true;
+        try {
+          await client.execute({
+            sql: 'INSERT INTO pbl_docs (doc_key, doc_value, updated_at) VALUES (?, ?, ?)',
+            args: [key, nextRaw, nextVersion],
+          });
+          return true;
+        } catch (err: any) {
+          // Another device created the document between our SELECT and INSERT.
+          // Fall through to a re-read + merge instead of losing this write.
+          if (!String(err?.message || '').includes('UNIQUE constraint')) throw err;
+          await sleep(25 * (attempt + 1));
+          continue;
+        }
       }
 
       const update = await client.execute({
@@ -212,8 +236,12 @@ export async function updateDoc<T = any>(
       });
       if (update.rowsAffected > 0) return true;
       // Another lambda wrote in between: re-read and merge again.
-      await new Promise((resolve) => setTimeout(resolve, 25 * (attempt + 1)));
+      await sleep(25 * (attempt + 1));
     } catch (err: any) {
+      if (attempt < attempts - 1) {
+        await sleep(80 * (attempt + 1));
+        continue;
+      }
       console.error(`[storage] Update failed for "${key}":`, err?.message || err);
       return false;
     }
