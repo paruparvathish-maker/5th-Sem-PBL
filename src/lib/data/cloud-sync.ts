@@ -10,6 +10,11 @@
 import { readDoc, writeDoc, updateDoc, storageBackend, isDurableStorageConfigured } from './persistence';
 
 const PASSWORDS_KEY = 'pbl_passwords';
+
+// The main administrator is a separate identity from the faculty account of the
+// same person. These two keys belong to that identity only.
+const SUPER_ADMIN_ID = '180881';
+const SUPER_ADMIN_EMAIL = 'paruparvathish@gmail.com';
 const DYNAMIC_STORE_KEY = 'pbl_dynamic_store';
 const SUBMISSIONS_KEY = 'pbl_submissions';
 const PROFILES_KEY = 'pbl_profiles';
@@ -163,6 +168,17 @@ export async function saveCloudCredentials(
     const effectiveEmail = (record.email || existing.email)?.toLowerCase().trim();
     const effectiveUsn = (record.usn || existing.usn)?.toUpperCase().trim();
 
+    // A faculty/student record must never occupy the main administrator's id or
+    // email key, otherwise logging in with it would resolve to the wrong role.
+    const recordRole = record.role || existing.role;
+    const mainAdminRecord =
+      recordRole === 'admin' &&
+      (userId === SUPER_ADMIN_ID ||
+        effectiveEmail === SUPER_ADMIN_EMAIL ||
+        (existing.email || '').toLowerCase() === SUPER_ADMIN_EMAIL);
+    const lockedAdminKey = (key?: string) =>
+      Boolean(key) && !mainAdminRecord && (key === SUPER_ADMIN_ID || (key as string).toLowerCase() === SUPER_ADMIN_EMAIL);
+
     const fullRecord: CredentialRecord = {
       password: record.password !== undefined ? record.password : existing.password,
       isFirstLogin: record.isFirstLogin !== undefined ? record.isFirstLogin : existing.isFirstLogin ?? false,
@@ -176,16 +192,19 @@ export async function saveCloudCredentials(
       updatedAt: new Date().toISOString(),
     };
 
-    currentMap[userId] = fullRecord;
-    if (userId.toLowerCase() !== userId) currentMap[userId.toLowerCase()] = fullRecord;
-    if (effectiveEmail) currentMap[effectiveEmail] = fullRecord;
+    if (!lockedAdminKey(userId)) currentMap[userId] = fullRecord;
+    if (userId.toLowerCase() !== userId && !lockedAdminKey(userId.toLowerCase())) {
+      currentMap[userId.toLowerCase()] = fullRecord;
+    }
+    if (effectiveEmail && !lockedAdminKey(effectiveEmail)) currentMap[effectiveEmail] = fullRecord;
     if (effectiveUsn) {
-      currentMap[effectiveUsn] = fullRecord;
-      currentMap[effectiveUsn.toLowerCase()] = fullRecord;
+      if (!lockedAdminKey(effectiveUsn)) currentMap[effectiveUsn] = fullRecord;
+      if (!lockedAdminKey(effectiveUsn.toLowerCase())) currentMap[effectiveUsn.toLowerCase()] = fullRecord;
     }
     aliases.filter(Boolean).forEach((alias) => {
+      if (lockedAdminKey(alias)) return;
       currentMap[alias] = fullRecord;
-      currentMap[alias.toLowerCase()] = fullRecord;
+      if (!lockedAdminKey(alias.toLowerCase())) currentMap[alias.toLowerCase()] = fullRecord;
     });
 
     cachedCreds = currentMap;

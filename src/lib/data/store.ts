@@ -1209,14 +1209,19 @@ class PBLStore {
     const cleanPrefix = clean.includes('@') ? clean.split('@')[0] : '';
 
     // 1. Special Admin & Leadership Accounts (Priority check)
-    if (
-      clean.includes('parvathish') ||
-      clean.includes('pudugosula') ||
-      ['admin', 'administrator', 'mainadmin', 'main admin', 'paru', '180881'].includes(clean) ||
-      clean === 'paruparvathish@gmail.com' ||
-      clean === 'parvathisha-cse@dsatm.edu.in'
-    ) {
-      return this.profiles.find(p => p.id === '180881' || p.email === 'paruparvathish@gmail.com');
+    // The main administrator signs in with this email address only, so the
+    // faculty account belonging to the same person never resolves to it.
+    const SUPER_ADMIN_EMAIL = 'paruparvathish@gmail.com';
+    const isSuperAdminProfile = (p: UserProfile) =>
+      (p?.email || '').toLowerCase() === SUPER_ADMIN_EMAIL || p?.id === '180881';
+
+    if (clean === SUPER_ADMIN_EMAIL) {
+      return this.profiles.find(p => (p.email || '').toLowerCase() === SUPER_ADMIN_EMAIL);
+    }
+    if (clean === '180881' || clean === 'parvathisha-cse@dsatm.edu.in') {
+      return this.profiles.find(
+        p => (p.email || '').toLowerCase() === 'parvathisha-cse@dsatm.edu.in' && !isSuperAdminProfile(p)
+      );
     }
     if (
       clean.includes('nandini') ||
@@ -1237,6 +1242,7 @@ class PBLStore {
 
     // 2. Direct matches (email, USN, ID, staff code, phone, exact industry ID)
     let found = this.profiles.find(p => {
+      if (isSuperAdminProfile(p)) return false;
       const email = p.email?.toLowerCase();
       const usn = p.usn?.toLowerCase();
       const uid = p.id?.toLowerCase();
@@ -1286,6 +1292,7 @@ class PBLStore {
     // 4. Fuzzy Name & Email prefix matching across all faculty and students (bi-directional substring)
     const cleanEmailPrefix = clean.includes('@') ? clean.split('@')[0].replace(/[^a-z0-9]/g, '') : cleanAlpha;
     found = this.profiles.find(p => {
+      if (isSuperAdminProfile(p)) return false;
       const name = (p.name || '').toLowerCase();
       const nameAlpha = name.replace(/[^a-z0-9]/g, '');
       const cleanNameOnly = name.replace(/^(mr\.|mrs\.|ms\.|dr\.)\s*/i, '').replace(/[^a-z0-9]/g, '');

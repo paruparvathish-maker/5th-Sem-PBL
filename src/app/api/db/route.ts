@@ -141,7 +141,8 @@ export async function GET() {
             (emailLower && cloudCreds[emailLower]) ||
             (phoneClean && cloudCreds[phoneClean]);
 
-          if (record && record.password) {
+          const roleConflict = Boolean(record?.role && p.role && record.role !== p.role);
+          if (record && record.password && !roleConflict) {
             p.password = record.password;
             p.isFirstLogin = record.isFirstLogin ?? false;
             p.passwordUpdatedAt = record.passwordUpdatedAt || record.updatedAt || p.passwordUpdatedAt;
@@ -279,6 +280,23 @@ export async function POST(request: Request) {
           // Strict institutional guard: Mrs. Megha D email is megha-cse@dsatm.edu.in
           if (p.id === 'fac-18' || p.email === 'shreyajayanth27@gmail.com' || (p.name && p.name.toLowerCase().includes('megha d'))) {
             p.email = 'megha-cse@dsatm.edu.in';
+          }
+
+          // Strict guard: the main administrator is one identity, reachable only by
+          // paruparvathish@gmail.com. Faculty records that share the same person must
+          // keep their own profile id instead of overwriting the admin account.
+          if (p.id === '180881' && p.role !== 'admin' && (p.email || '').toLowerCase() !== 'paruparvathish@gmail.com') {
+            const samePerson = (currentData.profiles || []).find(
+              (x: any) => x.id !== '180881' && (x.email || '').toLowerCase() === (p.email || '').toLowerCase()
+            );
+            if (!samePerson) return;
+            p.id = samePerson.id;
+          }
+          if (p.id === '180881') {
+            p.role = 'admin';
+            p.email = 'paruparvathish@gmail.com';
+            p.isActivated = true;
+            p.isFirstLogin = false;
           }
 
           // Strict institutional guard: Vice Principal & HOD Dr. C Nandini email is vp@dsatm.edu.in with admin role

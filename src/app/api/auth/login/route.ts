@@ -125,7 +125,11 @@ export async function POST(request: Request) {
             (emailLower && cloudCreds[emailLower]) ||
             (phoneClean && cloudCreds[phoneClean]);
 
-          if (record) {
+          // A stored record must belong to the same role, otherwise the faculty
+          // record of the same person (shared phone/email) would hand its password
+          // and state to the administrator account.
+          const roleConflict = Boolean(record?.role && p.role && record.role !== p.role);
+          if (record && !roleConflict) {
             if (record.password) p.password = record.password;
             p.isFirstLogin = record.isFirstLogin ?? false;
             if (record.isActivated === true || p.isActivated === true) {
@@ -133,7 +137,11 @@ export async function POST(request: Request) {
             } else if (record.isActivated !== undefined) {
               p.isActivated = record.isActivated;
             }
-            if (record.email && !record.email.endsWith('@student.dsatm.edu.in')) {
+            // The main administrator keeps this email; a stale faculty record must
+            // never rename that account (it would make the admin unreachable).
+            const profileIsSuperAdmin =
+              (p.email || '').toLowerCase() === 'paruparvathish@gmail.com' || p.id === '180881';
+            if (record.email && !record.email.endsWith('@student.dsatm.edu.in') && !profileIsSuperAdmin) {
               p.email = record.email;
             }
             p.passwordUpdatedAt = record.passwordUpdatedAt || record.updatedAt || p.passwordUpdatedAt;
@@ -148,14 +156,19 @@ export async function POST(request: Request) {
     // Step 3a: Priority leadership & administrative accounts (Super Admin, HOD/VP, Principal, Industry Experts)
     let user: any = null;
 
-    if (
-      cleanId.includes('parvathish') ||
-      cleanId.includes('pudugosula') ||
-      ['admin', 'administrator', 'mainadmin', 'main admin', 'paru', '180881'].includes(cleanId) ||
-      cleanId === 'paruparvathish@gmail.com' ||
-      cleanId === 'parvathisha-cse@dsatm.edu.in'
-    ) {
-      user = profiles.find((p: any) => p.id === '180881' || p.email === 'paruparvathish@gmail.com');
+    // The main administrator signs in with this email address only — no short
+    // aliases — so the faculty account of the same person stays separate.
+    const SUPER_ADMIN_EMAIL = 'paruparvathish@gmail.com';
+    const isSuperAdminProfile = (p: any) =>
+      (p?.email || '').toLowerCase() === SUPER_ADMIN_EMAIL || p?.id === '180881';
+
+    if (cleanId === SUPER_ADMIN_EMAIL) {
+      user = profiles.find((p: any) => (p.email || '').toLowerCase() === SUPER_ADMIN_EMAIL);
+    } else if (cleanId === '180881' || cleanId === 'parvathisha-cse@dsatm.edu.in') {
+      // Faculty login for the same person must never resolve to the super admin.
+      user = profiles.find(
+        (p: any) => (p.email || '').toLowerCase() === 'parvathisha-cse@dsatm.edu.in' && !isSuperAdminProfile(p)
+      );
     } else if (
       cleanId.includes('nandini') ||
       ['hod', 'hodcse', 'hod_cse', 'hod cse', 'vp', 'viceprincipal', 'vice principal', 'vice-principal'].includes(cleanId) ||
@@ -183,8 +196,10 @@ export async function POST(request: Request) {
     }
 
     // Step 3b: Direct matching (email, email prefix, USN, ID, staff code, phone, industry ID)
+    // The super admin is reachable only through the exact email handled above.
     if (!user) {
       user = profiles.find((p: any) => {
+        if (isSuperAdminProfile(p)) return false;
         const email = p.email?.toLowerCase();
         const usn = p.usn?.toLowerCase();
         const id = p.id?.toLowerCase();
@@ -213,6 +228,7 @@ export async function POST(request: Request) {
     // Step 3c: Fuzzy Name & Email prefix matching across all students & faculty
     if (!user) {
       user = profiles.find((p: any) => {
+        if (isSuperAdminProfile(p)) return false;
         const name = (p.name || '').toLowerCase();
         const nameAlpha = name.replace(/[^a-z0-9]/g, '');
         const cleanNameOnly = name.replace(/^(mr\.|mrs\.|ms\.|dr\.)\s*/i, '').replace(/[^a-z0-9]/g, '');
