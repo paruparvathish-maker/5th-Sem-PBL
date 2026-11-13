@@ -39,6 +39,21 @@ export default function AdminTeamsPage() {
     });
   }, []);
 
+  // Open the semester that actually holds submitted research papers, so uploaded
+  // proofs are visible on first load instead of hidden behind the other tab.
+  React.useEffect(() => {
+    if (isSyncing) return;
+    const all = store.getAllTeams();
+    const canView4 = !industryAccess.isIndustry || industryAccess.allowedSemesters.includes(4);
+    const hasPapers4 = all.some(
+      (t) => (t.semester || 5) === 4 && Boolean(t.researchPaperProofName || t.researchPaperProofPath)
+    );
+    const hasWork5 = all.some((t) => (t.semester || 5) === 5 && store.getSubmissionsForTeam(t.id).length > 0);
+    if (canView4 && activeTab === 5 && hasPapers4 && !hasWork5) {
+      setActiveTab(4);
+    }
+  }, [isSyncing, activeTab, industryAccess.isIndustry]);
+
   const handleTabChange = (tab: 4 | 5) => {
     if (industryAccess.isIndustry && !industryAccess.allowedSemesters.includes(tab)) return;
     setActiveTab(tab);

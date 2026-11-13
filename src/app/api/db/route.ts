@@ -5,7 +5,8 @@ import {
   saveCloudDynamicStore,
   saveCloudCredentials,
   fetchCloudSubmissions,
-  saveCloudSubmissionsBatch
+  saveCloudSubmissionsBatch,
+  mergeTeamRecords
 } from '@/lib/data/cloud-sync';
 import { store } from '@/lib/data/store';
 import * as fs from 'fs';
@@ -21,8 +22,8 @@ const TMP_DATA_PATH = '/tmp/pbl_backend_data.json';
 
 export async function GET() {
   try {
-    // 1. If Turso or DATABASE_URL is available, attempt Prisma fetch
-    if (process.env.TURSO_DATABASE_URL || process.env.DATABASE_URL) {
+    // 1. Optional Prisma-backed read (only when the schema has been deployed there)
+    if (process.env.PBL_USE_PRISMA === 'true' && (process.env.TURSO_DATABASE_URL || process.env.DATABASE_URL)) {
       try {
         const { prisma } = await import('@/lib/prisma/client');
         const { seedPrismaDatabase } = await import('@/lib/prisma/seed');
@@ -176,21 +177,9 @@ export async function GET() {
           const tMap = new Map<string, any>((baseData.teams || []).map((t: any) => [t.id, t]));
           cloudDynamic.teams.forEach((t: any) => {
             if (t && t.id) {
-              const existing = tMap.get(t.id) || {};
-              // Merge user and admin edited fields (paper status, proofs, guides, edited titles & descriptions)
-              tMap.set(t.id, {
-                ...existing,
-                ...t,
-                guideName: t.guideName || existing.guideName,
-                guideEmail: t.guideEmail || existing.guideEmail,
-                guideId: t.guideId || existing.guideId,
-                projectTitle: t.projectTitle || existing.projectTitle,
-                projectDescription: t.projectDescription || existing.projectDescription,
-                semester: existing.semester || t.semester,
-                section: existing.section || t.section,
-                teamNumber: existing.teamNumber || t.teamNumber,
-                members: (existing.members && existing.members.length > 0) ? existing.members : t.members
-              });
+              // Timestamp-aware merge so a stale cloud copy can never erase a newer
+              // paper status, proof document or project edit from another device.
+              tMap.set(t.id, mergeTeamRecords(tMap.get(t.id), t));
             }
           });
           baseData.teams = Array.from(tMap.values());
@@ -356,39 +345,9 @@ export async function POST(request: Request) {
           if (!existing) {
             teamMap.set(t.id, t);
           } else {
-            const existingTime = existing.researchPaperUpdatedAt ? new Date(existing.researchPaperUpdatedAt).getTime() : 0;
-            const incomingTime = t.researchPaperUpdatedAt ? new Date(t.researchPaperUpdatedAt).getTime() : 0;
-            const useIncoming = incomingTime >= existingTime;
-
-            // Preserve customized project details against stale default overwrite
-            const projectTitle = (t.projectTitle && t.projectTitle !== 'To Be Decided (TBD)')
-              ? t.projectTitle
-              : (existing.projectTitle || t.projectTitle);
-
-            const projectDescription = (t.projectDescription && t.projectDescription.trim() !== '')
-              ? t.projectDescription
-              : (existing.projectDescription || t.projectDescription);
-
-            const finalStatus = (useIncoming && t.researchPaperStatus) ? t.researchPaperStatus : (existing.researchPaperStatus || t.researchPaperStatus || 'submitted');
-            const finalProofName = (useIncoming && t.researchPaperProofName) ? t.researchPaperProofName : (existing.researchPaperProofName || t.researchPaperProofName);
-            const finalProofPath = (useIncoming && t.researchPaperProofPath) ? t.researchPaperProofPath : (existing.researchPaperProofPath || t.researchPaperProofPath);
-            const finalUpdatedAt = (useIncoming && t.researchPaperUpdatedAt) ? t.researchPaperUpdatedAt : (existing.researchPaperUpdatedAt || t.researchPaperUpdatedAt);
-
-            teamMap.set(t.id, {
-              ...existing,
-              ...t,
-              projectTitle,
-              projectDescription,
-              guideEmail: (t.guideEmail === 'shreyajayanth27@gmail.com' || (t.guideName && t.guideName.toLowerCase().includes('megha d')))
-                ? 'megha-cse@dsatm.edu.in'
-                : (t.guideEmail === 'hod.cse@dsatm.edu.in' || (t.guideName && t.guideName.toLowerCase().includes('nandini')))
-                ? 'vp@dsatm.edu.in'
-                : (t.guideEmail || existing.guideEmail),
-              researchPaperStatus: finalStatus,
-              researchPaperProofName: finalProofName,
-              researchPaperProofPath: finalProofPath,
-              researchPaperUpdatedAt: finalUpdatedAt,
-            });
+            // Timestamp-aware merge: a status-only update (no new file) still wins
+            // when it is newer, and an older record can never erase a proof.
+            teamMap.set(t.id, mergeTeamRecords(existing, t));
           }
         }
       });

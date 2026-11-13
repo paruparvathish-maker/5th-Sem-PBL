@@ -32,6 +32,20 @@ export default function FacultyTeamsPage() {
     });
   }, [user.id, user.email, user.name]);
 
+  // Land on the semester that has the most recently updated research paper, so a
+  // faculty member immediately sees the paper status/proof they just published.
+  React.useEffect(() => {
+    if (isSyncing) return;
+    const all = store.getTeamsByGuideId(user.id || user.email || user.name);
+    const withPaper = all.filter((t) => t.researchPaperUpdatedAt);
+    if (withPaper.length === 0) return;
+    const latest = withPaper.reduce((a, b) =>
+      new Date(a.researchPaperUpdatedAt!).getTime() >= new Date(b.researchPaperUpdatedAt!).getTime() ? a : b
+    );
+    const semester = (latest.semester || 5) === 4 ? 4 : 5;
+    setActiveTab(semester);
+  }, [isSyncing, user.id, user.email, user.name]);
+
   // 5th Sem Edit State
   const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
@@ -94,8 +108,8 @@ export default function FacultyTeamsPage() {
         await saveFileToIdb(`proof_${teamId}`, finalProofPath).catch(() => {});
       }
 
-      // 3. Directly call backend PUT /api/teams to persist to disk & cloud database
-      await fetch('/api/teams', {
+      // 3. Directly call backend PUT /api/teams to persist to disk & shared database
+      const saveRes = await fetch('/api/teams', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -106,7 +120,16 @@ export default function FacultyTeamsPage() {
         })
       }).catch((apiErr) => {
         console.warn('API /teams update failed:', apiErr);
+        return null;
       });
+
+      const saveResult = saveRes ? await saveRes.json().catch(() => null) : null;
+      if (saveResult && saveResult.persisted === false) {
+        alert(
+          'The paper status was saved on this device, but the shared database rejected the write.\n\n' +
+            'Ask the administrator to configure TURSO_DATABASE_URL on the server so every device receives this update.'
+        );
+      }
 
       // 4. Trigger global sync to notify all active listeners
       await store.syncFromSupabase();

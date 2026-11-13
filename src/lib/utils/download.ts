@@ -71,13 +71,8 @@ export async function viewProofFile(proofPath?: string, proofName?: string, team
     return;
   }
 
-  // 2. Direct HTTP or static storage path
-  if (proofPath && (proofPath.startsWith('http://') || proofPath.startsWith('https://') || proofPath.startsWith('/storage/'))) {
-    openInNewTab(proofPath);
-    return;
-  }
-
-  // 3. Check IndexedDB if teamId is provided
+  // 2. Check IndexedDB / the shared proof endpoint first: the local static copy
+  //    may not exist on another device or on the deployment.
   if (teamId) {
     try {
       const idbData = await getFileFromIdb(`proof_${teamId}`);
@@ -88,12 +83,28 @@ export async function viewProofFile(proofPath?: string, proofName?: string, team
       }
     } catch {}
 
-    // 4. Check backend API endpoint: /api/teams/proof?teamId=${teamId}
     try {
       const apiProofUrl = `/api/teams/proof?teamId=${encodeURIComponent(teamId)}`;
       const testRes = await fetch(apiProofUrl, { method: 'HEAD' });
       if (testRes.ok) {
         openInNewTab(apiProofUrl);
+        return;
+      }
+    } catch {}
+  }
+
+  // 3. Direct HTTP URL
+  if (proofPath && (proofPath.startsWith('http://') || proofPath.startsWith('https://'))) {
+    openInNewTab(proofPath);
+    return;
+  }
+
+  // 4. Static storage path - only open it when the file is really reachable
+  if (proofPath && proofPath.startsWith('/storage/')) {
+    try {
+      const testRes = await fetch(proofPath, { method: 'HEAD' });
+      if (testRes.ok) {
+        openInNewTab(proofPath);
         return;
       }
     } catch {}
