@@ -114,3 +114,4 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: err.message || 'Failed to record audit log' }, { status: 500 });
   }
 }
+

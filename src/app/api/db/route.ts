@@ -13,7 +13,7 @@ import * as path from 'path';
 
 export const dynamic = 'force-dynamic';
 
-const FASTAPI_URL = process.env.NEXT_PUBLIC_FASTAPI_URL && !process.env.NEXT_PUBLIC_FASTAPI_URL.includes('backend-beta-kohl-9pcedk6q96.vercel.app')
+const FASTAPI_URL = (process.env.FASTAPI_ENABLED === 'true' && process.env.NEXT_PUBLIC_FASTAPI_URL && !process.env.NEXT_PUBLIC_FASTAPI_URL.includes('backend-beta-kohl-9pcedk6q96.vercel.app'))
   ? process.env.NEXT_PUBLIC_FASTAPI_URL
   : '';
 const BACKEND_DATA_PATH = path.join(process.cwd(), 'backend', 'data.json');
@@ -447,10 +447,18 @@ export async function POST(request: Request) {
       cloudSaves.push(saveCloudSubmissionsBatch(merged.submissions));
     }
 
+    const lightweightTeams = merged.teams.map((t: any) => {
+      if (t.researchPaperProofPath && t.researchPaperProofPath.length > 5000) {
+        const { researchPaperProofPath, ...rest } = t;
+        return rest;
+      }
+      return t;
+    });
+
     cloudSaves.push(saveCloudDynamicStore({
       evaluations: merged.evaluations.slice(0, 500),
       guideMeetings: merged.guideMeetings.slice(0, 500),
-      teams: merged.teams.slice(0, 500),
+      teams: lightweightTeams.slice(0, 500),
       auditLogs: merged.auditLogs.slice(0, 300)
     }));
 

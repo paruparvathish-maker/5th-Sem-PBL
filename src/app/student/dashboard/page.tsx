@@ -15,14 +15,14 @@ export default function StudentDashboardPage() {
   const { user } = useAuth();
   if (!user) return null;
 
-  const [team, setTeam] = useState<Team | undefined>(store.getTeamByStudentId(user.id));
+  const [team, setTeam] = useState<Team | undefined>(store.getTeamByStudentId(user.id || user.usn || user.email));
   const [deadlines, setDeadlines] = useState<Deadline[]>(store.getDeadlinesForStudent(user.section));
   const [meetings, setMeetings] = useState<GuideMeeting[]>([]);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [publishedEvaluations, setPublishedEvaluations] = useState<Evaluation[]>([]);
 
   const loadDashboardData = () => {
-    const currentTeam = store.getTeamByStudentId(user.id);
+    const currentTeam = store.getTeamByStudentId(user.id || user.usn || user.email);
     const currentDeadlines = store.getDeadlinesForStudent(user.section);
     setTeam(currentTeam);
     setDeadlines(currentDeadlines);
@@ -43,7 +43,7 @@ export default function StudentDashboardPage() {
     store.syncFromSupabase().then(() => {
       loadDashboardData();
     });
-  }, [user.id, user.section, user.usn]);
+  }, [user.id, user.section, user.usn, user.email]);
 
   const upcomingDeadlines = deadlines.filter(d => d.status === 'open' || d.status === 'upcoming');
 

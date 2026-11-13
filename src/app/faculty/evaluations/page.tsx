@@ -15,11 +15,12 @@ import {
   AlertCircle,
   ShieldCheck,
   FileText,
+  ExternalLink,
   ArrowDownToLine,
   RefreshCw,
 } from 'lucide-react';
 import { EvaluationCriterion } from '@/lib/types/pbl';
-import { downloadSubmissionFile } from '@/lib/utils/download';
+import { downloadSubmissionFile, viewSubmissionFile } from '@/lib/utils/download';
 
 type EvaluationScope = 'team' | 'individual';
 
@@ -44,17 +45,17 @@ function FacultyEvaluationsContent() {
   if (!user) return null;
 
   // Load assigned teams and deadlines from store
-  const [assignedTeams, setAssignedTeams] = useState(store.getTeamsByGuideId(user.email || user.id).filter(t => (t.semester || 5) === 5));
+  const [assignedTeams, setAssignedTeams] = useState(store.getTeamsByGuideId(user.id || user.email || user.name).filter(t => (t.semester || 5) === 5));
   const [allDeadlines, setAllDeadlines] = useState(store.getAllDeadlines());
   const [isSyncing, setIsSyncing] = useState(true);
 
   useEffect(() => {
     store.syncFromSupabase().then(() => {
-      setAssignedTeams(store.getTeamsByGuideId(user.email || user.id).filter(t => (t.semester || 5) === 5));
+      setAssignedTeams(store.getTeamsByGuideId(user.id || user.email || user.name).filter(t => (t.semester || 5) === 5));
       setAllDeadlines(store.getAllDeadlines());
       setIsSyncing(false);
     });
-  }, [user.id, user.email]);
+  }, [user.id, user.email, user.name]);
 
   const [selectedTeamId, setSelectedTeamId] = useState(preselectedTeamId || assignedTeams[0]?.id || '');
   const [selectedDeadlineId, setSelectedDeadlineId] = useState(allDeadlines[0]?.id || '');
@@ -349,11 +350,12 @@ function FacultyEvaluationsContent() {
 
                       <button
                         type="button"
-                        onClick={() => downloadSubmissionFile(teamSub)}
-                        className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-sm flex items-center justify-center gap-1.5 transition shrink-0"
+                        onClick={() => viewSubmissionFile(teamSub)}
+                        className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-sm flex items-center justify-center gap-1.5 transition shrink-0 cursor-pointer"
+                        title="Open report document in new tab"
                       >
-                        <ArrowDownToLine className="w-3.5 h-3.5" />
-                        <span>Download PDF Report</span>
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        <span>View Document</span>
                       </button>
                     </div>
                   ) : (

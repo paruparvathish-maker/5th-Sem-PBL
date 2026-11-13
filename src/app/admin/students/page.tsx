@@ -37,12 +37,13 @@ export default function AdminStudentsPage() {
   }
 
   const [students, setStudents] = useState<UserProfile[]>(store.getStudents());
-  const teams = store.getAllTeams();
+  const [teams, setTeams] = useState(store.getAllTeams());
   const [isSyncing, setIsSyncing] = useState(true);
 
   useEffect(() => {
     store.syncFromSupabase().then(() => {
       setStudents([...store.getStudents()]);
+      setTeams([...store.getAllTeams()]);
       setIsSyncing(false);
     });
   }, []);
@@ -51,6 +52,7 @@ export default function AdminStudentsPage() {
     setIsSyncing(true);
     await store.syncFromSupabase();
     setStudents([...store.getStudents()]);
+    setTeams([...store.getAllTeams()]);
     setIsSyncing(false);
     setMessage('Synchronized student roster with backend database.');
     setTimeout(() => setMessage(null), 3000);

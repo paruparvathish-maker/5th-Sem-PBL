@@ -16,31 +16,39 @@ export default function AdminDashboardPage() {
   if (!user) return null;
 
   const [isSyncing, setIsSyncing] = React.useState(true);
-  const [refreshCount, setRefreshCount] = React.useState(0);
+  const [rawStudents, setRawStudents] = React.useState(store.getStudents());
+  const [rawFaculty, setRawFaculty] = React.useState(store.getFaculty());
+  const [rawTeams, setRawTeams] = React.useState(store.getAllTeams());
+  const [rawSubmissions, setRawSubmissions] = React.useState(store.getAllSubmissions());
+  const [deadlines, setDeadlines] = React.useState(store.getAllDeadlines());
+  const [auditLogs, setAuditLogs] = React.useState(store.getAuditLogs());
+
+  const loadData = () => {
+    setRawStudents([...store.getStudents()]);
+    setRawFaculty([...store.getFaculty()]);
+    setRawTeams([...store.getAllTeams()]);
+    setRawSubmissions([...store.getAllSubmissions()]);
+    setDeadlines([...store.getAllDeadlines()]);
+    setAuditLogs([...store.getAuditLogs()]);
+  };
 
   React.useEffect(() => {
+    loadData();
     store.syncFromSupabase().then(() => {
+      loadData();
       setIsSyncing(false);
-      setRefreshCount(c => c + 1);
     });
   }, []);
 
   const handleManualRefresh = async () => {
     setIsSyncing(true);
     await store.syncFromSupabase();
+    loadData();
     setIsSyncing(false);
-    setRefreshCount(c => c + 1);
   };
 
   const isExec = isExecutiveViewer(user);
   const industryAccess = getIndustryPersonAccess(user);
-
-  const rawStudents = store.getStudents();
-  const rawFaculty = store.getFaculty();
-  const rawTeams = store.getAllTeams();
-  const rawSubmissions = store.getAllSubmissions();
-  const deadlines = store.getAllDeadlines();
-  const auditLogs = store.getAuditLogs();
 
   const teams = industryAccess.isIndustry
     ? rawTeams.filter(t => industryAccess.allAllowedSections.includes(t.section) && industryAccess.allowedSemesters.includes(t.semester || 5))

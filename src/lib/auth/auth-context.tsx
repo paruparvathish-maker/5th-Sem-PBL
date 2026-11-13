@@ -97,7 +97,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (foundUser && cleanPass !== undefined && foundUser.isActivated !== false && store.verifyPassword(foundUser.id, cleanPass)) {
       setUser(foundUser);
       localStorage.setItem('pbl_session_user', JSON.stringify(foundUser));
-      store.addAuditLog(foundUser.id, foundUser.name, foundUser.role, 'User Logged In', 'UserProfile', foundUser.id);
+      store.addAuditLog(foundUser.id, foundUser.name, foundUser.role, 'User Logged In', 'UserProfile', foundUser.id, {
+        email: foundUser.email,
+        usn: foundUser.usn,
+        role: foundUser.role
+      });
+      fetch('/api/audit/log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: foundUser.id,
+          userName: foundUser.name,
+          userRole: foundUser.role,
+          action: 'User Logged In',
+          entityType: 'UserProfile',
+          entityId: foundUser.id,
+          details: { email: foundUser.email, usn: foundUser.usn, role: foundUser.role }
+        })
+      }).catch(() => {});
 
       if (foundUser.isFirstLogin) {
         return { success: true, requiresPasswordChange: true, user: foundUser };
@@ -148,7 +165,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
           setUser(authUser);
           localStorage.setItem('pbl_session_user', JSON.stringify(authUser));
-          store.addAuditLog(authUser.id, authUser.name, authUser.role, 'User Logged In', 'UserProfile', authUser.id);
+          store.addAuditLog(authUser.id, authUser.name, authUser.role, 'User Logged In', 'UserProfile', authUser.id, {
+            email: authUser.email,
+            usn: authUser.usn,
+            role: authUser.role
+          });
+          fetch('/api/audit/log', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: authUser.id,
+              userName: authUser.name,
+              userRole: authUser.role,
+              action: 'User Logged In',
+              entityType: 'UserProfile',
+              entityId: authUser.id,
+              details: { email: authUser.email, usn: authUser.usn, role: authUser.role }
+            })
+          }).catch(() => {});
 
           // Background sync to ensure rest of store is fresh
           store.syncFromSupabase().catch(() => {});

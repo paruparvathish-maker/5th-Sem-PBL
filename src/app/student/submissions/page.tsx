@@ -10,7 +10,7 @@ import {
   Clock, AlertCircle, Info, Sparkles, ExternalLink
 } from 'lucide-react';
 import { Deadline, Submission, Team } from '@/lib/types/pbl';
-import { downloadSubmissionFile } from '@/lib/utils/download';
+import { downloadSubmissionFile, viewSubmissionFile } from '@/lib/utils/download';
 import { saveFileToIdb } from '@/lib/utils/idb-storage';
 import { saveCloudSubmission } from '@/lib/data/cloud-sync';
 
@@ -20,7 +20,7 @@ export default function StudentSubmissionsPage() {
 
   if (!user) return null;
 
-  const [team, setTeam] = useState<Team | undefined>(store.getTeamByStudentId(user.id));
+  const [team, setTeam] = useState<Team | undefined>(store.getTeamByStudentId(user.id || user.usn || user.email));
   const [activeDeadline, setActiveDeadline] = useState<Deadline | undefined>(undefined);
   const [teamSubmissions, setTeamSubmissions] = useState<Submission[]>([]);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -30,7 +30,7 @@ export default function StudentSubmissionsPage() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const loadData = () => {
-    const currentTeam = store.getTeamByStudentId(user.id);
+    const currentTeam = store.getTeamByStudentId(user.id || user.usn || user.email);
     setTeam(currentTeam);
     // Deadlines applicable to student
     const deadlines = store.getDeadlinesForStudent(user.section);
@@ -49,7 +49,7 @@ export default function StudentSubmissionsPage() {
     store.syncFromSupabase().then(() => {
       loadData();
     });
-  }, [user.id]);
+  }, [user.id, user.usn, user.email, user.section]);
 
   // Existing submission for 1st Review
   const currentSubmission = teamSubmissions.find(s => 
@@ -264,11 +264,12 @@ export default function StudentSubmissionsPage() {
               {/* Download / View Button */}
               <button
                 type="button"
-                onClick={() => downloadSubmissionFile(currentSubmission)}
-                className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md transition flex items-center justify-center gap-2 shrink-0"
+                onClick={() => viewSubmissionFile(currentSubmission)}
+                className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md transition flex items-center justify-center gap-2 shrink-0 cursor-pointer"
+                title="Open submitted document in new tab"
               >
-                <ArrowDownToLine className="w-4 h-4" />
-                <span>Download PDF Document</span>
+                <ExternalLink className="w-4 h-4" />
+                <span>View Document</span>
               </button>
             </div>
 

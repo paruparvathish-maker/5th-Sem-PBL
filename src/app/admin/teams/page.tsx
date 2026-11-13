@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { Team, SectionCode, ResearchPaperStatus } from '@/lib/types/pbl';
 import { isExecutiveViewer, getIndustryPersonAccess, getIndustryExpertForTeam } from '@/lib/auth/roles';
-import { downloadSubmissionFile } from '@/lib/utils/download';
+import { downloadSubmissionFile, viewSubmissionFile, viewProofFile } from '@/lib/utils/download';
 
 export default function AdminTeamsPage() {
   const { user } = useAuth();
@@ -28,12 +28,13 @@ export default function AdminTeamsPage() {
 
   const [activeTab, setActiveTab] = useState<4 | 5>(initialTab);
   const [teams, setTeams] = useState<Team[]>(store.getAllTeams());
-  const facultyList = store.getFaculty();
+  const [facultyList, setFacultyList] = useState(store.getFaculty());
   const [isSyncing, setIsSyncing] = useState(true);
 
   React.useEffect(() => {
     store.syncFromSupabase().then(() => {
       setTeams([...store.getAllTeams()]);
+      setFacultyList([...store.getFaculty()]);
       setIsSyncing(false);
     });
   }, []);
@@ -42,6 +43,7 @@ export default function AdminTeamsPage() {
     if (industryAccess.isIndustry && !industryAccess.allowedSemesters.includes(tab)) return;
     setActiveTab(tab);
     setTeams([...store.getAllTeams()]);
+    setFacultyList([...store.getFaculty()]);
     setSelectedSection('ALL');
     setProofFilter('ALL');
     setFacultyFilter('ALL');
@@ -51,6 +53,7 @@ export default function AdminTeamsPage() {
     setIsSyncing(true);
     await store.syncFromSupabase();
     setTeams([...store.getAllTeams()]);
+    setFacultyList([...store.getFaculty()]);
     setIsSyncing(false);
     setMessage('Synchronized with latest cloud updates.');
     setTimeout(() => setMessage(null), 3500);
@@ -315,16 +318,15 @@ export default function AdminTeamsPage() {
                       <FileCheck className="w-4 h-4 text-emerald-600 shrink-0" />
                       <span className="truncate">{t.researchPaperProofName || 'Proof Document'}</span>
                     </span>
-                    <a
-                      href={t.researchPaperProofPath || '#'}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      download={t.researchPaperProofPath?.startsWith('data:') ? (t.researchPaperProofName || 'proof-document') : undefined}
-                      className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-sm flex items-center gap-1 shrink-0 transition"
+                    <button
+                      type="button"
+                      onClick={() => viewProofFile(t.researchPaperProofPath, t.researchPaperProofName)}
+                      className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-sm flex items-center gap-1 shrink-0 transition cursor-pointer"
+                      title="Open proof document or image in new tab"
                     >
                       <span>View Proof</span>
                       <ExternalLink className="w-3 h-3" />
-                    </a>
+                    </button>
                   </div>
                   {t.researchPaperUpdatedAt && (
                     <p className="text-[10px] text-emerald-700 font-medium">
@@ -382,12 +384,12 @@ export default function AdminTeamsPage() {
                     </div>
                     <button
                       type="button"
-                      onClick={() => downloadSubmissionFile(sub)}
-                      className="text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-200 font-bold text-[11px] flex items-center space-x-1 transition shrink-0 shadow-sm"
-                      title="Download submission document"
+                      onClick={() => viewSubmissionFile(sub)}
+                      className="text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-200 font-bold text-[11px] flex items-center space-x-1 transition shrink-0 shadow-sm cursor-pointer"
+                      title="Open submission document in new tab"
                     >
-                      <Download className="h-3 w-3" />
-                      <span>Download</span>
+                      <ExternalLink className="h-3 w-3" />
+                      <span>View Document</span>
                     </button>
                   </div>
                 ))}

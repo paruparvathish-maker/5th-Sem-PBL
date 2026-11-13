@@ -37,12 +37,13 @@ export default function AdminFacultyPage() {
   }
 
   const [facultyList, setFacultyList] = useState<UserProfile[]>(store.getFaculty());
-  const teams = store.getAllTeams();
+  const [teams, setTeams] = useState(store.getAllTeams());
   const [isSyncing, setIsSyncing] = useState(true);
 
   useEffect(() => {
     store.syncFromSupabase().then(() => {
       setFacultyList([...store.getFaculty()]);
+      setTeams([...store.getAllTeams()]);
       setIsSyncing(false);
     });
   }, []);
@@ -51,6 +52,7 @@ export default function AdminFacultyPage() {
     setIsSyncing(true);
     await store.syncFromSupabase();
     setFacultyList([...store.getFaculty()]);
+    setTeams([...store.getAllTeams()]);
     setIsSyncing(false);
     setMessage('Synchronized faculty roster with backend database.');
     setTimeout(() => setMessage(null), 3000);

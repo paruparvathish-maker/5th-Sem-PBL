@@ -5,23 +5,23 @@ import { useAuth } from '@/lib/auth/auth-context';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { store } from '@/lib/data/store';
 import { 
-  FileText, Download, Sparkles, Clock, CheckCircle2, 
+  FileText, ExternalLink, Sparkles, Clock, CheckCircle2, 
   AlertCircle, ShieldCheck, HelpCircle, FileCheck 
 } from 'lucide-react';
-import { downloadSubmissionFile } from '@/lib/utils/download';
+import { downloadSubmissionFile, viewSubmissionFile } from '@/lib/utils/download';
 
 export default function FacultyDocumentsPage() {
   const { user } = useAuth();
   if (!user) return null;
 
-  const [assignedTeams, setAssignedTeams] = useState(store.getTeamsByGuideId(user.email || user.id));
-  const [submissions, setSubmissions] = useState(store.getSubmissionsForFaculty(user.email || user.id));
+  const [assignedTeams, setAssignedTeams] = useState(store.getTeamsByGuideId(user.id || user.email || user.name));
+  const [submissions, setSubmissions] = useState(store.getSubmissionsForFaculty(user.id || user.email || user.name));
 
   useEffect(() => {
     store.syncFromSupabase().then(() => {
-      const teams = store.getTeamsByGuideId(user.email || user.id);
+      const teams = store.getTeamsByGuideId(user.id || user.email || user.name);
       setAssignedTeams(teams);
-      setSubmissions(store.getSubmissionsForFaculty(user.email || user.id));
+      setSubmissions(store.getSubmissionsForFaculty(user.id || user.email || user.name));
     });
   }, [user.id, user.email]);
 
@@ -98,11 +98,13 @@ export default function FacultyDocumentsPage() {
 
                   <div className="flex items-center space-x-3 shrink-0">
                     <button
-                      onClick={() => downloadSubmissionFile(sub)}
-                      className="px-3.5 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center space-x-1.5 transition border border-indigo-200 shadow-sm"
+                      type="button"
+                      onClick={() => viewSubmissionFile(sub)}
+                      className="px-3.5 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center space-x-1.5 transition border border-indigo-200 shadow-sm cursor-pointer"
+                      title="Open submission document in new tab"
                     >
-                      <Download className="h-4 w-4" />
-                      <span>Download PDF</span>
+                      <ExternalLink className="h-4 w-4" />
+                      <span>View Document</span>
                     </button>
 
                     <button

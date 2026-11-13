@@ -14,20 +14,20 @@ export default function FacultyDashboardPage() {
   const { user } = useAuth();
   if (!user) return null;
 
-  const [assignedTeams, setAssignedTeams] = React.useState(store.getTeamsByGuideId(user.email || user.id));
-  const [meetings, setMeetings] = React.useState(store.getMeetingsForFaculty(user.email || user.id));
-  const [allSubmissions, setAllSubmissions] = React.useState(store.getSubmissionsForFaculty(user.email || user.id));
+  const [assignedTeams, setAssignedTeams] = React.useState(store.getTeamsByGuideId(user.id || user.email || user.name));
+  const [meetings, setMeetings] = React.useState(store.getMeetingsForFaculty(user.id || user.email || user.name));
+  const [allSubmissions, setAllSubmissions] = React.useState(store.getSubmissionsForFaculty(user.id || user.email || user.name));
   const [evaluations, setEvaluations] = React.useState(store.getAllEvaluations());
 
   React.useEffect(() => {
     store.syncFromSupabase().then(() => {
-      const teams = store.getTeamsByGuideId(user.email || user.id);
+      const teams = store.getTeamsByGuideId(user.id || user.email || user.name);
       setAssignedTeams(teams);
-      setMeetings(store.getMeetingsForFaculty(user.email || user.id));
-      setAllSubmissions(store.getSubmissionsForFaculty(user.email || user.id));
+      setMeetings(store.getMeetingsForFaculty(user.id || user.email || user.name));
+      setAllSubmissions(store.getSubmissionsForFaculty(user.id || user.email || user.name));
       setEvaluations(store.getAllEvaluations());
     });
-  }, [user.id, user.email]);
+  }, [user.id, user.email, user.name]);
 
   const assigned5thSemTeams = assignedTeams.filter(t => (t.semester || 5) === 5);
   const pendingEvaluationsCount = assigned5thSemTeams.length - evaluations.filter(e => 

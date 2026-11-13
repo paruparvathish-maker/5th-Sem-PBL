@@ -12,24 +12,24 @@ import {
   GraduationCap, BookOpen, FileCheck, ExternalLink, Check, Sparkles,
   Download, Edit2
 } from 'lucide-react';
-import { downloadSubmissionFile } from '@/lib/utils/download';
+import { downloadSubmissionFile, viewSubmissionFile, viewProofFile } from '@/lib/utils/download';
 
 export default function FacultyTeamsPage() {
   const { user } = useAuth();
   if (!user) return null;
 
   const [activeTab, setActiveTab] = useState<4 | 5>(5);
-  const [assignedTeams, setAssignedTeams] = useState(store.getTeamsByGuideId(user.email || user.id));
+  const [assignedTeams, setAssignedTeams] = useState(store.getTeamsByGuideId(user.id || user.email || user.name));
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSection, setSelectedSection] = useState<string>('ALL');
   const [isSyncing, setIsSyncing] = useState(true);
 
   React.useEffect(() => {
     store.syncFromSupabase().then(() => {
-      setAssignedTeams([...store.getTeamsByGuideId(user.email || user.id)]);
+      setAssignedTeams([...store.getTeamsByGuideId(user.id || user.email || user.name)]);
       setIsSyncing(false);
     });
-  }, [user.id, user.email]);
+  }, [user.id, user.email, user.name]);
 
   // 5th Sem Edit State
   const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
@@ -354,15 +354,15 @@ export default function FacultyTeamsPage() {
                                     </p>
                                   </div>
                                 </div>
-                                <a
-                                  href={t.researchPaperProofPath || '#'}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  download={t.researchPaperProofPath?.startsWith('data:') ? (t.researchPaperProofName || 'proof-document') : undefined}
-                                  className="text-xs font-bold text-indigo-600 hover:underline flex items-center gap-1"
+                                <button
+                                  type="button"
+                                  onClick={() => viewProofFile(t.researchPaperProofPath, t.researchPaperProofName)}
+                                  className="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline flex items-center gap-1 cursor-pointer bg-transparent border-0 p-0"
+                                  title="Open proof document or image in new tab"
                                 >
-                                  View Proof <ExternalLink className="w-3 h-3" />
-                                </a>
+                                  <span>View Proof</span>
+                                  <ExternalLink className="w-3 h-3" />
+                                </button>
                               </div>
                             ) : (
                               <p className="text-xs text-slate-400 italic mt-1">
@@ -569,11 +569,12 @@ export default function FacultyTeamsPage() {
                             </div>
                             <button
                               type="button"
-                              onClick={() => downloadSubmissionFile(review1Sub)}
-                              className="px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center gap-1.5 transition border border-indigo-200"
+                              onClick={() => viewSubmissionFile(review1Sub)}
+                              className="px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center gap-1.5 transition border border-indigo-200 cursor-pointer shadow-sm"
+                              title="Open 1st review report document in new tab"
                             >
-                              <Download className="w-3.5 h-3.5" />
-                              <span>Download PDF</span>
+                              <ExternalLink className="w-3.5 h-3.5" />
+                              <span>View Document</span>
                             </button>
                           </div>
                         ) : (

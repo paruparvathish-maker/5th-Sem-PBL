@@ -608,16 +608,43 @@ class PBLStore {
           return s;
         });
 
-        localStorage.setItem('pbl_portal_store_v7', JSON.stringify({
+        // Strip heavy base64 proof images (>5000 chars) from teams to guarantee mobile localStorage never hits QuotaExceededError
+        const lightweightTeams = this.teams.map(t => {
+          if (t.researchPaperProofPath && t.researchPaperProofPath.length > 5000) {
+            const { researchPaperProofPath, ...rest } = t;
+            return rest;
+          }
+          return t;
+        });
+
+        const storeString = JSON.stringify({
           profiles: this.profiles,
-          teams: this.teams,
+          teams: lightweightTeams,
           deadlines: this.deadlines,
           submissions: lightweightSubmissions,
           evaluations: this.evaluations,
           guideMeetings: this.guideMeetings,
           notifications: this.notifications,
           auditLogs: this.auditLogs
-        }));
+        });
+
+        try {
+          localStorage.setItem('pbl_portal_store_v7', storeString);
+        } catch (storageErr) {
+          console.warn("Storage quota limit reached, saving minimal store:", storageErr);
+          try {
+            localStorage.setItem('pbl_portal_store_v7', JSON.stringify({
+              profiles: this.profiles.filter(p => !p.isFirstLogin || p.role === 'admin'),
+              teams: lightweightTeams.filter(t => t.researchPaperProofName || (t.projectTitle && t.projectTitle !== 'To Be Decided (TBD)')),
+              deadlines: this.deadlines,
+              submissions: lightweightSubmissions,
+              evaluations: this.evaluations,
+              guideMeetings: this.guideMeetings,
+              notifications: this.notifications,
+              auditLogs: this.auditLogs.slice(0, 100)
+            }));
+          } catch {}
+        }
 
         // Fire-and-forget sync to cloud
         if (!skipCloudSync) {
@@ -673,6 +700,7 @@ class PBLStore {
   public async syncFromSupabase() {
     try {
       const getFastApiUrl = () => {
+        if (process.env.FASTAPI_ENABLED !== 'true') return '';
         if (typeof window !== 'undefined') {
           // On mobile devices or remote clients, NEVER attempt 127.0.0.1 / localhost to avoid connection timeouts and mixed-content security blocks
           if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
@@ -1016,16 +1044,42 @@ class PBLStore {
             return s;
           });
 
-          localStorage.setItem('pbl_portal_store_v7', JSON.stringify({
+          const lightweightTeams = this.teams.map(t => {
+            if (t.researchPaperProofPath && t.researchPaperProofPath.length > 5000) {
+              const { researchPaperProofPath, ...rest } = t;
+              return rest;
+            }
+            return t;
+          });
+
+          const storeString = JSON.stringify({
             profiles: this.profiles,
-            teams: this.teams,
+            teams: lightweightTeams,
             deadlines: this.deadlines,
             submissions: lightweightSubmissions,
             evaluations: this.evaluations,
             guideMeetings: this.guideMeetings,
             notifications: this.notifications,
             auditLogs: this.auditLogs
-          }));
+          });
+
+          try {
+            localStorage.setItem('pbl_portal_store_v7', storeString);
+          } catch (storageErr) {
+            console.warn("Storage quota limit reached during sync, saving minimal store:", storageErr);
+            try {
+              localStorage.setItem('pbl_portal_store_v7', JSON.stringify({
+                profiles: this.profiles.filter(p => !p.isFirstLogin || p.role === 'admin'),
+                teams: lightweightTeams.filter(t => t.researchPaperProofName || (t.projectTitle && t.projectTitle !== 'To Be Decided (TBD)')),
+                deadlines: this.deadlines,
+                submissions: lightweightSubmissions,
+                evaluations: this.evaluations,
+                guideMeetings: this.guideMeetings,
+                notifications: this.notifications,
+                auditLogs: this.auditLogs.slice(0, 100)
+              }));
+            } catch {}
+          }
         }
       }
     } catch (err) {
@@ -1055,6 +1109,7 @@ class PBLStore {
       });
 
       const getFastApiUrl = () => {
+        if (process.env.FASTAPI_ENABLED !== 'true') return '';
         if (typeof window !== 'undefined') {
           // On mobile devices or remote clients, NEVER attempt 127.0.0.1 / localhost to avoid connection timeouts and mixed-content security blocks
           if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
@@ -1416,18 +1471,13 @@ class PBLStore {
     const facultyTeams = this.getTeamsByGuideId(guideIdentifier);
     if (!facultyTeams || facultyTeams.length === 0) return [];
 
-    return this.submissions.filter(s => {
-      // 1. Match by teamId
-      if (facultyTeams.some(t => t.id === s.teamId)) return true;
-
-      // 2. Fallback match by teamNumber and section
-      const subSection = (s as any).section || (s.teamNumber ? s.teamNumber.replace(/[^A-Za-z]/g, '').slice(0, 1).toUpperCase() : '');
-      return facultyTeams.some(t => {
-        if (t.teamNumber !== s.teamNumber) return false;
-        if (subSection && t.section && subSection !== t.section) return false;
-        return true;
-      });
+    const matchedSubs = new Map<string, Submission>();
+    facultyTeams.forEach(t => {
+      const subs = this.getSubmissionsForTeam(t.id);
+      subs.forEach(s => matchedSubs.set(s.id, s));
     });
+
+    return Array.from(matchedSubs.values());
   }
 
   public createTeam(teamData: Omit<Team, 'id' | 'createdAt'>): Team {
@@ -1545,11 +1595,42 @@ class PBLStore {
   public getAllSubmissions(): Submission[] { return this.submissions; }
 
   public getSubmissionsForTeam(teamId: string): Submission[] {
+    if (!teamId) return [];
     const team = this.teams.find(t => t.id === teamId);
-    return this.submissions.filter(s => 
-      s.teamId === teamId ||
-      (team && s.teamNumber === team.teamNumber && s.section === team.section)
-    );
+    const cleanId = (id: string) => (id || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const targetClean = cleanId(teamId);
+
+    return this.submissions.filter(s => {
+      // 1. Direct ID match
+      if (s.teamId === teamId) return true;
+      if (s.teamId && cleanId(s.teamId) === targetClean) return true;
+
+      // 2. Normalized team-5-A-1 vs team-5-A-A1
+      if (s.teamId && teamId) {
+        const sMatch = s.teamId.match(/team-(\d)-([A-Za-z])-([A-Za-z0-9]+)/);
+        const tMatch = teamId.match(/team-(\d)-([A-Za-z])-([A-Za-z0-9]+)/);
+        if (sMatch && tMatch && sMatch[1] === tMatch[1] && sMatch[2].toUpperCase() === tMatch[2].toUpperCase()) {
+          const sNum = sMatch[3].toUpperCase().replace(/^[A-Z]/, '');
+          const tNum = tMatch[3].toUpperCase().replace(/^[A-Z]/, '');
+          if (sNum && tNum && sNum === tNum) return true;
+        }
+      }
+
+      // 3. Match by student USN or submitter belonging to this team
+      if (team && team.members && team.members.length > 0) {
+        if (s.studentUsn && team.members.some(m => m.usn && m.usn.toUpperCase() === s.studentUsn?.toUpperCase())) return true;
+        if (s.submittedBy && team.members.some(m => m.id === s.submittedBy || (m.usn && s.submittedBy.toUpperCase().includes(m.usn.toUpperCase())))) return true;
+      }
+
+      // 4. Match by teamNumber and section
+      if (team && s.teamNumber && s.section) {
+        const sNum = s.teamNumber.toUpperCase().replace(/^[A-Z]/, '');
+        const tNum = team.teamNumber.toUpperCase().replace(/^[A-Z]/, '');
+        if (sNum === tNum && s.section.toUpperCase() === team.section.toUpperCase()) return true;
+      }
+
+      return false;
+    });
   }
 
   public submitDocument(

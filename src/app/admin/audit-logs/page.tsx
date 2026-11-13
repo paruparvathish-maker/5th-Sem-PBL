@@ -51,17 +51,20 @@ export default function AdminAuditLogsPage() {
     setIsSyncing(true);
     try {
       await store.syncFromSupabase();
-      let updated = store.getAuditLogs();
-      if (updated.length === 0) {
+      let localLogs = store.getAuditLogs();
+      try {
         const res = await fetch('/api/audit/log');
         if (res.ok) {
           const data = await res.json();
-          if (Array.isArray(data.auditLogs)) {
-            updated = data.auditLogs;
+          if (Array.isArray(data.auditLogs) && data.auditLogs.length > 0) {
+            const map = new Map(localLogs.map(l => [l.id, l]));
+            data.auditLogs.forEach((l: AuditLogItem) => map.set(l.id, { ...(map.get(l.id) || {}), ...l }));
+            localLogs = Array.from(map.values());
           }
         }
-      }
-      setLogs([...updated]);
+      } catch {}
+      localLogs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      setLogs([...localLogs]);
     } catch {}
     setIsSyncing(false);
   };

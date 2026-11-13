@@ -17750,7 +17750,7 @@
       "id": "sub-1794226174150",
       "deadlineId": "dl-review-1",
       "deadlineTitle": "1st Review Report",
-      "teamId": "team-5-A-1",
+      "teamId": "team-5-A-A1",
       "submittedBy": "stud-1DT24CS001",
       "studentName": "A JATIN RAM CHOWDARY",
       "studentUsn": "1DT24CS001",
@@ -17780,13 +17780,16 @@
         "facultyQuestions": [
           "What are the expected response metrics under peak load?"
         ]
-      }
+      },
+      "teamNumber": "A1",
+      "section": "A",
+      "projectTitle": "VisionEdge: An Open Benchmark Suite for Mobile Vision Inference"
     },
     {
       "id": "sub-1794227343434",
       "deadlineId": "dl-review-1",
       "deadlineTitle": "1st Review Report",
-      "teamId": "team-5-A-1",
+      "teamId": "team-5-A-A1",
       "submittedBy": "stud-1DT24CS001",
       "studentName": "A JATIN RAM CHOWDARY",
       "studentUsn": "1DT24CS001",
@@ -17816,7 +17819,10 @@
         "facultyQuestions": [
           "What are the expected response metrics under peak load?"
         ]
-      }
+      },
+      "teamNumber": "A1",
+      "section": "A",
+      "projectTitle": "VisionEdge: An Open Benchmark Suite for Mobile Vision Inference"
     }
   ],
   "evaluations": [

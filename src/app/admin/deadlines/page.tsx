@@ -9,10 +9,10 @@ import { isExecutiveViewer } from '@/lib/auth/roles';
 import {
   Calendar, Plus, Clock, Unlock, CheckCircle2, Trash2, Edit3,
   FileText, Search, Filter, ShieldCheck, ArrowDownToLine, Lock,
-  AlertTriangle, RefreshCw, Eye
+  AlertTriangle, RefreshCw, Eye, ExternalLink
 } from 'lucide-react';
 import { Deadline, DeadlineType, DeadlineStatus, SectionCode, Submission, Team } from '@/lib/types/pbl';
-import { downloadSubmissionFile } from '@/lib/utils/download';
+import { downloadSubmissionFile, viewSubmissionFile } from '@/lib/utils/download';
 
 export default function AdminDeadlinesPage() {
   const { user } = useAuth();
@@ -511,11 +511,12 @@ export default function AdminDeadlinesPage() {
                         {/* Download / View */}
                         <button
                           type="button"
-                          onClick={() => downloadSubmissionFile(s)}
-                          className="px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center gap-1 transition"
+                          onClick={() => viewSubmissionFile(s)}
+                          className="px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center gap-1 transition cursor-pointer"
+                          title="Open submission document in new tab"
                         >
-                          <ArrowDownToLine className="w-3.5 h-3.5" />
-                          <span>Download PDF</span>
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          <span>View Document</span>
                         </button>
 
                         {/* Quick Unlock */}

@@ -28,16 +28,29 @@ let lastCredsFetch = 0;
 let cachedSubmissions: Record<string, any> | null = null;
 let lastSubmissionsFetch = 0;
 
+let kvUnavailableUntil = 0;
+
+function isKvAvailable(): boolean {
+  return Date.now() > kvUnavailableUntil;
+}
+
+function markKvFailed() {
+  kvUnavailableUntil = Date.now() + 30000; // Backoff for 30 seconds on network failure
+}
+
 // --- Credentials Synchronization ---
 export async function fetchCloudCredentials(): Promise<Record<string, CredentialRecord>> {
   const now = Date.now();
   if (cachedCreds && now - lastCredsFetch < 3000) {
     return cachedCreds;
   }
+  if (!isKvAvailable()) {
+    return cachedCreds || {};
+  }
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2000);
+    const timeoutId = setTimeout(() => controller.abort(), 1000);
     const res = await fetch(`${KV_BASE_URL}/${PASSWORDS_KEY}`, {
       cache: 'no-store',
       signal: controller.signal
@@ -51,9 +64,11 @@ export async function fetchCloudCredentials(): Promise<Record<string, Credential
         lastCredsFetch = now;
         return data;
       }
+    } else {
+      markKvFailed();
     }
   } catch (err) {
-    // Non-blocking fallback
+    markKvFailed();
   }
 
   return cachedCreds || {};
@@ -151,10 +166,13 @@ export async function fetchCloudSubmissions(): Promise<any[]> {
   if (cachedSubmissions && now - lastSubmissionsFetch < 3000) {
     return Object.values(cachedSubmissions);
   }
+  if (!isKvAvailable()) {
+    return cachedSubmissions ? Object.values(cachedSubmissions) : [];
+  }
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2000);
+    const timeoutId = setTimeout(() => controller.abort(), 1000);
     const res = await fetch(`${KV_BASE_URL}/${SUBMISSIONS_KEY}`, {
       cache: 'no-store',
       signal: controller.signal
@@ -168,9 +186,11 @@ export async function fetchCloudSubmissions(): Promise<any[]> {
         lastSubmissionsFetch = now;
         return Object.values(data);
       }
+    } else {
+      markKvFailed();
     }
   } catch (err) {
-    // Non-blocking fallback
+    markKvFailed();
   }
 
   return cachedSubmissions ? Object.values(cachedSubmissions) : [];
@@ -310,9 +330,13 @@ export async function fetchCloudSubmissionFile(submissionId: string): Promise<st
 
 // --- Dynamic Store (Evaluations, Guide Meetings, Audit Logs) ---
 export async function fetchCloudDynamicStore(): Promise<any | null> {
+  if (!isKvAvailable()) {
+    return null;
+  }
+
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2000);
+    const timeoutId = setTimeout(() => controller.abort(), 1000);
     const res = await fetch(`${KV_BASE_URL}/${DYNAMIC_STORE_KEY}`, {
       cache: 'no-store',
       signal: controller.signal
@@ -321,24 +345,37 @@ export async function fetchCloudDynamicStore(): Promise<any | null> {
 
     if (res.ok) {
       return await res.json();
+    } else {
+      markKvFailed();
     }
-  } catch {}
+  } catch {
+    markKvFailed();
+  }
   return null;
 }
 
 export async function saveCloudDynamicStore(payload: any): Promise<boolean> {
+  if (!isKvAvailable()) {
+    return false;
+  }
+
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2500);
-    await fetch(`${KV_BASE_URL}/${DYNAMIC_STORE_KEY}`, {
+    const timeoutId = setTimeout(() => controller.abort(), 1500);
+    const res = await fetch(`${KV_BASE_URL}/${DYNAMIC_STORE_KEY}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
       signal: controller.signal
     });
     clearTimeout(timeoutId);
+    if (!res.ok) {
+      markKvFailed();
+      return false;
+    }
     return true;
   } catch {
+    markKvFailed();
     return false;
   }
 }
