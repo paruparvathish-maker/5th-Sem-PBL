@@ -315,7 +315,9 @@ export async function fetchCloudDynamicStore(): Promise<any | null> {
     lastDynamicFetch = now;
     return data;
   }
-  return cachedDynamic;
+  // Never serve the previous in-memory copy here: a deleted or corrected record
+  // must not reappear from a warm instance's cache.
+  return null;
 }
 
 export async function saveCloudDynamicStore(payload: any): Promise<boolean> {
