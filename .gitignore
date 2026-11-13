@@ -17,3 +17,7 @@ dev.db
 *.tsbuildinfo
 __pycache__/
 *.py[cod]
+
+.vercel
+.env.local
+.env*.local
