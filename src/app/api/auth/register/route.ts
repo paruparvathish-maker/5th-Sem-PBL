@@ -6,6 +6,7 @@ import { normalizeName, getGuideEmail } from '@/lib/data/seed-dataset';
 import { createAndSaveActivationToken } from '@/lib/data/otp-store';
 import { sendActivationEmail, getAppOrigin } from '@/lib/utils/mailer';
 import { persistProfileToDisk } from '@/lib/data/user-resolver';
+import { matchSupervisorIdentity } from '@/lib/auth/roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,6 +30,20 @@ export async function POST(request: Request) {
     }
 
     const allProfiles = store.getAllProfiles();
+
+    // Principal, Vice Principal and the section supervisors sign up with the
+    // names/emails the college publishes for them. Those registrations always
+    // resolve to the pre-provisioned profile (and its supervision scope)
+    // instead of creating a duplicate account, whichever staff role was picked.
+    const designatedSupervisorId = matchSupervisorIdentity({
+      name: body.name,
+      email: body.email,
+      phone: body.phone
+    });
+    const effectiveRole =
+      designatedSupervisorId && (role === 'faculty' || role === 'industry')
+        ? 'industry'
+        : role;
 
     // ==========================================
     // 1. STUDENT REGISTRATION
@@ -307,7 +322,7 @@ export async function POST(request: Request) {
     // ==========================================
     // 3. INDUSTRY EXPERT REGISTRATION
     // ==========================================
-    if (role === 'industry') {
+    if (effectiveRole === 'industry') {
       const { email, name, phone, organization } = body;
       if (!email) {
         return NextResponse.json({ error: 'Email ID is required for industry person registration.' }, { status: 400 });
@@ -319,15 +334,14 @@ export async function POST(request: Request) {
       const cleanEmail = String(email).trim().toLowerCase();
       const cleanName = String(name).trim();
       const cleanPhone = phone ? String(phone).trim() : '';
-      const lowerName = cleanName.toLowerCase();
 
-      // Check with exact names from the database to map industry experts
-      let matchedAdminId = '';
-      if (lowerName.includes('girish')) matchedAdminId = 'industry-girish';
-      else if (lowerName.includes('raghu')) matchedAdminId = 'industry-raghu';
-      else if (lowerName.includes('raja') || lowerName.includes('shekhar')) matchedAdminId = 'industry-rajashekhar';
-      else if (lowerName.includes('manasa')) matchedAdminId = 'industry-manasa';
-      else if (lowerName.includes('harshitha')) matchedAdminId = 'industry-harshitha';
+      // Recognise the college's published leadership / supervisor names, emails
+      // and phone numbers so their registration updates their own profile.
+      const matchedAdminId = matchSupervisorIdentity({
+        name: cleanName,
+        email: cleanEmail,
+        phone: cleanPhone
+      }) || '';
 
       let industryUser = allProfiles.find(p => 
         (matchedAdminId && p.id === matchedAdminId) ||
@@ -343,6 +357,9 @@ export async function POST(request: Request) {
         industryUser.isFirstLogin = false;
         industryUser.isActivated = false;
         industryUser.passwordUpdatedAt = new Date().toISOString();
+        if (matchedAdminId) {
+          industryUser.id = matchedAdminId;
+        }
       } else {
         const idSlug = cleanName.toLowerCase().replace(/[^a-z0-9]/g, '');
         const newInd: UserProfile = {

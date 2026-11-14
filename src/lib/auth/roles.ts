@@ -125,6 +125,86 @@ export function getIndustryPersonAccess(user?: { id?: string; email?: string; na
 }
 
 /**
+ * Names, institutional emails and phone numbers the college publishes for its
+ * leadership and section supervisors. A registration submitted with any of
+ * these values must land on the matching pre-provisioned profile instead of
+ * creating a duplicate account.
+ */
+export interface SupervisorIdentity {
+  id: string;
+  designations: string[];
+  emails: string[];
+  phones: string[];
+}
+
+const normalizeIdentity = (value?: string): string =>
+  (value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+const SUPERVISOR_IDENTITIES: SupervisorIdentity[] = [
+  {
+    id: 'admin-principal',
+    designations: ['mravishankar', 'ravishankar', 'drmravishankar', 'drravishankar'],
+    emails: ['principal@dsatm.edu.in'],
+    phones: []
+  },
+  {
+    id: 'admin-hod',
+    designations: ['cnandini', 'drcnandini', 'nandini', 'nandinic', 'drnandinic'],
+    emails: ['vp@dsatm.edu.in', 'hod.cse@dsatm.edu.in'],
+    phones: ['9972634890']
+  },
+  {
+    id: 'industry-girish',
+    designations: ['girish', 'girishn', 'mrgirish', 'mrgirishn'],
+    emails: ['girish.industry@dsatm.edu.in'],
+    phones: ['9986765626']
+  },
+  {
+    id: 'industry-raghu',
+    designations: ['raghu', 'raghun', 'mrraghu'],
+    emails: ['raghu.industry@dsatm.edu.in'],
+    phones: ['8123573747']
+  },
+  {
+    id: 'industry-rajashekhar',
+    designations: ['rajashekhara', 'rajashekhar', 'rajashekara', 'rajashekar', 'mrajashekhara'],
+    emails: ['rajashekhar.industry@dsatm.edu.in'],
+    phones: ['9964222260']
+  },
+  {
+    id: 'industry-manasa',
+    designations: ['manasa', 'manasas', 'msmanasas'],
+    emails: ['manasa.industry@dsatm.edu.in'],
+    phones: ['9108932557']
+  },
+  {
+    id: 'industry-harshitha',
+    designations: ['harshitha', 'harshithar', 'msharshithar'],
+    emails: ['harshitha.industry@dsatm.edu.in'],
+    phones: ['9611172433']
+  }
+];
+
+/**
+ * Resolves a published supervisor / leadership name, email or phone number to
+ * the account that already owns that supervision scope. Unknown values return
+ * undefined so a brand new account can be created for them.
+ */
+export function matchSupervisorIdentity(input: { name?: string; email?: string; phone?: string }): string | undefined {
+  const name = normalizeIdentity(input.name);
+  const email = (input.email || '').toLowerCase().trim();
+  const phone = (input.phone || '').replace(/\D/g, '');
+
+  const hit = SUPERVISOR_IDENTITIES.find((identity) =>
+    (email && identity.emails.includes(email)) ||
+    (phone.length >= 7 && identity.phones.includes(phone)) ||
+    (name.length >= 4 && identity.designations.includes(name))
+  );
+
+  return hit?.id;
+}
+
+/**
  * Maps each project team / research paper group to its designated industry expert based on semester & section.
  */
 export function getIndustryExpertForTeam(semester: number, section: string): {

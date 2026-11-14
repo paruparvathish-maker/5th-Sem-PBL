@@ -70,6 +70,20 @@ export const DEFAULT_INDUSTRY_EXPERTS: UserProfile[] = [
   }
 ];
 
+/**
+ * Keeps the seed credentials for a designated expert only while that account is
+ * still untouched. Once the expert registers with their own name/email/password
+ * (or the password is rotated) the stored profile wins, so signing up never
+ * silently reverts their account back to the seeded placeholder.
+ */
+function mergeSeedIndustryExpert(existing: UserProfile, seed: UserProfile): UserProfile {
+  const personalised = existing.isActivated === false || Boolean(existing.passwordUpdatedAt);
+  if (personalised) {
+    return { ...seed, ...existing, role: seed.role };
+  }
+  return { ...existing, ...seed };
+}
+
 class PBLStore {
   private profiles: UserProfile[] = [];
   private teams: Team[] = [];
@@ -285,7 +299,7 @@ class PBLStore {
           DEFAULT_INDUSTRY_EXPERTS.forEach(exp => {
             const idx = this.profiles.findIndex(p => p.id === exp.id || p.email.toLowerCase() === exp.email.toLowerCase());
             if (idx >= 0) {
-              this.profiles[idx] = { ...this.profiles[idx], ...exp };
+              this.profiles[idx] = mergeSeedIndustryExpert(this.profiles[idx], exp);
             } else {
               this.profiles.push(exp);
             }
@@ -1074,7 +1088,7 @@ class PBLStore {
         DEFAULT_INDUSTRY_EXPERTS.forEach(exp => {
           const idx = this.profiles.findIndex(p => p.id === exp.id || p.email.toLowerCase() === exp.email.toLowerCase());
           if (idx >= 0) {
-            this.profiles[idx] = { ...this.profiles[idx], ...exp };
+            this.profiles[idx] = mergeSeedIndustryExpert(this.profiles[idx], exp);
           } else {
             this.profiles.push(exp);
           }
