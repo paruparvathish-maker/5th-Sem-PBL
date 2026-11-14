@@ -268,6 +268,8 @@ export function ProfileModal({ isOpen, onClose, initialTab = 'profile' }: Profil
                           ? 'Industry Evaluator'
                           : (user.email === 'vp@dsatm.edu.in' || user.id === 'admin-hod')
                           ? 'Vice Principal & HOD'
+                          : (user.id === 'admin-principal' || (user.email || '').toLowerCase() === 'principal@dsatm.edu.in')
+                          ? 'Principal'
                           : isExec
                           ? 'Executive Leadership'
                           : user.role === 'admin'

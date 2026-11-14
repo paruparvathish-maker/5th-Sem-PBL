@@ -20,6 +20,15 @@ export default function AdminTeamsPage() {
   const isReadOnly = isExecutiveViewer(user);
   const industryAccess = getIndustryPersonAccess(user);
 
+  // Principal and Vice Principal supervise the whole department read-only.
+  const isVicePrincipal = user.id === 'admin-hod' || (user.email || '').toLowerCase() === 'vp@dsatm.edu.in';
+  const isPrincipal = user.id === 'admin-principal' || (user.email || '').toLowerCase() === 'principal@dsatm.edu.in';
+  const leadershipTitle = isPrincipal
+    ? `Principal Supervisory Access (${user.name})`
+    : isVicePrincipal
+      ? `Vice Principal & HOD Supervisory Access (${user.name})`
+      : `Executive Observer Access (${user.name})`;
+
   const initialTab: 4 | 5 = (industryAccess.isIndustry && industryAccess.allowedSemesters.length === 1)
     ? (industryAccess.allowedSemesters[0] as 4 | 5)
     : (industryAccess.isIndustry && industryAccess.allowedSemesters.includes(4) && !industryAccess.allowedSemesters.includes(5))
@@ -497,13 +506,11 @@ export default function AdminTeamsPage() {
             </div>
             <div className="text-xs">
               <p className="font-extrabold text-amber-950">
-                {(user.email === 'vp@dsatm.edu.in' || user.id === 'admin-hod')
-                  ? `Vice Principal & HOD Supervisory Access (${user.name})`
-                  : `Executive Observer Access (${user.name})`}
+                {leadershipTitle}
               </p>
               <p className="text-amber-800 mt-0.5 leading-relaxed">
-                {(user.email === 'vp@dsatm.edu.in' || user.id === 'admin-hod')
-                  ? 'Full institutional supervision access to check the status of 4th Semester Research Papers (proof uploads, review status) and 5th Semester Industrial PBL Projects across Sections A through F.'
+                {(isPrincipal || isVicePrincipal)
+                  ? 'Full institutional supervision access to check the status of 4th Semester Research Papers (proof uploads, review status) and 5th Semester Industrial PBL Projects across Sections A through F. Records can only be viewed, not modified or deleted.'
                   : 'You have read-only supervision access to 4th Semester Research Papers and 5th Semester PBL Projects. Data modifications, deletions, and deadline configurations are strictly restricted to the Main Administrator account.'}
               </p>
             </div>
