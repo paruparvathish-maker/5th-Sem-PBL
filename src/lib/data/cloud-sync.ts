@@ -256,9 +256,14 @@ export async function fetchCloudSubmissions(): Promise<any[]> {
 
   const data = await readDoc<Record<string, any>>(SUBMISSIONS_KEY);
   if (data && typeof data === 'object') {
-    cachedSubmissions = data;
+    // Never hand inlined documents to callers, even if the stored index still has them.
+    const slim: Record<string, any> = {};
+    Object.entries(data).forEach(([key, value]) => {
+      slim[key] = stripInlineSubmissionFile(value);
+    });
+    cachedSubmissions = slim;
     lastSubmissionsFetch = now;
-    return Object.values(data);
+    return Object.values(slim);
   }
   return cachedSubmissions ? Object.values(cachedSubmissions) : [];
 }
@@ -297,30 +302,91 @@ export async function saveCloudSubmission(submission: any): Promise<boolean> {
   return saveCloudSubmissionsBatch([submission]);
 }
 
+/** Where a submission's document is served from once it is no longer inlined. */
+export function submissionFileUrl(submissionId: string): string {
+  return `/api/submissions/file?id=${encodeURIComponent(submissionId)}`;
+}
+
+/**
+ * Removes inlined base64 documents from a submission record.
+ *
+ * Older builds stored the whole uploaded report in `filePath` (filePath = fileData),
+ * so every copy of the submission index carried every team's document. The index
+ * is sent to every browser on every page load, which is what exhausted the
+ * deployment's Fast Origin Transfer. Documents live under `pbl_file_<id>` and are
+ * fetched on demand through /api/submissions/file.
+ */
+export function stripInlineSubmissionFile<T extends Record<string, any>>(submission: T): T {
+  if (!submission || typeof submission !== 'object') return submission;
+  const { fileData, ...rest } = submission as any;
+  if (typeof rest.filePath === 'string' && rest.filePath.startsWith('data:')) {
+    rest.filePath = rest.id ? submissionFileUrl(rest.id) : '';
+  }
+  return rest as T;
+}
+
+/** Same idea for research-paper proofs stored on team records. */
+export function stripInlineTeamProof<T extends Record<string, any>>(team: T): T {
+  if (!team || typeof team !== 'object') return team;
+  const proof = (team as any).researchPaperProofPath;
+  if (typeof proof === 'string' && proof.startsWith('data:')) {
+    return { ...team, researchPaperProofPath: `/api/teams/proof?teamId=${encodeURIComponent((team as any).id)}` };
+  }
+  return team;
+}
+
+function inlineDocument(s: any): string | null {
+  if (!s) return null;
+  if (typeof s.fileData === 'string' && s.fileData.length > 50) return s.fileData;
+  if (typeof s.filePath === 'string' && s.filePath.startsWith('data:') && s.filePath.length > 50) return s.filePath;
+  return null;
+}
+
 export async function saveCloudSubmissionsBatch(submissions: any[]): Promise<boolean> {
   if (!Array.isArray(submissions) || submissions.length === 0) return true;
 
-  const files: Array<{ id: string; fileData: string }> = [];
-  const cleaned = submissions.map((s) => {
-    const { fileData, ...cleanSub } = s;
-    if (fileData && typeof fileData === 'string' && fileData.length > 50) {
-      files.push({ id: s.id, fileData });
-    }
-    return cleanSub;
+  // Documents that arrive inlined (from this build or a browser still running an
+  // older one) are kept in their own document so nothing is lost when stripped.
+  const files = new Map<string, string>();
+  submissions.forEach((s) => {
+    const doc = s?.id ? inlineDocument(s) : null;
+    if (doc) files.set(s.id, doc);
   });
 
+  // One-time rescue for the index written by older builds: any document that only
+  // exists inside the index is copied out before the index is slimmed down.
+  const currentIndex =
+    typeof window === 'undefined'
+      ? await readDoc<Record<string, any>>(SUBMISSIONS_KEY).catch(() => null)
+      : null;
+  if (currentIndex && typeof currentIndex === 'object') {
+    for (const s of Object.values(currentIndex)) {
+      const doc = s?.id && !files.has(s.id) ? inlineDocument(s) : null;
+      if (!doc) continue;
+      const stored = await fetchCloudSubmissionFile(s.id).catch(() => null);
+      if (!stored) files.set(s.id, doc);
+    }
+  }
+
+  await Promise.all(
+    Array.from(files.entries()).map(([id, doc]) => saveCloudSubmissionFile(id, doc))
+  ).catch(() => {});
+
+  const cleaned = submissions.map((s) => stripInlineSubmissionFile(s));
+
   const ok = await updateDoc<Record<string, any>>(SUBMISSIONS_KEY, (current) => {
-    const currentMap: Record<string, any> = { ...(current || {}) };
+    const currentMap: Record<string, any> = {};
+    Object.entries(current || {}).forEach(([key, value]) => {
+      currentMap[key] = stripInlineSubmissionFile(value);
+    });
     cleaned.forEach((s) => {
-      if (s && s.id) currentMap[s.id] = { ...(currentMap[s.id] || {}), ...s };
+      if (s && s.id) currentMap[s.id] = stripInlineSubmissionFile({ ...(currentMap[s.id] || {}), ...s });
     });
     cachedSubmissions = currentMap;
     lastSubmissionsFetch = Date.now();
     return currentMap;
   });
 
-  // Documents are stored separately so the index document stays small.
-  await Promise.all(files.map((f) => saveCloudSubmissionFile(f.id, f.fileData))).catch(() => {});
   return ok;
 }
 

@@ -251,7 +251,7 @@ export default function AdminDeadlinesPage() {
             <button
               onClick={() => {
                 refreshData();
-                store.syncFromSupabase().then(() => refreshData());
+                store.syncFromSupabase(true).then(() => refreshData());
               }}
               className="p-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 transition"
               title="Refresh and sync"

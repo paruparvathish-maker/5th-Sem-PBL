@@ -8,11 +8,45 @@ import {
   saveCloudSubmissionsBatch,
   mergeTeamRecords,
   fetchSubmissionReset,
-  isSubmissionCleared
+  isSubmissionCleared,
+  stripInlineSubmissionFile,
+  stripInlineTeamProof
 } from '@/lib/data/cloud-sync';
 import { store } from '@/lib/data/store';
 import * as fs from 'fs';
 import * as path from 'path';
+import { createHash } from 'crypto';
+
+/**
+ * Sends the snapshot with an ETag. Browsers revalidate with If-None-Match, and an
+ * unchanged snapshot is answered with an empty 304 instead of the full body, so
+ * repeated page loads cost almost no Fast Origin Transfer.
+ */
+function snapshotResponse(request: Request, data: any) {
+  const body = JSON.stringify(data);
+  const etag = `W/"${createHash('sha1').update(body).digest('base64url')}"`;
+  const headers = {
+    ETag: etag,
+    'Cache-Control': 'private, no-cache',
+    'Content-Type': 'application/json',
+  };
+  const ifNoneMatch = request.headers.get('if-none-match') || '';
+  if (ifNoneMatch.split(',').map((t) => t.trim()).includes(etag)) {
+    return new Response(null, { status: 304, headers });
+  }
+  return new Response(body, { status: 200, headers });
+}
+
+/** Documents and proofs are fetched on demand; the snapshot carries references only. */
+function slimSnapshot(data: any) {
+  if (Array.isArray(data?.submissions)) {
+    data.submissions = data.submissions.map((s: any) => stripInlineSubmissionFile(s));
+  }
+  if (Array.isArray(data?.teams)) {
+    data.teams = data.teams.map((t: any) => stripInlineTeamProof(t));
+  }
+  return data;
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -22,7 +56,7 @@ const FASTAPI_URL = (process.env.FASTAPI_ENABLED === 'true' && process.env.NEXT_
 const BACKEND_DATA_PATH = path.join(process.cwd(), 'backend', 'data.json');
 const TMP_DATA_PATH = '/tmp/pbl_backend_data.json';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     // 1. Optional Prisma-backed read (only when the schema has been deployed there)
     if (process.env.PBL_USE_PRISMA === 'true' && (process.env.TURSO_DATABASE_URL || process.env.DATABASE_URL)) {
@@ -55,7 +89,7 @@ export async function GET() {
           members: t.members.map((m) => m.user),
         }));
 
-        return NextResponse.json({
+        return snapshotResponse(request, slimSnapshot({
           profiles,
           teams: formattedTeams,
           deadlines,
@@ -64,7 +98,7 @@ export async function GET() {
           guideMeetings,
           notifications,
           auditLogs,
-        });
+        }));
       } catch (prismaErr) {
         console.warn('Prisma query failed, falling back to JSON data:', prismaErr);
       }
@@ -79,7 +113,7 @@ export async function GET() {
         clearTimeout(timeoutId);
         if (fastRes.ok) {
           const data = await fastRes.json();
-          return NextResponse.json(data);
+          return snapshotResponse(request, slimSnapshot(data));
         }
       } catch {
         // FastAPI offline
@@ -212,7 +246,7 @@ export async function GET() {
       baseData.submissionsResetDeadlineId = submissionReset.deadlineId;
     }
 
-    return NextResponse.json(baseData);
+    return snapshotResponse(request, slimSnapshot(baseData));
   } catch (err: any) {
     console.error('Database query error:', err);
     return NextResponse.json({ error: 'Database query failed', message: err?.message }, { status: 500 });

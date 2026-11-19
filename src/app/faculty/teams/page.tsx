@@ -81,7 +81,7 @@ export default function FacultyTeamsPage() {
           projectDescription: editDesc
         })
       }).catch(() => {});
-      await store.syncFromSupabase();
+      await store.syncFromSupabase(true);
       setAssignedTeams([...store.getTeamsByGuideId(user.id || user.email || user.name)]);
       setEditingTeamId(null);
     } catch (err) {
@@ -132,7 +132,7 @@ export default function FacultyTeamsPage() {
       }
 
       // 4. Trigger global sync to notify all active listeners
-      await store.syncFromSupabase();
+      await store.syncFromSupabase(true);
 
       // Immediately reflect updated state in the view
       setAssignedTeams([...store.getTeamsByGuideId(user.id || user.email || user.name)]);

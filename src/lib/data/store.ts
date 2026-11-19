@@ -5,7 +5,7 @@ import { RAW_PDF_SEED, getGuideEmail, getGuidePhone, normalizeName } from './see
 import { RAW_4TH_SEM_SEED } from './seed-dataset-4th';
 import { saveFileToIdb } from '../utils/idb-storage';
 import { getIndustryExpertForTeam } from '../auth/roles';
-import { saveCloudSubmission, saveCloudSubmissionFile } from './cloud-sync';
+import { saveCloudSubmission, saveCloudSubmissionFile, stripInlineTeamProof, submissionFileUrl } from './cloud-sync';
 
 const generateUUID = () => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -94,6 +94,12 @@ class PBLStore {
   private notifications: NotificationItem[] = [];
   private auditLogs: AuditLogItem[] = [];
   private initialized = false;
+
+  // Every page mounts several components that each ask for a sync. One shared
+  // request (and a short freshness window) replaces three full downloads per page.
+  private syncInFlight: Promise<void> | null = null;
+  private lastSyncAt = 0;
+  private static readonly SYNC_FRESH_MS = 15000;
 
   constructor() {
     this.initSeedData();
@@ -329,12 +335,8 @@ class PBLStore {
 
           this.initialized = true;
 
-          // Asynchronously uplink existing local submissions to cloud KV so all mobile devices reflect them immediately
-          if (this.submissions.length > 0) {
-            setTimeout(() => {
-              this.syncToSupabase().catch(() => {});
-            }, 600);
-          }
+          // Local submissions missing on the server are pushed by syncFromSupabase's
+          // unsynced check, so the whole store is no longer re-uploaded on every page load.
           return;
         } catch (e) {
           console.error("Error restoring PBL store:", e);
@@ -715,7 +717,29 @@ class PBLStore {
     }
   }
 
-  public async syncFromSupabase() {
+  /**
+   * Pulls the shared snapshot. Concurrent callers share one request, and calls
+   * within SYNC_FRESH_MS of the last sync reuse it unless `force` is set (use
+   * force after a write or for a manual refresh button).
+   */
+  public syncFromSupabase(force: boolean = false): Promise<void> {
+    if (typeof window === 'undefined') return this.runSyncFromSupabase();
+
+    if (this.syncInFlight) {
+      return force ? this.syncInFlight.then(() => this.syncFromSupabase(true)) : this.syncInFlight;
+    }
+    if (!force && Date.now() - this.lastSyncAt < PBLStore.SYNC_FRESH_MS) {
+      return Promise.resolve();
+    }
+
+    this.syncInFlight = this.runSyncFromSupabase().finally(() => {
+      this.lastSyncAt = Date.now();
+      this.syncInFlight = null;
+    });
+    return this.syncInFlight;
+  }
+
+  private async runSyncFromSupabase() {
     try {
       const getFastApiUrl = () => {
         if (process.env.FASTAPI_ENABLED !== 'true') return '';
@@ -1159,18 +1183,29 @@ class PBLStore {
   }
 
   public async syncToSupabase() {
+    // Local data just changed, so the next read must go to the server.
+    this.lastSyncAt = 0;
     try {
       const lightweightSubmissions = this.submissions.map(s => {
+        let slim: any = s;
         if (s.fileData && s.fileData.length > 100000) {
           const { fileData, ...rest } = s;
-          return rest;
+          slim = rest;
         }
-        return s;
+        // The document itself is uploaded once through /api/submissions/file;
+        // never send it again inside filePath with every store sync.
+        if (typeof slim.filePath === 'string' && slim.filePath.startsWith('data:')) {
+          slim = { ...slim, filePath: submissionFileUrl(slim.id) };
+        }
+        return slim;
       });
+
+      // Proofs travel through /api/teams; the store sync only carries references.
+      const lightweightTeams = this.teams.map(t => stripInlineTeamProof(t));
 
       const payload = JSON.stringify({
         profiles: this.profiles,
-        teams: this.teams,
+        teams: lightweightTeams,
         deadlines: this.deadlines,
         submissions: lightweightSubmissions,
         evaluations: this.evaluations,
@@ -1750,8 +1785,9 @@ class PBLStore {
     const existingIdx = this.submissions.findIndex(s => s.deadlineId === deadlineId && s.teamId === teamId);
 
     const isLate = now > dueDate;
+    const subId = existingIdx !== -1 ? this.submissions[existingIdx].id : `sub-${Date.now()}`;
     const newSub: Submission = {
-      id: existingIdx !== -1 ? this.submissions[existingIdx].id : `sub-${Date.now()}`,
+      id: subId,
       deadlineId,
       deadlineTitle: deadline.title,
       teamId,
@@ -1762,7 +1798,8 @@ class PBLStore {
       studentName: student?.name,
       studentUsn: student?.usn,
       fileName,
-      filePath: fileData || `/storage/submissions/${fileName}`,
+      // Reference only: the document is stored once and fetched on demand.
+      filePath: fileData ? submissionFileUrl(subId) : `/storage/submissions/${fileName}`,
       fileData: fileData || undefined,
       fileType,
       fileSize,

@@ -50,7 +50,7 @@ export default function AdminAuditLogsPage() {
   const fetchLogs = async () => {
     setIsSyncing(true);
     try {
-      await store.syncFromSupabase();
+      await store.syncFromSupabase(true);
       let localLogs = store.getAuditLogs();
       try {
         const res = await fetch('/api/audit/log');

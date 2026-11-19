@@ -50,7 +50,7 @@ export default function AdminFacultyPage() {
 
   const handleManualSync = async () => {
     setIsSyncing(true);
-    await store.syncFromSupabase();
+    await store.syncFromSupabase(true);
     setFacultyList([...store.getFaculty()]);
     setTeams([...store.getAllTeams()]);
     setIsSyncing(false);

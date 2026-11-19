@@ -42,7 +42,7 @@ export default function AdminDashboardPage() {
 
   const handleManualRefresh = async () => {
     setIsSyncing(true);
-    await store.syncFromSupabase();
+    await store.syncFromSupabase(true);
     loadData();
     setIsSyncing(false);
   };
