@@ -252,7 +252,9 @@ export async function saveCloudProfile(profile: any): Promise<boolean> {
 // --- Submissions Synchronization ---
 export async function fetchCloudSubmissions(): Promise<any[]> {
   const now = Date.now();
-  if (cachedSubmissions && now - lastSubmissionsFetch < CACHE_TTL_MS) return Object.values(cachedSubmissions);
+  if (cachedSubmissions && now - lastSubmissionsFetch < CACHE_TTL_MS) {
+    return Object.values(cachedSubmissions).map((s) => stripInlineSubmissionFile(s));
+  }
 
   const data = await readDoc<Record<string, any>>(SUBMISSIONS_KEY);
   if (data && typeof data === 'object') {
@@ -265,7 +267,7 @@ export async function fetchCloudSubmissions(): Promise<any[]> {
     lastSubmissionsFetch = now;
     return Object.values(slim);
   }
-  return cachedSubmissions ? Object.values(cachedSubmissions) : [];
+  return cachedSubmissions ? Object.values(cachedSubmissions).map((s) => stripInlineSubmissionFile(s)) : [];
 }
 
 /**
@@ -345,49 +347,77 @@ function inlineDocument(s: any): string | null {
 export async function saveCloudSubmissionsBatch(submissions: any[]): Promise<boolean> {
   if (!Array.isArray(submissions) || submissions.length === 0) return true;
 
-  // Documents that arrive inlined (from this build or a browser still running an
-  // older one) are kept in their own document so nothing is lost when stripped.
-  const files = new Map<string, string>();
+  // A document may only leave the index once it is confirmed to be stored in its
+  // own pbl_file_<id> slot. Anything not confirmed stays exactly where it is and
+  // is retried on the next save, so a failed copy can never lose a report.
+  const confirmed = new Set<string>();
+  const toCopy = new Map<string, string>();
+
+  // Documents arriving inlined (from this build or a browser still running an older one).
   submissions.forEach((s) => {
     const doc = s?.id ? inlineDocument(s) : null;
-    if (doc) files.set(s.id, doc);
+    if (doc) toCopy.set(s.id, doc);
   });
 
-  // One-time rescue for the index written by older builds: any document that only
-  // exists inside the index is copied out before the index is slimmed down.
+  // One-time rescue for the index written by older builds.
   const currentIndex =
     typeof window === 'undefined'
       ? await readDoc<Record<string, any>>(SUBMISSIONS_KEY).catch(() => null)
       : null;
   if (currentIndex && typeof currentIndex === 'object') {
     for (const s of Object.values(currentIndex)) {
-      const doc = s?.id && !files.has(s.id) ? inlineDocument(s) : null;
+      const doc = s?.id && !toCopy.has(s.id) ? inlineDocument(s) : null;
       if (!doc) continue;
       const stored = await fetchCloudSubmissionFile(s.id).catch(() => null);
-      if (!stored) files.set(s.id, doc);
+      if (stored) confirmed.add(s.id);
+      else toCopy.set(s.id, doc);
     }
   }
 
   await Promise.all(
-    Array.from(files.entries()).map(([id, doc]) => saveCloudSubmissionFile(id, doc))
-  ).catch(() => {});
-
-  const cleaned = submissions.map((s) => stripInlineSubmissionFile(s));
+    Array.from(toCopy.entries()).map(async ([id, doc]) => {
+      const ok = await saveCloudSubmissionFile(id, doc).catch(() => false);
+      if (ok) confirmed.add(id);
+      else console.error(`[cloud-sync] Could not store document for ${id}; keeping it inside the index.`);
+    })
+  );
 
   const ok = await updateDoc<Record<string, any>>(SUBMISSIONS_KEY, (current) => {
     const currentMap: Record<string, any> = {};
     Object.entries(current || {}).forEach(([key, value]) => {
-      currentMap[key] = stripInlineSubmissionFile(value);
+      const safeToSlim = !inlineDocument(value) || confirmed.has(value?.id);
+      currentMap[key] = safeToSlim ? stripInlineSubmissionFile(value) : value;
     });
-    cleaned.forEach((s) => {
-      if (s && s.id) currentMap[s.id] = stripInlineSubmissionFile({ ...(currentMap[s.id] || {}), ...s });
+
+    submissions.forEach((incoming) => {
+      if (!incoming || !incoming.id) return;
+      const previous = currentMap[incoming.id] || {};
+      const merged = { ...previous, ...stripInlineSubmissionFile(incoming) };
+
+      if (!confirmed.has(incoming.id)) {
+        // Not safely stored on its own yet: keep the only copy in the index.
+        const keep = inlineDocument(incoming) || inlineDocument(previous);
+        if (keep) merged.filePath = keep;
+      }
+      currentMap[incoming.id] = merged;
     });
+
     cachedSubmissions = currentMap;
     lastSubmissionsFetch = Date.now();
     return currentMap;
   });
 
   return ok;
+}
+
+/**
+ * Reads a document that has not been moved out of the old index yet, so it can
+ * still be opened before the one-time migration has run.
+ */
+export async function fetchInlineSubmissionFromIndex(submissionId: string): Promise<string | null> {
+  if (!submissionId) return null;
+  const index = await readDoc<Record<string, any>>(SUBMISSIONS_KEY).catch(() => null);
+  return index ? inlineDocument(index[submissionId]) : null;
 }
 
 export async function saveCloudSubmissionFile(submissionId: string, fileData: string): Promise<boolean> {

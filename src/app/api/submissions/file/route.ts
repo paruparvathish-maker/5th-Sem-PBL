@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server';
-import { fetchCloudSubmissionFile, saveCloudSubmissionFile } from '@/lib/data/cloud-sync';
+import {
+  fetchCloudSubmissionFile,
+  fetchInlineSubmissionFromIndex,
+  saveCloudSubmissionFile,
+} from '@/lib/data/cloud-sync';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,7 +16,9 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Missing submission ID' }, { status: 400 });
     }
 
-    const fileData = await fetchCloudSubmissionFile(id);
+    // Documents not yet moved out of the old submissions index are read from there.
+    const fileData =
+      (await fetchCloudSubmissionFile(id)) || (await fetchInlineSubmissionFromIndex(id).catch(() => null));
     if (!fileData) {
       return NextResponse.json({ error: 'Document file not found in cloud storage' }, { status: 404 });
     }
