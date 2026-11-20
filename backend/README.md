@@ -2,7 +2,10 @@
 
 A high-performance REST API built with **FastAPI**, **Pydantic v2**, and **Uvicorn** to power the DSATM Project-Based Learning (PBL) Portal, fully mapped with all 5th Semester PBL projects, students, faculty guides, and administration.
 
-Live API: _to be filled in after the first deployment_
+Live API: https://5th-sem-pbl-api.vercel.app — health at `/api/health`, Swagger at `/docs`.
+This service is standalone: it is **not** wired to the portal. Never set `FASTAPI_ENABLED`
+or `NEXT_PUBLIC_FASTAPI_URL` on the 5th-sem-pbl-muns project, or the site would serve this
+service's copy of the data instead of Turso.
 
 ---
 
