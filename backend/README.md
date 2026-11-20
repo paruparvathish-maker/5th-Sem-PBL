@@ -2,6 +2,8 @@
 
 A high-performance REST API built with **FastAPI**, **Pydantic v2**, and **Uvicorn** to power the DSATM Project-Based Learning (PBL) Portal, fully mapped with all 5th Semester PBL projects, students, faculty guides, and administration.
 
+Live API: _to be filled in after the first deployment_
+
 ---
 
 ## 🚀 Quick Start
