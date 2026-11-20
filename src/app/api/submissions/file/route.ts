@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { saveCloudSubmissionFile } from '@/lib/data/cloud-sync';
+import { fetchInlineSubmissionFromIndex, saveCloudSubmissionFile } from '@/lib/data/cloud-sync';
 import {
   MAX_FILE_BYTES,
   assembleDocument,
@@ -44,10 +44,17 @@ export async function GET(request: Request) {
 
     // 1. Manifest: tells the viewer how many parts exist and what the hash is.
     if (searchParams.get('meta') === '1') {
-      if (!manifest) {
-        return NextResponse.json({ error: 'No document is stored for this submission.' }, { status: 404 });
+      if (manifest) {
+        return NextResponse.json(manifest, { headers: { 'Cache-Control': 'private, no-cache' } });
       }
-      return NextResponse.json(manifest, { headers: { 'Cache-Control': 'private, no-cache' } });
+      // A document written by an older build is stored whole; the viewer opens it
+      // as one file instead of looking for parts that were never created.
+      const legacy = await readLegacyDocument(prefix);
+      const inline = legacy ? null : await fetchInlineSubmissionFromIndex(id).catch(() => null);
+      if (legacy || inline) {
+        return NextResponse.json({ legacy: true }, { headers: { 'Cache-Control': 'private, no-cache' } });
+      }
+      return NextResponse.json({ error: 'No document is stored for this submission.' }, { status: 404 });
     }
 
     // 2. One part. Safe to cache forever because the URL carries the content hash.
