@@ -1,5 +1,15 @@
 import { NextResponse } from 'next/server';
 import { fetchCloudTeamProof } from '@/lib/data/cloud-sync';
+import {
+  MAX_FILE_BYTES,
+  isBase64Chunk,
+  readManifest,
+  readPart,
+  saveManifest,
+  savePart,
+  type FileManifest,
+} from '@/lib/data/file-chunks';
+import { createHash } from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -89,6 +99,52 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'teamId query parameter is required' }, { status: 400 });
     }
 
+    const prefix = `pbl_proof_${teamId}`;
+    const manifest = await readManifest(prefix);
+
+    // Manifest for viewers: tells them how many parts exist and what the hash is.
+    if (searchParams.get('meta') === '1') {
+      if (manifest) {
+        return NextResponse.json(manifest, { headers: { 'Cache-Control': 'private, no-cache' } });
+      }
+      // A proof stored by an older build is served whole; the viewer falls back to it.
+      const legacyCloud = await fetchCloudTeamProof(teamId).catch(() => null);
+      const legacyLocal = findLocalProof(teamId);
+      if (legacyCloud || legacyLocal) {
+        return NextResponse.json({ legacy: true }, { headers: { 'Cache-Control': 'private, no-cache' } });
+      }
+      return NextResponse.json({ error: 'Proof document not found for this team' }, { status: 404 });
+    }
+
+    // One part. Safe to cache forever because the URL carries the content hash.
+    const partParam = searchParams.get('part');
+    if (partParam !== null) {
+      if (!manifest) {
+        return NextResponse.json({ error: 'No chunked proof is stored for this team' }, { status: 404 });
+      }
+      const part = Number(partParam);
+      if (!Number.isInteger(part) || part < 0 || part >= manifest.totalParts) {
+        return NextResponse.json({ error: `part must be between 0 and ${manifest.totalParts - 1}` }, { status: 400 });
+      }
+      const version = searchParams.get('v');
+      if (version && version !== manifest.sha256) {
+        return NextResponse.json({ error: 'This proof has been replaced by a newer version.' }, { status: 409 });
+      }
+      const chunk = await readPart(prefix, part);
+      if (!chunk) {
+        return NextResponse.json({ error: 'That part is missing from storage.' }, { status: 500 });
+      }
+      return new Response(new Uint8Array(Buffer.from(chunk, 'base64')), {
+        status: 200,
+        headers: {
+          'Content-Type': manifest.mime,
+          'Cache-Control': version
+            ? 'public, max-age=31536000, s-maxage=31536000, immutable'
+            : 'private, max-age=3600',
+        },
+      });
+    }
+
     // 1. A file written on this host (local development or an existing committed asset).
     const local = findLocalProof(teamId);
     if (local) return inlineResponse(local.buffer, local.fileName);
@@ -142,4 +198,102 @@ export async function GET(request: Request) {
 export async function HEAD(request: Request) {
   const response = await GET(request);
   return new Response(null, { status: response.status, headers: response.headers });
+}
+
+/**
+ * Chunked proof upload. The faculty page sends the proof in parts of at most
+ * 3 MB and only records the proof on the team once the server confirms the
+ * rebuilt file matches its SHA-256.
+ */
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+    const teamId: string = body.teamId;
+    if (!teamId) {
+      return NextResponse.json({ error: 'teamId is required' }, { status: 400 });
+    }
+
+    const { part, totalParts, chunk, mime, sha256, totalLength, version } = body;
+    if (!Number.isInteger(part) || part < 0) {
+      return NextResponse.json({ error: 'part must be a non-negative integer' }, { status: 400 });
+    }
+    if (!Number.isInteger(totalParts) || totalParts < 1) {
+      return NextResponse.json({ error: 'totalParts must be a positive integer' }, { status: 400 });
+    }
+    if (part >= totalParts) {
+      return NextResponse.json({ error: 'part must be lower than totalParts' }, { status: 400 });
+    }
+    if (typeof chunk !== 'string' || chunk.length === 0) {
+      return NextResponse.json({ error: 'chunk is required' }, { status: 400 });
+    }
+    if (chunk.length > 3 * 1024 * 1024) {
+      return NextResponse.json({ error: 'chunk is larger than the 3 MB part limit' }, { status: 413 });
+    }
+    if (!isBase64Chunk(chunk)) {
+      return NextResponse.json({ error: 'chunk must be base64 text' }, { status: 400 });
+    }
+    if (Number.isFinite(totalLength) && totalLength > MAX_FILE_BYTES) {
+      return NextResponse.json(
+        { error: `File is larger than the ${MAX_FILE_BYTES / (1024 * 1024)} MB limit.` },
+        { status: 413 }
+      );
+    }
+
+    const prefix = `pbl_proof_${teamId}`;
+    const saved = await savePart(prefix, part, chunk);
+    if (!saved) {
+      return NextResponse.json({ error: `Part ${part} could not be stored.` }, { status: 500 });
+    }
+
+    if (!body.final) {
+      return NextResponse.json({ ok: true, received: part, totalParts });
+    }
+
+    if (!Number.isInteger(totalLength) || totalLength < 1) {
+      return NextResponse.json({ error: 'totalLength is required on the final part' }, { status: 400 });
+    }
+    if (typeof sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(sha256)) {
+      return NextResponse.json({ error: 'sha256 of the whole file is required on the final part' }, { status: 400 });
+    }
+
+    const chunks: string[] = [];
+    for (let index = 0; index < totalParts; index++) {
+      const stored = await readPart(prefix, index);
+      if (!stored) {
+        return NextResponse.json(
+          { error: `Part ${index} of ${totalParts} never reached storage.` },
+          { status: 500 }
+        );
+      }
+      chunks.push(stored);
+    }
+
+    const buffer = Buffer.from(chunks.join(''), 'base64');
+    if (buffer.length !== totalLength) {
+      return NextResponse.json(
+        { error: `Uploaded ${buffer.length} bytes but expected ${totalLength}.` },
+        { status: 400 }
+      );
+    }
+    const actual = createHash('sha256').update(buffer).digest('hex');
+    if (actual !== sha256) {
+      return NextResponse.json({ error: 'The uploaded proof does not match its SHA-256.' }, { status: 400 });
+    }
+
+    const manifest: FileManifest = {
+      version: Number.isInteger(version) ? version : 1,
+      totalParts,
+      totalLength,
+      sha256: actual,
+      mime: typeof mime === 'string' && mime ? mime : sniffMime(buffer, 'image/jpeg'),
+      updatedAt: new Date().toISOString(),
+    };
+    if (!(await saveManifest(prefix, manifest))) {
+      return NextResponse.json({ error: 'Storage rejected the proof manifest.' }, { status: 500 });
+    }
+
+    return NextResponse.json({ ok: true, ...manifest });
+  } catch (err: any) {
+    return NextResponse.json({ error: err?.message || 'Proof upload failed' }, { status: 500 });
+  }
 }

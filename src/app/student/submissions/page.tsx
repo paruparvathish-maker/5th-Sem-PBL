@@ -11,8 +11,9 @@ import {
 } from 'lucide-react';
 import { Deadline, Submission, Team } from '@/lib/types/pbl';
 import { downloadSubmissionFile, viewSubmissionFile } from '@/lib/utils/download';
-import { saveFileToIdb } from '@/lib/utils/idb-storage';
+import { getFileFromIdb, saveFileToIdb } from '@/lib/utils/idb-storage';
 import { saveCloudSubmission } from '@/lib/data/cloud-sync';
+import { MAX_UPLOAD_BYTES, uploadDocument } from '@/lib/utils/chunked-upload';
 
 export default function StudentSubmissionsPage() {
   const { user } = useAuth();
@@ -48,8 +49,54 @@ export default function StudentSubmissionsPage() {
     loadData();
     store.syncFromSupabase().then(() => {
       loadData();
+      repairMissingFiles();
     });
   }, [user.id, user.usn, user.email, user.section]);
+
+  /**
+   * Self-repair: if this browser still holds a document the server never
+   * received, send it again through the chunked path. The submission's lock,
+   * version and timestamp are never touched.
+   */
+  const repairMissingFiles = async () => {
+    const currentTeam = store.getTeamByStudentId(user.id || user.usn || user.email);
+    if (!currentTeam) return;
+    const subs = store.getSubmissionsForTeam(currentTeam.id);
+
+    for (const sub of subs) {
+      if (!sub.id) continue;
+      try {
+        const meta = await fetch(`/api/submissions/file?id=${encodeURIComponent(sub.id)}&meta=1`, {
+          cache: 'no-store',
+        });
+        if (meta.ok) continue; // The server already has a verified file.
+
+        const local = await getFileFromIdb(sub.id);
+        if (!local || !local.startsWith('data:')) continue;
+
+        const uploaded = await uploadDocument({
+          url: '/api/submissions/file',
+          idField: 'submissionId',
+          id: sub.id,
+          version: sub.version || 1,
+          dataUrl: local,
+        });
+        setMessage(
+          uploaded.ok
+            ? {
+                type: 'success',
+                text: `Your file was re-sent to the server for Group ${sub.teamNumber || currentTeam.teamNumber} (v${sub.version || 1}).`,
+              }
+            : {
+                type: 'error',
+                text: `Your file is on this device but could not be re-sent: ${uploaded.error}`,
+              }
+        );
+      } catch {
+        // A failed repair is reported by the upload branch above; nothing changes here.
+      }
+    }
+  };
 
   // Existing submission for 1st Review
   const currentSubmission = teamSubmissions.find(s => 
@@ -64,8 +111,13 @@ export default function StudentSubmissionsPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 25 * 1024 * 1024) {
-      setMessage({ type: 'error', text: 'File exceeds 25MB maximum size limit.' });
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setSelectedFile(null);
+      setFileDataUrl('');
+      setMessage({
+        type: 'error',
+        text: `That file is ${(file.size / (1024 * 1024)).toFixed(1)} MB. The maximum is 10 MB — compress the PDF and select it again.`,
+      });
       return;
     }
 
@@ -104,6 +156,32 @@ export default function StudentSubmissionsPage() {
     setMessage(null);
 
     try {
+      if (!fileDataUrl) {
+        setMessage({ type: 'error', text: 'The file is still being read. Wait a moment and try again.' });
+        return;
+      }
+
+      // 1. Upload and verify the document FIRST. Nothing is created or locked
+      //    until the server confirms it holds every part with a matching SHA-256.
+      const submissionId = store.submissionIdFor(deadlineId, team.id);
+      const existing = store.getSubmissionsForTeam(team.id).find(s => s.id === submissionId);
+      const uploaded = await uploadDocument({
+        url: '/api/submissions/file',
+        idField: 'submissionId',
+        id: submissionId,
+        version: (existing?.version || 0) + 1,
+        dataUrl: fileDataUrl,
+      });
+
+      if (!uploaded.ok) {
+        setMessage({
+          type: 'error',
+          text: `Upload failed, so nothing was submitted and nothing was locked. ${uploaded.error || ''}`.trim(),
+        });
+        return;
+      }
+
+      // 2. The document is safely stored: now create and lock the submission.
       const res = store.submitDocument(
         deadlineId,
         team.id,
@@ -111,29 +189,20 @@ export default function StudentSubmissionsPage() {
         selectedFile.name,
         selectedFile.type || 'application/pdf',
         selectedFile.size,
-        fileDataUrl || undefined,
-        remarks
+        fileDataUrl,
+        remarks,
+        submissionId
       );
 
       if (res.success && res.submission) {
-        // Await cloud persistence so that mobile phones and all devices see the submission immediately
+        // Keep this browser's copy and persist the record for other devices.
+        saveFileToIdb(res.submission.id, fileDataUrl).catch(console.error);
         await saveCloudSubmission(res.submission).catch(console.error);
-
-        if (fileDataUrl) {
-          saveFileToIdb(res.submission.id, fileDataUrl).catch(console.error);
-          await fetch('/api/submissions/file', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ submissionId: res.submission.id, fileData: fileDataUrl })
-          }).catch(() => {});
-        }
-
-        // Sync full store to cloud API
         await store.syncToSupabase().catch(console.error);
 
         setMessage({
           type: 'success',
-          text: `Document "${selectedFile.name}" successfully saved and locked for Team Group ${team.teamNumber}!`
+          text: `Document "${selectedFile.name}" saved and locked for Team Group ${team.teamNumber}. The server verified the file (SHA-256 ${(uploaded.sha256 || '').slice(0, 12)}…).`
         });
         setSelectedFile(null);
         setFileDataUrl('');
@@ -351,7 +420,7 @@ export default function StudentSubmissionsPage() {
                 <div>
                   <h3 className="font-extrabold text-slate-900 text-lg">Upload 1st Review Report</h3>
                   <p className="text-xs text-slate-500">
-                    Upload your Phase 1 report (PDF or Word document, max 25MB).
+                    Upload your Phase 1 report (PDF or Word document, max 10 MB — compress larger PDFs).
                   </p>
                 </div>
               </div>
@@ -397,7 +466,7 @@ export default function StudentSubmissionsPage() {
                         Click to browse or drag and drop your report
                       </p>
                       <p className="text-xs text-slate-500">
-                        Supported formats: PDF (.pdf), Microsoft Word (.doc, .docx) — Max 25MB
+                        Supported formats: PDF (.pdf), Microsoft Word (.doc, .docx) — Max 10 MB. A bigger PDF can be compressed with any online PDF compressor before choosing it here.
                       </p>
                     </div>
                   )}

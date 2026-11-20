@@ -1,10 +1,23 @@
 /**
  * Universal document and image viewer for student submissions and guide proofs.
- * Opens documents (PDF, Images, etc.) directly in a new browser tab for preview
- * WITHOUT downloading the file to disk, as requested by institutional faculty and administrators.
+ *
+ * Opens documents (PDF, images, Word) in a new browser tab for preview without
+ * downloading them to disk.
+ *
+ * A viewer must never invent a document. Older builds, when the server had no
+ * file, generated a one-page PDF containing the AI summary and showed it as if
+ * it were the student's report. Faculty then reviewed a page of text instead of
+ * a 24-page report. Now a missing file is reported as missing.
  */
 
 import { getFileFromIdb } from './idb-storage';
+import { downloadDocument } from './chunked-upload';
+
+export const DOCUMENT_MISSING_MESSAGE =
+  'This document has not reached the server yet. Ask the team to open their Submissions page on the device they uploaded from.';
+
+export const PROOF_MISSING_MESSAGE =
+  'This proof has not reached the server yet. Ask the faculty member to open the Mentorship page on the device they uploaded from.';
 
 export function dataUriToBlobUrl(dataUri: string, defaultMime: string = 'application/pdf'): string {
   if (!dataUri) return '';
@@ -55,244 +68,101 @@ export function openInNewTab(url: string) {
   }
 }
 
+function openBytes(bytes: Uint8Array, mime: string) {
+  const blob = new Blob([bytes as unknown as BlobPart], { type: mime || 'application/octet-stream' });
+  openInNewTab(URL.createObjectURL(blob));
+}
+
 /**
  * Opens a faculty or student proof document or image in another tab.
- * Does not download the file. Resolves from data URI, local storage, IndexedDB, or server API.
+ * Resolves from a direct data URI, this browser's IndexedDB copy, or the server.
  */
 export async function viewProofFile(proofPath?: string, proofName?: string, teamId?: string) {
-  const name = proofName || '';
-  const isImage = name.match(/\.(png|jpe?g|webp|gif|svg)$/i) || (proofPath && proofPath.startsWith('data:image/'));
-  const defaultMime = isImage ? 'image/jpeg' : 'application/pdf';
-
-  // 1. Direct Data URI
+  // 1. A copy already held in this page (for example right after an upload).
   if (proofPath && proofPath.startsWith('data:')) {
-    const blobUrl = dataUriToBlobUrl(proofPath, defaultMime);
-    openInNewTab(blobUrl);
+    openInNewTab(dataUriToBlobUrl(proofPath));
     return;
   }
 
-  // 2. Check IndexedDB / the shared proof endpoint first: the local static copy
-  //    may not exist on another device or on the deployment.
   if (teamId) {
-    try {
-      const idbData = await getFileFromIdb(`proof_${teamId}`);
-      if (idbData && idbData.startsWith('data:')) {
-        const blobUrl = dataUriToBlobUrl(idbData, defaultMime);
-        openInNewTab(blobUrl);
-        return;
-      }
-    } catch {}
+    // 2. This browser's copy of the file.
+    const cached = await getFileFromIdb(`proof_${teamId}`).catch(() => null);
+    if (cached && cached.startsWith('data:')) {
+      openInNewTab(dataUriToBlobUrl(cached));
+      return;
+    }
 
-    try {
-      const apiProofUrl = `/api/teams/proof?teamId=${encodeURIComponent(teamId)}`;
-      const testRes = await fetch(apiProofUrl, { method: 'HEAD' });
-      if (testRes.ok) {
-        openInNewTab(apiProofUrl);
-        return;
-      }
-    } catch {}
+    // 3. The server: parts are cached forever by the content hash.
+    const result = await downloadDocument({
+      metaUrl: `/api/teams/proof?teamId=${encodeURIComponent(teamId)}&meta=1`,
+      partUrl: (part, sha) =>
+        `/api/teams/proof?teamId=${encodeURIComponent(teamId)}&part=${part}&v=${sha}`,
+    });
+    if (result.status === 'ok') {
+      openBytes(result.bytes, result.mime);
+      return;
+    }
+    if (result.status === 'legacy') {
+      openInNewTab(`/api/teams/proof?teamId=${encodeURIComponent(teamId)}`);
+      return;
+    }
   }
 
-  // 3. Direct HTTP URL
-  if (proofPath && (proofPath.startsWith('http://') || proofPath.startsWith('https://'))) {
+  // 4. A directly reachable URL recorded on the team.
+  if (proofPath && (proofPath.startsWith('http://') || proofPath.startsWith('https://') || proofPath.startsWith('/storage/'))) {
     openInNewTab(proofPath);
     return;
   }
 
-  // 4. Static storage path - only open it when the file is really reachable
-  if (proofPath && proofPath.startsWith('/storage/')) {
-    try {
-      const testRes = await fetch(proofPath, { method: 'HEAD' });
-      if (testRes.ok) {
-        openInNewTab(proofPath);
-        return;
-      }
-    } catch {}
-  }
-
-  if (proofPath && proofPath !== '#' && proofPath.trim() !== '') {
-    openInNewTab(proofPath);
-    return;
-  }
-
-  alert('No proof document or image has been uploaded yet for this team.');
+  alert(PROOF_MISSING_MESSAGE);
 }
 
 /**
  * Universal submission document viewer.
- * Resolves file from in-memory base64, IndexedDB cache, or cloud storage API,
- * and opens the PDF, Image, or Document directly in another tab without downloading.
+ * Opens the document this browser holds, or rebuilds it from the server's parts,
+ * verifying the SHA-256 first. Never substitutes a generated page.
  */
 export async function viewSubmissionFile(sub: {
   id?: string;
   fileName?: string;
   filePath?: string;
   fileData?: string;
-  deadlineTitle?: string;
-  teamNumber?: string;
-  projectTitle?: string;
-  studentName?: string;
-  submissionTime?: string;
-  aiSummary?: string;
-  remarks?: string;
 }) {
-  const fileName = sub.fileName || 'project_details.pdf';
-  let data = sub.fileData || sub.filePath;
-
-  // 1. Check IndexedDB if fileData is not in memory
-  if ((!data || !data.startsWith('data:')) && sub.id) {
-    try {
-      const idbData = await getFileFromIdb(sub.id);
-      if (idbData && idbData.startsWith('data:')) {
-        data = idbData;
-      }
-    } catch {}
-  }
-
-  // 2. Fetch from cloud storage API if not found on this local device
-  if ((!data || !data.startsWith('data:')) && sub.id) {
-    try {
-      const res = await fetch(`/api/submissions/file?id=${encodeURIComponent(sub.id)}`);
-      if (res.ok) {
-        const cloudData = await res.text();
-        if (cloudData && cloudData.startsWith('data:')) {
-          data = cloudData;
-        }
-      }
-    } catch {}
-  }
-
-  // 3. If base64 data URI, blob URL, or remote URL is present, open directly in new tab
-  if (data && (data.startsWith('data:') || data.startsWith('blob:') || data.startsWith('http://') || data.startsWith('https://'))) {
-    const isImage = fileName.match(/\.(png|jpe?g|webp|gif|svg)$/i) || data.startsWith('data:image/');
-    const isDocx = fileName.match(/\.(docx?|odt)$/i);
-    const defaultMime = isImage ? 'image/jpeg' : isDocx ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : 'application/pdf';
-
-    // If it's a Word document (.docx), create a dedicated, styled preview tab
-    if (isDocx && !data.startsWith('http')) {
-      const docPreviewHtml = `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${fileName} - DSATM PBL Document Preview</title>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #f8fafc; color: #1e293b; margin: 0; padding: 32px 16px; }
-    .card { max-width: 760px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 4px 20px rgba(0,0,0,0.06); overflow: hidden; }
-    .header { background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%); color: #ffffff; padding: 28px 24px; }
-    .header h1 { margin: 0; font-size: 20px; font-weight: 800; }
-    .header p { margin: 6px 0 0; font-size: 13px; color: #c7d2fe; }
-    .content { padding: 28px; }
-    .badge { display: inline-block; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; background: #e0e7ff; color: #3730a3; margin-bottom: 16px; }
-    .meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin: 20px 0; padding: 16px; background: #f8fafc; border-radius: 12px; border: 1px solid #f1f5f9; }
-    .meta-item label { display: block; font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 4px; }
-    .meta-item span { font-size: 13px; font-weight: 700; color: #0f172a; }
-    .summary-box { background: #f1f5f9; border-left: 4px solid #4f46e5; padding: 16px; border-radius: 8px; margin: 20px 0; font-size: 13px; line-height: 1.6; color: #334155; }
-    .footer-note { font-size: 11px; color: #94a3b8; text-align: center; margin-top: 24px; }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <div class="header">
-      <h1>Dayananda Sagar Academy of Technology &amp; Management (DSATM)</h1>
-      <p>Industrial Project Based Learning (PBL) Portal • CSE Department</p>
-    </div>
-    <div class="content">
-      <span class="badge">Submitted Document Preview</span>
-      <h2 style="margin: 0 0 8px 0; font-size: 18px; color: #0f172a;">${fileName}</h2>
-      <p style="margin: 0; color: #64748b; font-size: 13px;">${sub.projectTitle || sub.deadlineTitle || 'Phase 1 Review Deliverable'}</p>
-
-      <div class="meta-grid">
-        <div class="meta-item">
-          <label>Team Group</label>
-          <span>Group ${sub.teamNumber || 'N/A'}</span>
-        </div>
-        <div class="meta-item">
-          <label>Submitting Student</label>
-          <span>${sub.studentName || 'Student'}</span>
-        </div>
-        <div class="meta-item">
-          <label>Submission Date</label>
-          <span>${new Date(sub.submissionTime || Date.now()).toLocaleString()}</span>
-        </div>
-        <div class="meta-item">
-          <label>Format</label>
-          <span>Microsoft Word Document (.docx)</span>
-        </div>
-      </div>
-
-      <div class="summary-box">
-        <strong>Document Notes &amp; Summary:</strong><br>
-        ${sub.aiSummary || sub.remarks || 'This Microsoft Word document was submitted by the team for faculty review.'}
-      </div>
-
-      <p class="footer-note">DSATM Industrial PBL Portal • View-only document preview mode (Direct download suppressed)</p>
-    </div>
-  </div>
-</body>
-</html>
-      `;
-      const htmlBlob = new Blob([docPreviewHtml], { type: 'text/html' });
-      const htmlUrl = URL.createObjectURL(htmlBlob);
-      openInNewTab(htmlUrl);
-      return;
-    }
-
-    const blobUrl = dataUriToBlobUrl(data, defaultMime);
-    openInNewTab(blobUrl);
+  // 1. A copy already held in this page.
+  const inline = sub.fileData || (sub.filePath && sub.filePath.startsWith('data:') ? sub.filePath : '');
+  if (inline && inline.startsWith('data:')) {
+    openInNewTab(dataUriToBlobUrl(inline));
     return;
   }
 
-  // 4. Fallback: Synthesize a clean, valid PDF overview report that opens natively in new tab
-  const cleanTitle = (sub.projectTitle || sub.deadlineTitle || 'PBL Project Report').replace(/[()\\]/g, ' ');
-  const cleanTeam = (sub.teamNumber || 'N/A').replace(/[()\\]/g, ' ');
-  const cleanAuthor = (sub.studentName || 'Student').replace(/[()\\]/g, ' ');
-  const cleanSummary = (sub.aiSummary || sub.remarks || 'Phase 1 Report submitted for faculty guide review.').replace(/[()\\]/g, ' ').slice(0, 120);
+  const id = sub.id;
+  if (!id) {
+    alert(DOCUMENT_MISSING_MESSAGE);
+    return;
+  }
 
-  const streamContent = `BT
-/F1 16 Tf
-50 720 Td
-(${cleanTitle.slice(0, 45)}) Tj
-/F1 11 Tf
-0 -30 Td
-(Team: Group ${cleanTeam}) Tj
-0 -20 Td
-(Submitted By: ${cleanAuthor}) Tj
-0 -20 Td
-(Date: ${new Date(sub.submissionTime || Date.now()).toLocaleDateString()}) Tj
-0 -35 Td
-(Overview: ${cleanSummary}) Tj
-ET`;
+  // 2. This browser's copy of the file.
+  const cached = await getFileFromIdb(id).catch(() => null);
+  if (cached && cached.startsWith('data:')) {
+    openInNewTab(dataUriToBlobUrl(cached));
+    return;
+  }
 
-  const streamLength = streamContent.length;
+  // 3. The server: parts are cached forever by the content hash.
+  const result = await downloadDocument({
+    metaUrl: `/api/submissions/file?id=${encodeURIComponent(id)}&meta=1`,
+    partUrl: (part, sha) => `/api/submissions/file?id=${encodeURIComponent(id)}&part=${part}&v=${sha}`,
+  });
+  if (result.status === 'ok') {
+    openBytes(result.bytes, result.mime);
+    return;
+  }
+  if (result.status === 'legacy') {
+    openInNewTab(`/api/submissions/file?id=${encodeURIComponent(id)}`);
+    return;
+  }
 
-  const pdfBody = `%PDF-1.4
-1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj
-2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj
-3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >> endobj
-4 0 obj << /Length ${streamLength} >> stream
-${streamContent}
-endstream
-endobj
-5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj
-xref
-0 6
-0000000000 65535 f 
-0000000009 00000 n 
-0000000058 00000 n 
-0000000115 00000 n 
-0000000244 00000 n 
-0000000400 00000 n 
-trailer << /Size 6 /Root 1 0 R >>
-startxref
-480
-%%EOF`;
-
-  const blob = new Blob([pdfBody], { type: 'application/pdf' });
-  const blobUrl = URL.createObjectURL(blob);
-  // Open directly in a new tab without downloading
-  openInNewTab(blobUrl);
+  alert(DOCUMENT_MISSING_MESSAGE);
 }
 
 /**
@@ -304,13 +174,6 @@ export async function downloadSubmissionFile(sub: {
   fileName?: string;
   filePath?: string;
   fileData?: string;
-  deadlineTitle?: string;
-  teamNumber?: string;
-  projectTitle?: string;
-  studentName?: string;
-  submissionTime?: string;
-  aiSummary?: string;
-  remarks?: string;
 }) {
   return viewSubmissionFile(sub);
 }

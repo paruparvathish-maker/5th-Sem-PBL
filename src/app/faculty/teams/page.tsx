@@ -13,7 +13,8 @@ import {
   Download, Edit2
 } from 'lucide-react';
 import { downloadSubmissionFile, viewSubmissionFile, viewProofFile } from '@/lib/utils/download';
-import { saveFileToIdb } from '@/lib/utils/idb-storage';
+import { getFileFromIdb, saveFileToIdb } from '@/lib/utils/idb-storage';
+import { uploadDocument } from '@/lib/utils/chunked-upload';
 
 export default function FacultyTeamsPage() {
   const { user } = useAuth();
@@ -26,11 +27,53 @@ export default function FacultyTeamsPage() {
   const [isSyncing, setIsSyncing] = useState(true);
 
   React.useEffect(() => {
-    store.syncFromSupabase().then(() => {
+    store.syncFromSupabase().then(async () => {
       setAssignedTeams([...store.getTeamsByGuideId(user.id || user.email || user.name)]);
       setIsSyncing(false);
+      await repairMissingProofs();
     });
   }, [user.id, user.email, user.name]);
+
+  /**
+   * Self-repair: a proof this browser still holds but the server never received
+   * is sent again through the chunked path. Status and proof name are untouched.
+   */
+  const repairMissingProofs = async () => {
+    const teams = store.getTeamsByGuideId(user.id || user.email || user.name);
+    for (const team of teams) {
+      if (!team.researchPaperProofName) continue;
+      try {
+        const meta = await fetch(`/api/teams/proof?teamId=${encodeURIComponent(team.id)}&meta=1`, {
+          cache: 'no-store',
+        });
+        if (meta.ok) continue; // The server already has this proof.
+
+        const local = await getFileFromIdb(`proof_${team.id}`);
+        if (!local || !local.startsWith('data:')) continue;
+
+        const uploaded = await uploadDocument({
+          url: '/api/teams/proof',
+          idField: 'teamId',
+          id: team.id,
+          version: 1,
+          dataUrl: local,
+        });
+        if (uploaded.ok) {
+          await fetch('/api/teams', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              teamId: team.id,
+              proofName: team.researchPaperProofName,
+              proofPath: `/api/teams/proof?teamId=${encodeURIComponent(team.id)}`,
+            }),
+          }).catch(() => null);
+        }
+      } catch {
+        // Nothing changes on a failed repair; the proof simply stays local.
+      }
+    }
+  };
 
   // Land on the semester that has the most recently updated research paper, so a
   // faculty member immediately sees the paper status/proof they just published.
@@ -98,40 +141,48 @@ export default function FacultyTeamsPage() {
   const handleSavePaperStatus = async (teamId: string) => {
     setIsSaving(true);
     try {
-      const finalProofPath = proofFileDataUrl || (proofFileName ? `/storage/proofs/${proofFileName}` : undefined);
-      
-      // 1. Update in-memory store
-      await store.updateResearchPaperStatus(teamId, selectedPaperStatus, proofFileName || undefined, finalProofPath);
+      let finalProofPath: string | undefined = proofFileDataUrl || (proofFileName ? `/storage/proofs/${proofFileName}` : undefined);
 
-      // 2. Cache in IndexedDB so large proofs are preserved across refreshes and never hit quota
-      if (finalProofPath && finalProofPath.startsWith('data:')) {
-        await saveFileToIdb(`proof_${teamId}`, finalProofPath).catch(() => {});
+      // 1. A newly chosen proof is uploaded in parts and hash-checked BEFORE the
+      //    team record is touched. A data URL is never sent as the proof path.
+      if (proofFileDataUrl && proofFileDataUrl.startsWith('data:')) {
+        const uploaded = await uploadDocument({
+          url: '/api/teams/proof',
+          idField: 'teamId',
+          id: teamId,
+          version: 1,
+          dataUrl: proofFileDataUrl,
+        });
+        if (!uploaded.ok) {
+          alert(
+            `The proof was NOT saved, so the paper status is unchanged. ${uploaded.error || ''}`.trim()
+          );
+          return;
+        }
+        await saveFileToIdb(`proof_${teamId}`, proofFileDataUrl).catch(() => {});
+        finalProofPath = `/api/teams/proof?teamId=${encodeURIComponent(teamId)}`;
       }
 
-      // 3. Directly call backend PUT /api/teams to persist to disk & shared database
-      const saveRes = await fetch('/api/teams', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          teamId,
-          status: selectedPaperStatus,
-          proofName: proofFileName || undefined,
-          proofPath: finalProofPath
-        })
-      }).catch((apiErr) => {
-        console.warn('API /teams update failed:', apiErr);
-        return null;
-      });
+      // 2. Update the shared record. The proof path is a short reference now.
+      const result = await store.updateResearchPaperStatus(
+        teamId,
+        selectedPaperStatus,
+        proofFileName || undefined,
+        finalProofPath
+      );
 
-      const saveResult = saveRes ? await saveRes.json().catch(() => null) : null;
-      if (saveResult && saveResult.persisted === false) {
+      if (!result.success) {
+        alert(`The paper status was NOT saved: ${result.error || 'the server rejected the update.'}`);
+        return;
+      }
+      if (result.persisted === false) {
         alert(
           'The paper status was saved on this device, but the shared database rejected the write.\n\n' +
             'Ask the administrator to configure TURSO_DATABASE_URL on the server so every device receives this update.'
         );
       }
 
-      // 4. Trigger global sync to notify all active listeners
+      // 3. Trigger global sync to notify all active listeners
       await store.syncFromSupabase(true);
 
       // Immediately reflect updated state in the view

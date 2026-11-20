@@ -5,7 +5,8 @@ import { RAW_PDF_SEED, getGuideEmail, getGuidePhone, normalizeName } from './see
 import { RAW_4TH_SEM_SEED } from './seed-dataset-4th';
 import { saveFileToIdb } from '../utils/idb-storage';
 import { getIndustryExpertForTeam } from '../auth/roles';
-import { saveCloudSubmission, saveCloudSubmissionFile, stripInlineTeamProof, submissionFileUrl } from './cloud-sync';
+import { saveCloudSubmission, stripInlineTeamProof, submissionFileUrl } from './cloud-sync';
+import { encodeJsonBody } from '../utils/chunked-upload';
 
 const generateUUID = () => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -98,6 +99,7 @@ class PBLStore {
   // Every page mounts several components that each ask for a sync. One shared
   // request (and a short freshness window) replaces three full downloads per page.
   private syncInFlight: Promise<void> | null = null;
+  private pendingSyncTimer: ReturnType<typeof setTimeout> | null = null;
   private lastSyncAt = 0;
   private static readonly SYNC_FRESH_MS = 15000;
 
@@ -666,9 +668,9 @@ class PBLStore {
           } catch {}
         }
 
-        // Fire-and-forget sync to cloud
+        // Saves that happen together are grouped into one upload.
         if (!skipCloudSync) {
-          this.syncToSupabase().catch(console.error);
+          this.scheduleCloudSync();
         }
       } catch (e) {
         console.error("Save store error:", e);
@@ -709,7 +711,7 @@ class PBLStore {
         }
 
         if (!skipCloudSync) {
-          this.syncToSupabase().catch(() => {});
+          this.scheduleCloudSync();
         }
       } catch (e) {
         console.error("Server save store error:", e);
@@ -1182,9 +1184,31 @@ class PBLStore {
     }
   }
 
+  /**
+   * Groups saves that happen close together (a click that touches several
+   * records, or several panels saving at once) into ONE upload instead of one
+   * whole-store POST each. A page that needs an immediate upload still awaits
+   * `syncToSupabase()` directly.
+   */
+  public scheduleCloudSync(delayMs: number = 2000) {
+    if (typeof window === 'undefined') {
+      this.syncToSupabase().catch(() => {});
+      return;
+    }
+    if (this.pendingSyncTimer) clearTimeout(this.pendingSyncTimer);
+    this.pendingSyncTimer = setTimeout(() => {
+      this.pendingSyncTimer = null;
+      this.syncToSupabase().catch(() => {});
+    }, delayMs);
+  }
+
   public async syncToSupabase() {
     // Local data just changed, so the next read must go to the server.
     this.lastSyncAt = 0;
+    if (this.pendingSyncTimer) {
+      clearTimeout(this.pendingSyncTimer);
+      this.pendingSyncTimer = null;
+    }
     try {
       const lightweightSubmissions = this.submissions.map(s => {
         let slim: any = s;
@@ -1203,6 +1227,9 @@ class PBLStore {
       // Proofs travel through /api/teams; the store sync only carries references.
       const lightweightTeams = this.teams.map(t => stripInlineTeamProof(t));
 
+      // Audit entries travel one at a time through /api/audit/log, so they are
+      // deliberately absent here: a browser's partial list must never replace
+      // the server's audit trail.
       const payload = JSON.stringify({
         profiles: this.profiles,
         teams: lightweightTeams,
@@ -1210,8 +1237,7 @@ class PBLStore {
         submissions: lightweightSubmissions,
         evaluations: this.evaluations,
         guideMeetings: this.guideMeetings,
-        notifications: this.notifications,
-        auditLogs: this.auditLogs
+        notifications: this.notifications
       });
 
       const getFastApiUrl = () => {
@@ -1250,10 +1276,12 @@ class PBLStore {
       }
 
       if (typeof window !== 'undefined') {
+        // Compressed in the browser when possible: ~0.5 MB of JSON becomes ~40 KB.
+        const encoded = await encodeJsonBody(payload);
         await fetch('/api/db', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: payload
+          headers: encoded.headers,
+          body: encoded.body
         }).catch(() => { });
       } else {
         // Server-side: sync submissions and dynamic records to Cloud KV
@@ -1639,7 +1667,7 @@ class PBLStore {
     status: ResearchPaperStatus,
     proofName?: string,
     proofPath?: string
-  ): Promise<{ success: boolean; error?: string }> {
+  ): Promise<{ success: boolean; error?: string; persisted?: boolean }> {
     const team = this.teams.find(t => t.id === teamId);
     if (!team) return { success: false, error: 'Team not found' };
 
@@ -1648,20 +1676,39 @@ class PBLStore {
     if (proofPath !== undefined) team.researchPaperProofPath = proofPath;
     team.researchPaperUpdatedAt = new Date().toISOString();
 
+    let persisted: boolean | undefined;
     if (typeof window !== 'undefined') {
       if (proofPath && proofPath.startsWith('data:')) {
+        // A data URL belongs in IndexedDB, never in a shared record or a request body.
         saveFileToIdb(`proof_${teamId}`, proofPath).catch(() => {});
       }
-      fetch('/api/teams', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ teamId, status, proofName, proofPath })
-      }).catch(() => {});
+      try {
+        const res = await fetch('/api/teams', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            teamId,
+            status,
+            proofName,
+            // The document travels through /api/teams/proof in parts; only its
+            // reference is recorded here.
+            proofPath: proofPath && proofPath.startsWith('data:') ? undefined : proofPath
+          })
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok) {
+          persisted = false;
+        } else {
+          persisted = data?.persisted !== false;
+        }
+      } catch (err: any) {
+        persisted = false;
+      }
     }
 
     this.save(true);
     await this.syncToSupabase();
-    return { success: true };
+    return { success: true, persisted };
   }
 
   // --- Deadlines ---
@@ -1757,6 +1804,17 @@ class PBLStore {
     });
   }
 
+  /** The id a submission for this deadline/team already has, or the next one. */
+  public submissionIdFor(deadlineId: string, teamId: string): string {
+    const existing = this.submissions.find(s => s.deadlineId === deadlineId && s.teamId === teamId);
+    return existing ? existing.id : `sub-${Date.now()}`;
+  }
+
+  /**
+   * Records a submission. The document must already be on the server: the page
+   * uploads every part first and passes the id the parts were stored under, so a
+   * submission is only ever created for a file the server really has.
+   */
   public submitDocument(
     deadlineId: string,
     teamId: string,
@@ -1765,7 +1823,8 @@ class PBLStore {
     fileType: string,
     fileSize: number,
     fileData?: string,
-    remarks?: string
+    remarks?: string,
+    submissionId?: string
   ): { success: boolean; submission?: Submission; error?: string } {
     const deadline = this.deadlines.find(d => d.id === deadlineId);
     if (!deadline) {
@@ -1775,9 +1834,12 @@ class PBLStore {
     const now = new Date();
     const dueDate = new Date(deadline.dueDate);
 
-    // Maximum file limit: 25MB
-    if (fileSize > 25 * 1024 * 1024) {
-      return { success: false, error: 'Upload rejected: File size exceeds the maximum limit of 25MB.' };
+    // Maximum file limit: 10MB
+    if (fileSize > 10 * 1024 * 1024) {
+      return {
+        success: false,
+        error: 'Upload rejected: the file is over the 10 MB limit. Compress the PDF and try again.'
+      };
     }
 
     const team = this.teams.find(t => t.id === teamId);
@@ -1785,7 +1847,7 @@ class PBLStore {
     const existingIdx = this.submissions.findIndex(s => s.deadlineId === deadlineId && s.teamId === teamId);
 
     const isLate = now > dueDate;
-    const subId = existingIdx !== -1 ? this.submissions[existingIdx].id : `sub-${Date.now()}`;
+    const subId = submissionId || (existingIdx !== -1 ? this.submissions[existingIdx].id : `sub-${Date.now()}`);
     const newSub: Submission = {
       id: subId,
       deadlineId,
@@ -1800,7 +1862,6 @@ class PBLStore {
       fileName,
       // Reference only: the document is stored once and fetched on demand.
       filePath: fileData ? submissionFileUrl(subId) : `/storage/submissions/${fileName}`,
-      fileData: fileData || undefined,
       fileType,
       fileSize,
       submissionTime: now.toISOString(),
@@ -1833,11 +1894,9 @@ class PBLStore {
       } catch (err) { }
     }
 
-    // Direct cloud KV persistence for cross-device synchronization (laptops <-> mobile phones)
+    // Direct cloud KV persistence for cross-device synchronization (laptops <-> mobile phones).
+    // The document itself was uploaded (and hash-verified) before this record existed.
     saveCloudSubmission(newSub).catch(() => {});
-    if (fileData) {
-      saveCloudSubmissionFile(newSub.id, fileData).catch(() => {});
-    }
 
     this.addAuditLog(
       submittedBy,
@@ -1968,7 +2027,27 @@ class PBLStore {
     const notif = this.notifications.find(n => n.id === id);
     if (notif) {
       notif.isRead = true;
-      this.save();
+      // Local only, then one small targeted request: this change does not
+      // justify uploading the whole store.
+      this.save(true);
+      this.syncTargeted('notifications', [notif]);
+    }
+  }
+
+  /**
+   * Sends only the records that changed. /api/db merges by id, so a one-record
+   * payload is safe and avoids a whole-store upload.
+   */
+  public async syncTargeted(
+    kind: 'notifications' | 'teams' | 'evaluations' | 'submissions' | 'deadlines',
+    items: any[]
+  ) {
+    if (typeof window === 'undefined' || !Array.isArray(items) || items.length === 0) return;
+    try {
+      const encoded = await encodeJsonBody(JSON.stringify({ [kind]: items }));
+      await fetch('/api/db', { method: 'POST', headers: encoded.headers, body: encoded.body });
+    } catch {
+      // The change is already local; the next full sync will carry it.
     }
   }
 
