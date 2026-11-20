@@ -32,11 +32,24 @@ export default function AdminDashboardPage() {
     setAuditLogs([...store.getAuditLogs()]);
   };
 
+  // Audit logs have their own endpoint: the page snapshot no longer carries them.
+  const loadAuditLogs = async () => {
+    try {
+      const res = await fetch('/api/audit/log', { cache: 'no-store' });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (Array.isArray(data.auditLogs)) setAuditLogs(data.auditLogs);
+    } catch {
+      // Keep whatever is already displayed.
+    }
+  };
+
   React.useEffect(() => {
     loadData();
     store.syncFromSupabase().then(() => {
       loadData();
       setIsSyncing(false);
+      loadAuditLogs();
     });
   }, []);
 
@@ -44,6 +57,7 @@ export default function AdminDashboardPage() {
     setIsSyncing(true);
     await store.syncFromSupabase(true);
     loadData();
+    await loadAuditLogs();
     setIsSyncing(false);
   };
 

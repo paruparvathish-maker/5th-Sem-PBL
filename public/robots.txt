@@ -1,0 +1,8 @@
+User-agent: *
+Disallow: /api/
+Disallow: /admin/
+Disallow: /faculty/
+Disallow: /student/
+Disallow: /industry/
+Disallow: /principal/
+Disallow: /hod/

@@ -16,6 +16,7 @@ import { store } from '@/lib/data/store';
 import * as fs from 'fs';
 import * as path from 'path';
 import { createHash } from 'crypto';
+import { gunzipSync, gzipSync } from 'zlib';
 
 /**
  * Sends the snapshot with an ETag. Browsers revalidate with If-None-Match, and an
@@ -25,16 +26,34 @@ import { createHash } from 'crypto';
 function snapshotResponse(request: Request, data: any) {
   const body = JSON.stringify(data);
   const etag = `W/"${createHash('sha1').update(body).digest('base64url')}"`;
-  const headers = {
+  const headers: Record<string, string> = {
     ETag: etag,
     'Cache-Control': 'private, no-cache',
     'Content-Type': 'application/json',
+    Vary: 'Accept-Encoding',
+    'X-Robots-Tag': 'noindex',
   };
   const ifNoneMatch = request.headers.get('if-none-match') || '';
   if (ifNoneMatch.split(',').map((t) => t.trim()).includes(etag)) {
     return new Response(null, { status: 304, headers });
   }
+
+  // The snapshot is ~0.5 MB of JSON; compressing it in the function cuts the
+  // bytes Vercel has to deliver on every page load by roughly 90%.
+  if ((request.headers.get('accept-encoding') || '').includes('gzip')) {
+    const compressed = gzipSync(Buffer.from(body, 'utf8'));
+    headers['Content-Encoding'] = 'gzip';
+    headers['Content-Length'] = String(compressed.length);
+    return new Response(compressed, { status: 200, headers });
+  }
+
   return new Response(body, { status: 200, headers });
+}
+
+/** Audit logs have their own endpoint, so the page snapshot never carries them. */
+function withoutAuditLogs(data: any) {
+  if (data && typeof data === 'object') delete data.auditLogs;
+  return data;
 }
 
 /** Documents and proofs are fetched on demand; the snapshot carries references only. */
@@ -97,7 +116,6 @@ export async function GET(request: Request) {
           evaluations,
           guideMeetings,
           notifications,
-          auditLogs,
         }));
       } catch (prismaErr) {
         console.warn('Prisma query failed, falling back to JSON data:', prismaErr);
@@ -113,7 +131,7 @@ export async function GET(request: Request) {
         clearTimeout(timeoutId);
         if (fastRes.ok) {
           const data = await fastRes.json();
-          return snapshotResponse(request, slimSnapshot(data));
+          return snapshotResponse(request, withoutAuditLogs(slimSnapshot(data)));
         }
       } catch {
         // FastAPI offline
@@ -246,7 +264,7 @@ export async function GET(request: Request) {
       baseData.submissionsResetDeadlineId = submissionReset.deadlineId;
     }
 
-    return snapshotResponse(request, slimSnapshot(baseData));
+    return snapshotResponse(request, withoutAuditLogs(slimSnapshot(baseData)));
   } catch (err: any) {
     console.error('Database query error:', err);
     return NextResponse.json({ error: 'Database query failed', message: err?.message }, { status: 500 });
@@ -255,7 +273,12 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const payload = await request.json();
+    // The browser gzips the snapshot when it can (CompressionStream); a plain
+    // JSON body from an older client is accepted too.
+    const raw = Buffer.from(await request.arrayBuffer());
+    const encoding = request.headers.get('content-encoding') || '';
+    const text = encoding.includes('gzip') ? gunzipSync(raw).toString('utf8') : raw.toString('utf8');
+    const payload = JSON.parse(text);
 
     // 1. Forward to FastAPI backend if available and configured
     if (FASTAPI_URL) {
