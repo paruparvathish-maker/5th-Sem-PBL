@@ -21,3 +21,8 @@ __pycache__/
 .vercel
 .env.local
 .env*.local
+
+# local ops artifacts
+.vercel-git-watch.log
+backups/
+.vercel.bak-oldaccount/

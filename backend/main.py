@@ -23,7 +23,8 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "http://127.0.0.1:3000",
-        "http://localhost:3001"
+        "http://localhost:3001",
+        "https://5th-sem-pbl.vercel.app"
     ],
     allow_origin_regex=r"https?://.*",
     allow_credentials=True,
@@ -68,6 +69,42 @@ def save_data():
             print(f"[FastAPI] Persisted DB to fallback {TMP_DATA_FILE}")
         except Exception as tmp_err:
             print(f"[FastAPI] Error saving to fallback {TMP_DATA_FILE}: {tmp_err}")
+
+# Credential fields that must never appear in any HTTP response.
+SENSITIVE_PROFILE_FIELDS = ("password",)
+
+
+def public_profile(profile: Dict[str, Any]) -> Dict[str, Any]:
+    """Return a copy of a profile with credential fields removed."""
+    if not isinstance(profile, dict):
+        return profile
+    return {k: v for k, v in profile.items() if k not in SENSITIVE_PROFILE_FIELDS}
+
+
+def public_profile_list(profiles: Any) -> Any:
+    if not isinstance(profiles, list):
+        return profiles
+    return [public_profile(p) for p in profiles]
+
+
+def public_db(db: Dict[str, Any]) -> Dict[str, Any]:
+    """Full database payload with credentials stripped from profiles and team members."""
+    payload: Dict[str, Any] = {k: v for k, v in db.items()}
+    payload["profiles"] = public_profile_list(db.get("profiles", []))
+
+    teams = []
+    for team in db.get("teams", []):
+        if isinstance(team, dict):
+            team_copy = {k: v for k, v in team.items()}
+            if "members" in team_copy:
+                team_copy["members"] = public_profile_list(team_copy.get("members"))
+            teams.append(team_copy)
+        else:
+            teams.append(team)
+    payload["teams"] = teams
+
+    return payload
+
 
 @app.on_event("startup")
 def startup_event():
@@ -290,7 +327,7 @@ def login(req: LoginRequest):
 
     return {
         "success": True,
-        "user": user,
+        "user": public_profile(user),
         "requiresPasswordChange": is_first_login
     }
 
@@ -310,7 +347,7 @@ def change_password(req: ChangePasswordRequest):
             p["isFirstLogin"] = False
             p["passwordUpdatedAt"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
             save_data()
-            return {"success": True, "message": "Password changed successfully", "user": p}
+            return {"success": True, "message": "Password changed successfully", "user": public_profile(p)}
 
     raise HTTPException(status_code=404, detail="User not found")
 
@@ -468,7 +505,7 @@ def get_faculty(search: Optional[str] = None):
         fid = f.get("id")
         assigned_5th_sem = [t for t in teams if t.get("guideId") == fid and t.get("semester", 5) == 5]
         result.append({
-            **f,
+            **public_profile(f),
             "assignedTeamsCount": len(assigned_5th_sem),
             "assigned5thSemProjects": [
                 {
@@ -552,8 +589,11 @@ def create_meeting(meeting: GuideMeeting):
 # ----------------- Full Database Sync (Frontend Store Bridge) -----------------
 @app.get("/api/db", tags=["Database Sync"])
 def get_full_database():
-    """Returns complete database payload compatible with the Next.js PBL store."""
-    return DB
+    """Returns complete database payload compatible with the Next.js PBL store.
+
+    Credentials are stripped: this endpoint is reachable without auth.
+    """
+    return public_db(DB)
 
 @app.post("/api/db", tags=["Database Sync"])
 def sync_full_database(payload: DatabaseSyncPayload):

@@ -10,7 +10,9 @@ class UserProfile(BaseModel):
     section: Optional[str] = None
     phone: Optional[str] = None
     staffCode: Optional[str] = None
-    password: Optional[str] = None
+    # No credential fields here on purpose: this model is used as a response
+    # model, so declaring `password` would expose it in /api/students,
+    # /api/teams and /api/faculty responses.
     isFirstLogin: bool = True
     passwordUpdatedAt: Optional[str] = None
     createdAt: Optional[str] = None
