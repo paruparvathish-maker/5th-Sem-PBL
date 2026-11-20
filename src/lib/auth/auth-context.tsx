@@ -97,24 +97,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (foundUser && cleanPass !== undefined && foundUser.isActivated !== false && store.verifyPassword(foundUser.id, cleanPass)) {
       setUser(foundUser);
       localStorage.setItem('pbl_session_user', JSON.stringify(foundUser));
+      // addAuditLog persists locally and sends this single entry to /api/audit/log.
       store.addAuditLog(foundUser.id, foundUser.name, foundUser.role, 'User Logged In', 'UserProfile', foundUser.id, {
         email: foundUser.email,
         usn: foundUser.usn,
         role: foundUser.role
       });
-      fetch('/api/audit/log', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: foundUser.id,
-          userName: foundUser.name,
-          userRole: foundUser.role,
-          action: 'User Logged In',
-          entityType: 'UserProfile',
-          entityId: foundUser.id,
-          details: { email: foundUser.email, usn: foundUser.usn, role: foundUser.role }
-        })
-      }).catch(() => {});
 
       if (foundUser.isFirstLogin) {
         return { success: true, requiresPasswordChange: true, user: foundUser };
@@ -165,24 +153,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
           setUser(authUser);
           localStorage.setItem('pbl_session_user', JSON.stringify(authUser));
+          // addAuditLog persists locally and sends this single entry to /api/audit/log.
           store.addAuditLog(authUser.id, authUser.name, authUser.role, 'User Logged In', 'UserProfile', authUser.id, {
             email: authUser.email,
             usn: authUser.usn,
             role: authUser.role
           });
-          fetch('/api/audit/log', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              userId: authUser.id,
-              userName: authUser.name,
-              userRole: authUser.role,
-              action: 'User Logged In',
-              entityType: 'UserProfile',
-              entityId: authUser.id,
-              details: { email: authUser.email, usn: authUser.usn, role: authUser.role }
-            })
-          }).catch(() => {});
 
           // Background sync to ensure rest of store is fresh
           store.syncFromSupabase().catch(() => {});
@@ -273,32 +249,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = () => {
     if (user) {
+      // addAuditLog persists locally and sends this single entry to /api/audit/log
+      // with keepalive, so it survives the redirect below.
       store.addAuditLog(user.id, user.name, user.role, 'User Logged Out', 'UserProfile', user.id, {
         email: user.email,
         usn: user.usn,
         role: user.role
       });
-      try {
-        const payload = JSON.stringify({
-          userId: user.id,
-          userName: user.name,
-          userRole: user.role,
-          action: 'User Logged Out',
-          entityType: 'UserProfile',
-          entityId: user.id,
-          details: { email: user.email, usn: user.usn, role: user.role }
-        });
-        if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
-          navigator.sendBeacon('/api/audit/log', payload);
-        } else {
-          fetch('/api/audit/log', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: payload,
-            keepalive: true
-          }).catch(() => {});
-        }
-      } catch {}
     }
     setUser(null);
     localStorage.removeItem('pbl_session_user');

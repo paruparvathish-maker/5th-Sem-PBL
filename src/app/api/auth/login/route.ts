@@ -291,35 +291,9 @@ export async function POST(request: Request) {
       }, { status: 401 });
     }
 
-    // 7. Record login in System Audit Trail
-    try {
-      const loginLog = {
-        id: `audit-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-        userId: user.id,
-        userName: user.name,
-        userRole: user.role,
-        action: 'User Logged In',
-        entityType: 'UserProfile',
-        entityId: user.id,
-        details: { identifier: cleanId, email: user.email, usn: user.usn, role: user.role },
-        createdAt: new Date().toISOString()
-      };
-      store.addAuditLog(user.id, user.name, user.role, 'User Logged In', 'UserProfile', user.id, loginLog.details);
-
-      const targetPaths = [BACKEND_DATA_PATH, TMP_DATA_PATH];
-      for (const tp of targetPaths) {
-        if (fs.existsSync(tp)) {
-          try {
-            const raw = fs.readFileSync(tp, 'utf8');
-            const data = JSON.parse(raw);
-            if (!Array.isArray(data.auditLogs)) data.auditLogs = [];
-            data.auditLogs.unshift(loginLog);
-            if (data.auditLogs.length > 500) data.auditLogs = data.auditLogs.slice(0, 500);
-            fs.writeFileSync(tp, JSON.stringify(data, null, 2), 'utf8');
-          } catch {}
-        }
-      }
-    } catch {}
+    // 7. The audit trail entry for this login is recorded once by the client
+    //    (auth-context) after this response arrives, so nothing is written here:
+    //    a second entry from this route would duplicate the same event.
 
     return NextResponse.json({
       success: true,

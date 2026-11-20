@@ -1977,7 +1977,16 @@ class PBLStore {
     return this.auditLogs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }
 
-  public addAuditLog(userId: string, userName: string, userRole: string, action: string, entityType: string, entityId?: string, details?: Record<string, any>) {
+  /**
+   * Records an audit entry locally and sends that single entry to the server.
+   *
+   * `save(true)` keeps the change local on purpose: a full `save()` would POST the
+   * entire store (~0.5 MB of profiles, teams, deadlines, evaluations, meetings and
+   * audit logs) to /api/db, which is far too much traffic for one audit line.
+   * The entry itself travels in one small request to /api/audit/log and keeps its
+   * local id so the server can skip an id it already stored.
+   */
+  public addAuditLog(userId: string, userName: string, userRole: string, action: string, entityType: string, entityId?: string, details?: Record<string, any>): AuditLogItem {
     const log: AuditLogItem = {
       id: `audit-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       userId,
@@ -1990,7 +1999,25 @@ class PBLStore {
       createdAt: new Date().toISOString()
     };
     this.auditLogs.unshift(log);
-    this.save();
+    this.save(true);
+    this.uploadAuditLog(log);
+    return log;
+  }
+
+  /**
+   * Sends exactly one audit entry to the server. Browser-only: in a server runtime
+   * the owning API route persists its own entries.
+   */
+  public uploadAuditLog(log: AuditLogItem): void {
+    if (typeof window === 'undefined' || typeof fetch !== 'function') return;
+    try {
+      fetch('/api/audit/log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(log),
+        keepalive: true
+      }).catch(() => {});
+    } catch {}
   }
 }
 

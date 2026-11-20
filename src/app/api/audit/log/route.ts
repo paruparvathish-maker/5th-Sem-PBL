@@ -61,8 +61,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Action is required' }, { status: 400 });
     }
 
+    // An entry that was recorded locally keeps its id, so a retry (or the same
+    // entry arriving twice) is recognised instead of stored a second time.
+    const providedId = typeof body.id === 'string' && body.id.trim() ? body.id.trim() : null;
+
     const newLog: AuditLogItem = {
-      id: `audit-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      id: providedId || `audit-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       userId: userId || 'system',
       userName: userName || 'System User',
       userRole: userRole || 'system',
@@ -87,6 +91,10 @@ export async function POST(request: Request) {
           currentData.auditLogs = [];
         }
 
+        if (currentData.auditLogs.some((l: AuditLogItem) => l && l.id === newLog.id)) {
+          continue;
+        }
+
         currentData.auditLogs.unshift(newLog);
         if (currentData.auditLogs.length > 500) {
           currentData.auditLogs = currentData.auditLogs.slice(0, 500);
@@ -102,6 +110,9 @@ export async function POST(request: Request) {
     try {
       const cloudDynamic = (await fetchCloudDynamicStore()) || {};
       const existingLogs: AuditLogItem[] = Array.isArray(cloudDynamic.auditLogs) ? cloudDynamic.auditLogs : [];
+      if (existingLogs.some(l => l && l.id === newLog.id)) {
+        return NextResponse.json({ success: true, log: newLog, duplicate: true });
+      }
       existingLogs.unshift(newLog);
       await saveCloudDynamicStore({
         ...cloudDynamic,
