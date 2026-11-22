@@ -86,7 +86,7 @@ export default function StudentMarksPage() {
                   <div className="bg-indigo-600/30 border border-indigo-500/30 px-6 py-4 rounded-xl text-center min-w-[120px]">
                     <span className="text-xs text-indigo-200 font-semibold block uppercase mb-1">Your Score</span>
                     <span className="text-4xl font-black text-white">{ev.totalMarks}</span>
-                    <span className="text-sm text-indigo-300"> / {ev.maxTotalMarks}</span>
+                    <span className="text-sm text-indigo-300"> / {ev.maxTotalMarks || 5}</span>
                   </div>
                 </div>
 
@@ -98,9 +98,9 @@ export default function StudentMarksPage() {
                       <UserCheck className="h-5 w-5 text-indigo-600" />
                     </div>
                     <div>
-                      <h4 className="text-sm font-bold text-slate-800">0th Review — Problem Statement &amp; Description</h4>
+                      <h4 className="text-sm font-bold text-slate-800">{ev.deadlineTitle || 'Review Evaluation'} — Individual Assessment</h4>
                       <p className="text-xs text-slate-500 mt-0.5">
-                        Evaluated out of 5 marks by your assigned guide.
+                        Evaluated out of {ev.maxTotalMarks || 5} marks by your assigned guide.
                       </p>
                     </div>
                   </div>

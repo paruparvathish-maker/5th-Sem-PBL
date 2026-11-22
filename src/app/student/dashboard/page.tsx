@@ -205,7 +205,7 @@ export default function StudentDashboardPage() {
                         </div>
                         <div className="text-right">
                           <span className="text-lg font-black text-amber-600">{ev.totalMarks}</span>
-                          <span className="text-xs text-slate-400 font-medium"> / {ev.maxTotalMarks}</span>
+                          <span className="text-xs text-slate-400 font-medium"> / {ev.maxTotalMarks || 5}</span>
                         </div>
                       </div>
                       {ev.facultyComments && (

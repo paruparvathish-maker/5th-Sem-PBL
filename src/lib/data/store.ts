@@ -293,6 +293,23 @@ class PBLStore {
               createdAt: new Date().toISOString()
             });
           }
+          // Review 2 awards 10 marks per student, so the milestone must exist for
+          // faculty to grade (and for students to see those marks) without an
+          // admin having to configure it first.
+          if (!this.deadlines.some(d => d.id === 'dl-review-2' || d.title.toLowerCase().includes('2nd review') || d.title.toLowerCase().includes('second review'))) {
+            this.deadlines.push({
+              id: 'dl-review-2',
+              title: '2nd Review Evaluation',
+              description: 'Second review of your PBL project by the faculty guide. Each team member is evaluated individually, out of 10 marks.',
+              deadlineType: 'review',
+              dueDate: '2026-12-16T17:00:00',
+              applicableSections: ['A', 'B', 'C', 'D', 'E', 'F'],
+              submissionRequired: false,
+              status: 'open',
+              createdBy: '180881',
+              createdAt: new Date().toISOString()
+            });
+          }
           this.submissions = (parsed.submissions || []).filter((s: any) =>
             s.deadlineId !== 'dl-guide-meeting' &&
             s.deadlineId !== 'dl-project-stmt' &&
@@ -597,6 +614,20 @@ class PBLStore {
 
     this.deadlines.push(dReview1);
 
+    // Review 2 is graded out of 10 per student, with no document upload.
+    this.deadlines.push({
+      id: 'dl-review-2',
+      title: '2nd Review Evaluation',
+      description: 'Second review of your PBL project by the faculty guide. Each team member is evaluated individually, out of 10 marks.',
+      deadlineType: 'review',
+      dueDate: '2026-12-16T17:00:00',
+      applicableSections: ['A', 'B', 'C', 'D', 'E', 'F'],
+      submissionRequired: false,
+      status: 'open',
+      createdBy: adminUser.id,
+      createdAt: new Date().toISOString()
+    });
+
     // Initial audit log
     this.auditLogs.push({
       id: 'audit-001',
@@ -894,6 +925,23 @@ class PBLStore {
             dueDate: '2026-11-25T17:00:00',
             applicableSections: ['A', 'B', 'C', 'D', 'E', 'F'],
             submissionRequired: true,
+            status: 'open',
+            createdBy: '180881',
+            createdAt: new Date().toISOString()
+          });
+        }
+        // Review 2 awards 10 marks per student, so the milestone must exist for
+        // faculty to grade (and for students to see those marks) without an
+        // admin having to configure it first.
+        if (!this.deadlines.some(d => d.id === 'dl-review-2' || d.title.toLowerCase().includes('2nd review') || d.title.toLowerCase().includes('second review'))) {
+          this.deadlines.push({
+            id: 'dl-review-2',
+            title: '2nd Review Evaluation',
+            description: 'Second review of your PBL project by the faculty guide. Each team member is evaluated individually, out of 10 marks.',
+            deadlineType: 'review',
+            dueDate: '2026-12-16T17:00:00',
+            applicableSections: ['A', 'B', 'C', 'D', 'E', 'F'],
+            submissionRequired: false,
             status: 'open',
             createdBy: '180881',
             createdAt: new Date().toISOString()

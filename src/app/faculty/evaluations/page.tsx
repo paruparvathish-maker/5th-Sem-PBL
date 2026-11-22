@@ -19,7 +19,6 @@ import {
   ArrowDownToLine,
   RefreshCw,
 } from 'lucide-react';
-import { EvaluationCriterion } from '@/lib/types/pbl';
 import { downloadSubmissionFile, viewSubmissionFile } from '@/lib/utils/download';
 
 type EvaluationScope = 'team' | 'individual';
@@ -32,10 +31,13 @@ type StudentScore = {
   comments: string;
 };
 
-// Single 5-mark criterion used for ALL evaluations currently
-const BASE_CRITERIA: EvaluationCriterion[] = [
-  { criterion: '1st Review Evaluation', maxMarks: 5, marksObtained: 5, comments: '' },
-];
+// Per-student marks: Review 2 is out of 10, every other review is out of 5.
+function maxMarksForReview(deadline?: { id?: string; title?: string }): number {
+  const title = (deadline?.title || '').toLowerCase();
+  if (deadline?.id === 'dl-review-2') return 10;
+  if (/2nd\s*review|second\s*review|review\s*[-#]?\s*2\b/.test(title)) return 10;
+  return 5;
+}
 
 function FacultyEvaluationsContent() {
   const { user } = useAuth();
@@ -61,11 +63,6 @@ function FacultyEvaluationsContent() {
   const [selectedDeadlineId, setSelectedDeadlineId] = useState(allDeadlines[0]?.id || '');
   const scope: EvaluationScope = 'individual';
 
-  // Criteria scores (rubric - for team level)
-  const [criteriaScores, setCriteriaScores] = useState<EvaluationCriterion[]>(
-    BASE_CRITERIA.map((c) => ({ ...c }))
-  );
-
   // Individual student scores (for individual scope)
   const [studentScores, setStudentScores] = useState<StudentScore[]>([]);
   const [overallFeedback, setOverallFeedback] = useState('');
@@ -83,6 +80,9 @@ function FacultyEvaluationsContent() {
     () => allDeadlines.find((d) => d.id === selectedDeadlineId),
     [allDeadlines, selectedDeadlineId]
   );
+
+  // Max marks per student for the selected review (Review 2 = 10, others = 5)
+  const maxMarks = useMemo(() => maxMarksForReview(selectedDeadline), [selectedDeadline]);
 
   // Load existing student scores or initialize defaults when team or deadline changes
   useEffect(() => {
@@ -107,7 +107,7 @@ function FacultyEvaluationsContent() {
             studentId: m.id,
             studentName: m.name,
             studentUsn: m.usn || '',
-            marksObtained: existing ? existing.totalMarks : 5,
+            marksObtained: existing ? Math.min(existing.totalMarks, maxMarks) : maxMarks,
             comments: existing?.criteriaScores?.[0]?.comments || existing?.facultyComments || '',
           };
         })
@@ -118,30 +118,14 @@ function FacultyEvaluationsContent() {
       setOverallFeedback('');
     }
     setMessage(null);
-  }, [selectedTeamId, selectedDeadlineId, selectedTeam]);
+  }, [selectedTeamId, selectedDeadlineId, selectedTeam, maxMarks]);
 
   // --- Score Updates ---
-  const updateCriterionMarks = (idx: number, val: number) => {
-    setCriteriaScores((prev) =>
-      prev.map((c, i) =>
-        i === idx
-          ? { ...c, marksObtained: Math.max(0, Math.min(c.maxMarks, val)) }
-          : c
-      )
-    );
-  };
-
-  const updateCriterionComment = (idx: number, text: string) => {
-    setCriteriaScores((prev) =>
-      prev.map((c, i) => (i === idx ? { ...c, comments: text } : c))
-    );
-  };
-
   const updateStudentMarks = (studentId: string, marks: number) => {
     setStudentScores((prev) =>
       prev.map((s) =>
         s.studentId === studentId
-          ? { ...s, marksObtained: Math.max(0, Math.min(5, marks)) }
+          ? { ...s, marksObtained: Math.max(0, Math.min(maxMarks, marks)) }
           : s
       )
     );
@@ -152,14 +136,6 @@ function FacultyEvaluationsContent() {
       prev.map((s) => (s.studentId === studentId ? { ...s, comments } : s))
     );
   };
-
-  // --- Total Scores --- Always per-student: max 5
-  // totalMarks is shown as a per-student score (not sum of all students)
-  const avgMarks = studentScores.length > 0
-    ? Math.round(studentScores.reduce((sum, s) => sum + s.marksObtained, 0) / studentScores.length)
-    : 5;
-  const totalMarks = 5;   // max per student is always 5
-  const maxTotalMarks = 5;
 
   // --- Validation ---
   const validate = () => {
@@ -201,13 +177,13 @@ function FacultyEvaluationsContent() {
           criteriaScores: [
             {
               criterion: selectedDeadline?.title || '1st Review Evaluation',
-              maxMarks: 5,
+              maxMarks,
               marksObtained: s.marksObtained,
               comments: s.comments,
             },
           ],
           totalMarks: s.marksObtained,
-          maxTotalMarks: 5,
+          maxTotalMarks: maxMarks,
           facultyComments: overallFeedback,
           isPublished,
         });
@@ -239,7 +215,7 @@ function FacultyEvaluationsContent() {
               5th Semester PBL Evaluation Interface
             </h1>
             <p className="text-sm text-slate-500 mt-1">
-              Grade assigned 5th Sem teams on Problem Statement &amp; Description (5 marks). (4th Sem research papers do not have graded marks).
+              Individual marks per student for the selected review — {maxMarks} marks for {selectedDeadline?.title || 'this review'}. (4th Sem research papers do not have graded marks).
             </p>
           </div>
           <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200">
@@ -311,12 +287,12 @@ function FacultyEvaluationsContent() {
                   Rubric Scoring — Group {selectedTeam?.teamNumber}
                 </h2>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Individual Student Evaluation (5 marks max each)
+                  Individual Student Evaluation ({maxMarks} marks max each)
                 </p>
               </div>
               <div className="text-center bg-indigo-600/30 border border-indigo-500/30 rounded-xl px-6 py-3">
                 <span className="block text-xs text-indigo-200 uppercase font-bold mb-1">Max Per Student</span>
-                <span className="text-3xl font-black">5</span>
+                <span className="text-3xl font-black">{maxMarks}</span>
                 <span className="text-sm text-indigo-300"> marks</span>
               </div>
             </div>
@@ -362,7 +338,7 @@ function FacultyEvaluationsContent() {
                     <div className="p-4 rounded-xl border border-amber-200 bg-amber-50 flex items-center gap-3">
                       <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
                       <div>
-                        <p className="text-sm font-bold text-amber-900">1st Review Report Deliverable</p>
+                        <p className="text-sm font-bold text-amber-900">{selectedDeadline?.title || 'Review'} Deliverable</p>
                         <p className="text-xs text-amber-700 mt-0.5">
                           Group {selectedTeam?.teamNumber} has not uploaded their report document for this review yet.
                         </p>
@@ -372,7 +348,7 @@ function FacultyEvaluationsContent() {
                 })()}
 
                 <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  Individual Student Marks (Out of 5)
+                  Individual Student Marks (Out of {maxMarks})
                 </h3>
 
                 {studentScores.map((s, i) => (
@@ -393,7 +369,7 @@ function FacultyEvaluationsContent() {
                       {/* Max marks */}
                       <div className="lg:col-span-2">
                         <p className="text-xs font-semibold text-slate-500">Max Marks</p>
-                        <p className="text-sm font-bold text-slate-800 mt-1">5</p>
+                        <p className="text-sm font-bold text-slate-800 mt-1">{maxMarks}</p>
                       </div>
 
                       {/* Marks awarded */}
@@ -403,13 +379,13 @@ function FacultyEvaluationsContent() {
                           <input
                             type="number"
                             min={0}
-                            max={5}
+                            max={maxMarks}
                             step={1}
                             value={s.marksObtained}
                             onChange={(e) => updateStudentMarks(s.studentId, Number(e.target.value))}
                             className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                           />
-                          <span className="text-xs text-slate-500 font-bold">/ 5</span>
+                          <span className="text-xs text-slate-500 font-bold">/ {maxMarks}</span>
                         </div>
                       </div>
 
