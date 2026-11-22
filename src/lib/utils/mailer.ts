@@ -218,6 +218,203 @@ Portal: ${getAppOrigin()}
   }
 }
 
+export interface PblNotificationEmailOptions {
+  to: string;
+  subject: string;
+  heading: string;
+  greetingName?: string;
+  intro: string;
+  details?: { label: string; value: string }[];
+  paragraphs?: string[];
+  ctaLabel?: string;
+  ctaUrl?: string;
+  closing?: string;
+  footnote?: string;
+}
+
+/**
+ * Sends a formal portal notification (reminders, meeting invitations). Uses the
+ * same SMTP transport and synthetic-address guard as the account emails, so a
+ * test account never causes a bounce at Gmail.
+ */
+export async function sendPblNotificationEmail({
+  to,
+  subject,
+  heading,
+  greetingName,
+  intro,
+  details = [],
+  paragraphs = [],
+  ctaLabel,
+  ctaUrl,
+  closing,
+  footnote,
+}: PblNotificationEmailOptions): Promise<{ success: boolean; error?: string; skipped?: boolean }> {
+  try {
+    const { smtpUser, smtpPass, smtpFrom } = getSmtpConfig();
+
+    if (!smtpUser || !smtpPass) {
+      return { success: false, error: 'SMTP credentials are not configured.' };
+    }
+
+    const cleanTo = (to || '').trim().toLowerCase();
+    if (!cleanTo || !cleanTo.includes('@')) {
+      return { success: false, error: 'Invalid recipient email address.' };
+    }
+
+    const effectiveTo = cleanTo
+      .replace(/@(teststudent|student)\.dsatm\.edu\.in/gi, '@dsatm.edu.in')
+      .replace(/@([a-z0-9_-]+)\.teststudent\.dsatm\.edu\.in/gi, '@dsatm.edu.in')
+      .replace(/@teststudent\./gi, '@')
+      .trim();
+
+    if (
+      effectiveTo.includes('teststudent') ||
+      effectiveTo.endsWith('@example.com') ||
+      effectiveTo.endsWith('@test.com') ||
+      effectiveTo.endsWith('.test')
+    ) {
+      return { success: true, skipped: true };
+    }
+
+    const detailLines = details.map((d) => `${d.label}: ${d.value}`).join('\n');
+    const textContent = `Dayananda Sagar Academy of Technology & Management (DSATM)
+Industrial Project Based Learning (PBL) Portal
+
+Dear ${greetingName || 'Student'},
+
+${heading}
+
+${intro}
+${detailLines ? `\n${detailLines}\n` : ''}
+${paragraphs.join('\n\n')}
+${ctaUrl ? `\n${ctaLabel || 'Open the portal'}: ${ctaUrl}\n` : ''}
+${closing ? `\n${closing}\n` : ''}
+${footnote ? `\n${footnote}\n` : ''}
+---
+Department of Computer Science & Engineering
+Dayananda Sagar Academy of Technology & Management (DSATM)
+Kanakapura Road, Udayapura, Bangalore, Karnataka - 560082
+`;
+
+    const detailsHtml = details.length
+      ? `<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; margin: 20px 0;">
+          ${details
+            .map(
+              (d, i) => `<tr>
+                <td style="padding: ${i === 0 ? '14px' : '6px'} 16px ${i === details.length - 1 ? '14px' : '6px'}; font-size: 13px; color: #475569; width: 42%;">${d.label}</td>
+                <td style="padding: ${i === 0 ? '14px' : '6px'} 16px ${i === details.length - 1 ? '14px' : '6px'}; font-size: 13px; font-weight: 700; color: #1e293b;">${d.value}</td>
+              </tr>`
+            )
+            .join('')}
+        </table>`
+      : '';
+
+    const ctaHtml = ctaUrl
+      ? `<table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 24px 0;">
+          <tr>
+            <td align="center">
+              <table cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="center" bgcolor="#4338ca" style="border-radius: 12px;">
+                    <a href="${ctaUrl}" target="_blank" style="display: inline-block; padding: 13px 32px; font-size: 14px; font-weight: 800; color: #ffffff; text-decoration: none; border-radius: 12px; font-family: sans-serif; background-color: #4338ca;">
+                      ${ctaLabel || 'Open the portal'}
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>`
+      : '';
+
+    const htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${heading}</title>
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f1f5f9; margin: 0; padding: 24px; color: #1e293b;">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+    <tr>
+      <td align="center">
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 580px; background-color: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden;">
+          <tr>
+            <td style="background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%); padding: 28px 24px; text-align: center; color: #ffffff;">
+              <h1 style="margin: 0; font-size: 20px; font-weight: 800; color: #ffffff;">Industrial PBL Portal</h1>
+              <p style="margin: 6px 0 0; font-size: 12px; color: #c7d2fe;">Dayananda Sagar Academy of Technology &amp; Management (DSATM)</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 30px 28px;">
+              <p style="font-size: 15px; font-weight: 700; margin: 0 0 10px 0; color: #1e293b;">Dear ${greetingName || 'Student'},</p>
+              <p style="margin: 0 0 16px 0; font-size: 15px; font-weight: 800; color: #312e81;">${heading}</p>
+              <p style="margin: 0 0 16px 0; font-size: 14px; line-height: 1.65; color: #475569;">${intro}</p>
+              ${detailsHtml}
+              ${paragraphs
+                .map(
+                  (p) => `<p style="margin: 0 0 14px 0; font-size: 14px; line-height: 1.65; color: #475569;">${p}</p>`
+                )
+                .join('')}
+              ${ctaHtml}
+              ${closing ? `<p style="margin: 0 0 8px 0; font-size: 14px; line-height: 1.6; color: #475569;">${closing}</p>` : ''}
+              ${footnote ? `<div style="font-size: 12px; color: #64748b; line-height: 1.6; border-top: 1px solid #e2e8f0; padding-top: 16px; margin-top: 18px;">${footnote}</div>` : ''}
+            </td>
+          </tr>
+          <tr>
+            <td style="background-color: #f8fafc; padding: 18px 24px; text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #e2e8f0; line-height: 1.5;">
+              Department of Computer Science &amp; Engineering<br>
+              Dayananda Sagar Academy of Technology &amp; Management (DSATM)<br>
+              &copy; ${new Date().getFullYear()} DSATM Industrial PBL Portal
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+    `;
+
+    let lastError: any = null;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const transporter = createTransporter();
+        await transporter.sendMail({
+          from: smtpFrom,
+          sender: smtpUser,
+          replyTo: smtpUser,
+          to: effectiveTo,
+          subject,
+          text: textContent,
+          html: htmlContent,
+          headers: {
+            'X-Entity-Ref-ID': `pbl-notice-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+            'X-Mailer': 'DSATM Industrial PBL Platform',
+            'X-Priority': '3'
+          }
+        });
+        return { success: true };
+      } catch (err: any) {
+        lastError = err;
+        // Address is masked: only the domain and first characters are logged.
+        const [localPart, domain] = effectiveTo.split('@');
+        const masked = `${(localPart || '').slice(0, 3)}***@${domain || 'unknown'}`;
+        console.warn(
+          `[Mailer] Notification attempt ${attempt} failed for ${masked} (${err?.responseCode || 'n/a'}): ${err?.message}`
+        );
+        if (attempt === 1) await new Promise((r) => setTimeout(r, 900));
+      }
+    }
+
+    return { success: false, error: lastError?.message || 'Failed to send notification email.' };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Failed to send notification email.' };
+  }
+}
+
 interface SendActivationEmailOptions {
   to: string;
   userName?: string;

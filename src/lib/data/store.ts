@@ -1835,6 +1835,11 @@ class PBLStore {
         }
       }
 
+      // A submission that explicitly names a different team belongs to that team
+      // only. Without this, a student who sits in a 4th-sem research-paper team
+      // and a 5th-sem PBL team made the same document appear under both guides.
+      if (s.teamId && s.teamId !== teamId) return false;
+
       // 3. Match by student USN or submitter belonging to this team
       if (team && team.members && team.members.length > 0) {
         if (s.studentUsn && team.members.some(m => m.usn && m.usn.toUpperCase() === s.studentUsn?.toUpperCase())) return true;

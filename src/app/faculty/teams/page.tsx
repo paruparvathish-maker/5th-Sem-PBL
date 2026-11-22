@@ -722,7 +722,7 @@ export default function FacultyTeamsPage() {
                                 {studentEval ? (
                                   <div className="flex items-center gap-1.5">
                                     <span className="text-xs font-black text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
-                                      {studentEval.totalMarks}/5
+                                      {studentEval.totalMarks}/{studentEval.maxTotalMarks || 5}
                                     </span>
                                     <Link
                                       href={`/faculty/evaluations?teamId=${t.id}`}

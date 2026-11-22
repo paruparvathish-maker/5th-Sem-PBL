@@ -9,7 +9,7 @@ import { isExecutiveViewer } from '@/lib/auth/roles';
 import {
   Calendar, Plus, Clock, Unlock, CheckCircle2, Trash2, Edit3,
   FileText, Search, Filter, ShieldCheck, ArrowDownToLine, Lock,
-  AlertTriangle, RefreshCw, Eye, ExternalLink
+  AlertTriangle, RefreshCw, Eye, ExternalLink, Mail
 } from 'lucide-react';
 import { Deadline, DeadlineType, DeadlineStatus, SectionCode, Submission, Team } from '@/lib/types/pbl';
 import { downloadSubmissionFile, viewSubmissionFile } from '@/lib/utils/download';
@@ -83,6 +83,7 @@ export default function AdminDeadlinesPage() {
   const [editSubRemarks, setEditSubRemarks] = useState('');
 
   const [message, setMessage] = useState<string | null>(null);
+  const [notifyingDeadlineId, setNotifyingDeadlineId] = useState<string | null>(null);
 
   const refreshData = () => {
     setDeadlines([...store.getAllDeadlines()]);
@@ -156,6 +157,37 @@ export default function AdminDeadlinesPage() {
     store.deleteDeadline(id);
     setMessage(`Deadline "${name}" deleted.`);
     refreshData();
+  };
+
+  const handleSendReviewNotifications = async (d: Deadline) => {
+    const confirmed = window.confirm(
+      `Send email notifications for "${d.title}"?\n\n` +
+        'Students of groups that have NOT submitted will receive a submission reminder, and every affected faculty guide will receive a verification and individual-marks notice.'
+    );
+    if (!confirmed) return;
+
+    setNotifyingDeadlineId(d.id);
+    try {
+      const resp = await fetch('/api/notifications/review-reminders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, role: user.role, deadlineId: d.id, titleHint: d.title })
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        setMessage(data.error || 'Reminder dispatch failed.');
+        return;
+      }
+      setMessage(
+        `"${d.title}" notifications: ${data.studentsNotified} student(s) and ${data.facultyNotified} faculty guide(s) emailed. ` +
+          `${data.pendingTeams} group(s) pending, ${data.submittedTeams} already submitted (skipped).` +
+          (data.failures ? ` ${data.failures} email(s) failed to send.` : '')
+      );
+    } catch (err: any) {
+      setMessage(err?.message || 'Reminder dispatch failed.');
+    } finally {
+      setNotifyingDeadlineId(null);
+    }
   };
 
   const handleReopenSubmission = (e: React.FormEvent) => {
@@ -366,6 +398,19 @@ export default function AdminDeadlinesPage() {
                         <Edit3 className="w-3.5 h-3.5" />
                         <span>Edit</span>
                       </button>
+
+                      {/* Email Reminder Button */}
+                      {d.deadlineType !== 'meeting' && (
+                        <button
+                          onClick={() => handleSendReviewNotifications(d)}
+                          disabled={notifyingDeadlineId === d.id}
+                          className="px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs flex items-center gap-1.5 transition border border-indigo-200 disabled:opacity-60"
+                          title="Email submission reminders to students and evaluation notices to faculty guides"
+                        >
+                          <Mail className="w-3.5 h-3.5" />
+                          <span>{notifyingDeadlineId === d.id ? 'Sending...' : 'Send Reminders'}</span>
+                        </button>
+                      )}
 
                       {/* Delete Button */}
                       <button

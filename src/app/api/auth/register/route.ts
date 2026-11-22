@@ -5,6 +5,7 @@ import { UserProfile } from '@/lib/types/pbl';
 import { normalizeName, getGuideEmail } from '@/lib/data/seed-dataset';
 import { createAndSaveActivationToken } from '@/lib/data/otp-store';
 import { sendActivationEmail, getAppOrigin } from '@/lib/utils/mailer';
+import { notifyNewlyRegisteredStudent } from '@/lib/notifications/review-reminders';
 import { persistProfileToDisk } from '@/lib/data/user-resolver';
 import { matchSupervisorIdentity } from '@/lib/auth/roles';
 
@@ -168,6 +169,21 @@ export async function POST(request: Request) {
       // Uplink to backend store
       store.syncToSupabase().catch(console.error);
 
+      // The student is a registered account now: send the pending review notice
+      // with the same professional template used for the reminder campaign.
+      let pendingReminder: string | undefined;
+      try {
+        const reminder = await notifyNewlyRegisteredStudent(
+          { email: cleanEmail, name: student.name, usn: cleanUsn },
+          origin
+        );
+        if (reminder.notified) {
+          pendingReminder = ' A notice about your pending review report submission has also been emailed to you.';
+        }
+      } catch {
+        // Registration must never fail because a reminder could not be sent.
+      }
+
       if (!mailResult.success) {
         return NextResponse.json({
           success: true,
@@ -184,7 +200,7 @@ export async function POST(request: Request) {
         user: student,
         activationRequired: true,
         email: cleanEmail,
-        message: `Account created successfully! An activation link has been sent to your college email (${cleanEmail}). Please check your inbox and click the link to activate your account.`
+        message: `Account created successfully! An activation link has been sent to your college email (${cleanEmail}). Please check your inbox and click the link to activate your account.${pendingReminder || ''}`
       }, { status: 201 });
     }
 
@@ -267,11 +283,10 @@ export async function POST(request: Request) {
         const teamGuideNorm = t.guideName ? normalizeName(t.guideName) : '';
         const emailMatches = (t.guideEmail && t.guideEmail.toLowerCase() === cleanEmail) ||
                              (t.guideName && getGuideEmail(t.guideName).toLowerCase() === cleanEmail);
-        const nameMatches = teamGuideNorm && (
-          teamGuideNorm === normInputName ||
-          teamGuideNorm.includes(normInputName) ||
-          normInputName.includes(teamGuideNorm)
-        );
+        // Exact normalized-name match only: a partial match used to attach other
+        // guides' teams (and therefore their students' submissions) to whoever
+        // registered next with a similar name.
+        const nameMatches = Boolean(teamGuideNorm) && teamGuideNorm === normInputName;
 
         if (emailMatches || nameMatches) {
           t.guideId = faculty.id;

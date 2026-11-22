@@ -38,11 +38,12 @@ export default function FacultyMeetingsPage() {
   const [agenda, setAgenda] = useState('');
   const [message, setMessage] = useState<string | null>(null);
 
-  const handleCreateMeeting = (e: React.FormEvent) => {
+  const handleCreateMeeting = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedTeamId || !title || !meetingDate) return;
 
     const team = assignedTeams.find(t => t.id === selectedTeamId);
+    const isoDate = new Date(meetingDate).toISOString();
 
     store.createMeeting({
       title,
@@ -51,14 +52,42 @@ export default function FacultyMeetingsPage() {
       teamId: selectedTeamId,
       teamNumber: team?.teamNumber,
       projectTitle: team?.projectTitle,
-      meetingDate: new Date(meetingDate).toISOString(),
+      meetingDate: isoDate,
       location,
       agenda,
       status: 'scheduled'
     });
 
+    let emailNote = '';
+    try {
+      const resp = await fetch('/api/notifications/meeting', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          role: user.role,
+          teamId: selectedTeamId,
+          title,
+          meetingDate: isoDate,
+          location,
+          agenda,
+          facultyName: user.name
+        })
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (resp.ok) {
+        emailNote = data.sent > 0
+          ? ` ${data.sent} team member${data.sent === 1 ? '' : 's'} notified by email.`
+          : ' No registered student email was found for this group, so no email was sent.';
+      } else {
+        emailNote = ` Email notification failed: ${data.error || 'unknown error'}.`;
+      }
+    } catch {
+      emailNote = ' The meeting was saved, but the email notification could not be sent.';
+    }
+
     setMeetings(store.getMeetingsForFaculty(user.id));
-    setMessage(`Guide meeting "${title}" scheduled successfully for Group ${team?.teamNumber}!`);
+    setMessage(`Guide meeting "${title}" scheduled successfully for Group ${team?.teamNumber}!${emailNote}`);
     setShowCreateModal(false);
     setTitle('');
     setAgenda('');
