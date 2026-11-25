@@ -1261,8 +1261,8 @@ export const RAW_PDF_SEED: RawTeamSeed[] = [
     teamNumber: 'F11',
     section: 'F',
     guideName: 'Dr. Nagaraj Lutimath',
-    projectTitle: "Early Sepsis Risk Prediction Using LSTM/Transformer-Based Time-Series Analysis",
-    projectDescription: "5th Semester PBL Project: Early Sepsis Risk Prediction Using LSTM/Transformer-Based Time-Series Analysis",
+    projectTitle: "TailorTwin: AI-powered virtual fitting and pattern generation for local tailors",
+    projectDescription: "5th Semester PBL Project: TailorTwin: AI-powered virtual fitting and pattern generation for local tailors",
     students: [
       { usn: '1DT24CS309', name: 'Vaidehi N Kulkarni' },
       { usn: '1DT24CS310', name: 'Vaishnavi YashoKirthi S' },

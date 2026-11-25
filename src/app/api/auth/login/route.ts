@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { store } from '@/lib/data/store';
 import { fetchCloudCredentials } from '@/lib/data/cloud-sync';
+import { getDefaultFacultyPassword, isDefaultFacultyCredential } from '@/lib/auth/default-credentials';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -37,7 +38,15 @@ function verifyPassword(user: any, inputPass: string): boolean {
     return cleanInput === (user.password || '');
   }
 
-  // 4. For regular Students and Faculty: Default credentials have been removed!
+  // 4. Institution-issued default credentials for faculty (e.g. the account
+  //    created for Mrs. Manasa Sandeep). These only apply until the teacher
+  //    sets their own password: a stored password always wins above.
+  const defaultFacultyPassword = getDefaultFacultyPassword(user);
+  if (defaultFacultyPassword && !user.password) {
+    return cleanInput === defaultFacultyPassword;
+  }
+
+  // 5. For regular Students and Faculty: no other default credentials exist.
   // They MUST have created their password during Sign Up or Password Reset.
   return false;
 }
@@ -156,6 +165,13 @@ export async function POST(request: Request) {
     // Step 3a: Priority leadership & administrative accounts (Super Admin, HOD/VP, Principal, Industry Experts)
     let user: any = null;
 
+    // The short "industry expert" aliases below (girish, manasa, ...) are shorthand
+    // logins. They must never capture a full email address: Mrs. Manasa Sandeep
+    // (manasa-cs@dsatm.edu.in, faculty) was being authenticated against
+    // Ms. Manasa S (manasa.industry@dsatm.edu.in, industry expert), so her own
+    // password was rejected. Email identifiers always go through exact matching.
+    const isEmailIdentifier = cleanId.includes('@');
+
     // The main administrator signs in with this email address only — no short
     // aliases — so the faculty account of the same person stays separate.
     const SUPER_ADMIN_EMAIL = 'paruparvathish@gmail.com';
@@ -183,15 +199,15 @@ export async function POST(request: Request) {
       cleanId === 'principal@dsatm.edu.in'
     ) {
       user = profiles.find((p: any) => p.id === 'admin-principal' || p.email === 'principal@dsatm.edu.in');
-    } else if (cleanId.includes('girish')) {
+    } else if (!isEmailIdentifier && cleanId.includes('girish')) {
       user = profiles.find((p: any) => p.id === 'industry-girish');
-    } else if (cleanId.includes('raghu')) {
+    } else if (!isEmailIdentifier && cleanId.includes('raghu')) {
       user = profiles.find((p: any) => p.id === 'industry-raghu');
-    } else if (cleanId.includes('raja') || cleanId.includes('shekhar')) {
+    } else if (!isEmailIdentifier && (cleanId.includes('raja') || cleanId.includes('shekhar'))) {
       user = profiles.find((p: any) => p.id === 'industry-rajashekhar');
-    } else if (cleanId.includes('manasa')) {
+    } else if (!isEmailIdentifier && cleanId.includes('manasa')) {
       user = profiles.find((p: any) => p.id === 'industry-manasa');
-    } else if (cleanId.includes('harshitha')) {
+    } else if (!isEmailIdentifier && cleanId.includes('harshitha')) {
       user = profiles.find((p: any) => p.id === 'industry-harshitha');
     }
 
@@ -295,10 +311,15 @@ export async function POST(request: Request) {
     //    (auth-context) after this response arrives, so nothing is written here:
     //    a second entry from this route would duplicate the same event.
 
+    // A faculty member signing in with the institution-issued default password
+    // (or any first sign in) must choose a personal password before continuing.
+    const requiresPasswordChange =
+      isDefaultFacultyCredential(user, cleanPass) || user.isFirstLogin === true;
+
     return NextResponse.json({
       success: true,
       user,
-      requiresPasswordChange: false,
+      requiresPasswordChange,
     });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

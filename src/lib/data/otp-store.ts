@@ -264,6 +264,50 @@ interface ActivationEntry {
 
 const memoryActivationMap = new Map<string, ActivationEntry>();
 
+/**
+ * Shared document for activation tokens (Turso/libSQL when configured).
+ *
+ * Tokens used to live only in the legacy KV bucket, which silently drops writes
+ * once the bucket is full, plus each lambda's own memory. Sign-up therefore ran
+ * in one serverless instance while the link was clicked in another, and every
+ * freshly mailed link was rejected with "invalid activation token".
+ */
+const ACTIVATION_DOC_KEY = 'pbl_activation_tokens';
+
+async function persistActivationEntry(entry: ActivationEntry): Promise<boolean> {
+  try {
+    const { updateDoc } = await import('./persistence');
+    return await updateDoc<Record<string, ActivationEntry>>(ACTIVATION_DOC_KEY, (current) => {
+      const now = Date.now();
+      const next: Record<string, ActivationEntry> = {};
+      Object.entries(current || {}).forEach(([key, value]) => {
+        if (value && typeof value === 'object' && value.expiresAt > now) next[key] = value;
+      });
+      next[normalizeKey(entry.email)] = entry;
+      return next;
+    });
+  } catch (err: any) {
+    console.warn('[Activation] Could not persist activation token durably:', err?.message || err);
+    return false;
+  }
+}
+
+async function readActivationEntry(email: string, token: string): Promise<ActivationEntry | null> {
+  try {
+    const { readDoc } = await import('./persistence');
+    const docs = await readDoc<Record<string, ActivationEntry>>(ACTIVATION_DOC_KEY);
+    if (!docs || typeof docs !== 'object') return null;
+    const byEmail = docs[normalizeKey(email)];
+    if (byEmail && typeof byEmail === 'object') return byEmail;
+    for (const value of Object.values(docs)) {
+      if (value && typeof value === 'object' && value.token === token) return value;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export async function createAndSaveActivationToken(email: string): Promise<string> {
   const cleanKey = normalizeKey(email);
   const cleanEmail = email.toLowerCase().trim();
@@ -286,6 +330,12 @@ export async function createAndSaveActivationToken(email: string): Promise<strin
   memoryActivationMap.set(token, entry);
   if (email.includes('@')) {
     memoryActivationMap.set(normalizeKey(email.split('@')[0]), entry);
+  }
+
+  // Durable first: the link is clicked in a different serverless instance.
+  const persisted = await persistActivationEntry(entry);
+  if (!persisted) {
+    console.warn('[Activation] Token was not stored durably; the emailed link may not verify.');
   }
 
   // Persist to Cloud KV for both cleanKey and token
@@ -315,6 +365,12 @@ export async function verifyActivationToken(email: string, token: string): Promi
   let entry = memoryActivationMap.get(cleanToken) || 
               memoryActivationMap.get(cleanKey) || 
               memoryActivationMap.get(cleanEmail);
+
+  // 0. Durable shared document
+  if (!entry) {
+    const stored = await readActivationEntry(cleanEmail, cleanToken);
+    if (stored) entry = stored;
+  }
 
   // 1. Fallback to Cloud KV by token
   if (!entry) {
@@ -373,7 +429,13 @@ export async function verifyActivationToken(email: string, token: string): Promi
   }
 
   if (entry.token !== cleanToken) {
-    return { valid: false, error: 'Invalid activation token. Please request a new activation email.' };
+    // An older in-memory/KV copy must not reject a newer durable token.
+    const stored = await readActivationEntry(cleanEmail, cleanToken);
+    if (stored && stored.token === cleanToken) {
+      entry = stored;
+    } else {
+      return { valid: false, error: 'Invalid activation token. Please request a new activation email.' };
+    }
   }
 
   if (Date.now() > entry.expiresAt) {
@@ -389,6 +451,14 @@ export async function clearActivationToken(email: string): Promise<void> {
   memoryActivationMap.delete(cleanKey);
   try {
     fetch(`${KV_BASE_URL}/pbl_act_${cleanKey}`, { method: 'DELETE' }).catch(() => {});
+  } catch {}
+  try {
+    const { updateDoc } = await import('./persistence');
+    await updateDoc<Record<string, ActivationEntry>>(ACTIVATION_DOC_KEY, (current) => {
+      const next: Record<string, ActivationEntry> = { ...(current || {}) };
+      delete next[cleanKey];
+      return next;
+    });
   } catch {}
 }
 

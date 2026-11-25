@@ -5,6 +5,7 @@ import { UserProfile, UserRole } from '../types/pbl';
 import { store } from '../data/store';
 import { useRouter, usePathname } from 'next/navigation';
 import { isExecutiveViewer } from './roles';
+import { isDefaultFacultyCredential } from './default-credentials';
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -93,8 +94,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     let foundUser = store.findUserByUsernameOrEmail(cleanId);
 
-    // 1. Fast local verification if user profile is already cached with valid credentials and activated
-    if (foundUser && cleanPass !== undefined && foundUser.isActivated !== false && store.verifyPassword(foundUser.id, cleanPass)) {
+    // 1. Fast local verification if user profile is already cached with valid credentials and activated.
+    // Faculty still using the institution-issued default password always go through the
+    // server so they are sent to the mandatory password-change screen.
+    if (
+      foundUser &&
+      cleanPass !== undefined &&
+      foundUser.isActivated !== false &&
+      !isDefaultFacultyCredential(foundUser, cleanPass) &&
+      store.verifyPassword(foundUser.id, cleanPass)
+    ) {
       setUser(foundUser);
       localStorage.setItem('pbl_session_user', JSON.stringify(foundUser));
       // addAuditLog persists locally and sends this single entry to /api/audit/log.

@@ -185,6 +185,22 @@ export async function resolveUserForAuth(identifier: string): Promise<ResolvedUs
 
   // Combine and pick the most up-to-date representation
   let baseUser = diskUser || inMemUser;
+
+  // A seed/disk profile carries no password or activation state; the durable
+  // credential record does. Merge it in (never across roles) so activation and
+  // login see the credentials the user actually created.
+  if (baseUser && matchedCred) {
+    const roleConflict = Boolean(matchedCred.role && baseUser.role && matchedCred.role !== baseUser.role);
+    if (!roleConflict) {
+      baseUser = {
+        ...baseUser,
+        password: matchedCred.password || baseUser.password,
+        activationToken: matchedCred.activationToken || baseUser.activationToken,
+        isActivated: matchedCred.isActivated === true ? true : baseUser.isActivated,
+      };
+    }
+  }
+
   if (!baseUser && matchedCred && matchedCred.role) {
     baseUser = {
       id: matchedCred.userId || `user-${Date.now()}`,

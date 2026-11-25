@@ -83,8 +83,22 @@ export async function POST(request: Request) {
         cleanEmail.split('@')[0]
       ].filter(Boolean) as string[];
 
-      await saveCloudCredentials(user.id, {
-        password: user.password || '',
+      // Activating must never erase the password created at sign up. The profile
+      // resolved here can come from the read-only seed file (no password), while
+      // the password only exists in the durable credential record.
+      const cloudCreds = await fetchCloudCredentials().catch(() => ({} as Record<string, any>));
+      const credentialRecord: any =
+        cloudCreds[cleanEmail] ||
+        cloudCreds[user.id] ||
+        (user.id ? cloudCreds[String(user.id).toLowerCase()] : undefined) ||
+        (user.usn ? cloudCreds[String(user.usn).toUpperCase()] || cloudCreds[String(user.usn).toLowerCase()] : undefined) ||
+        {};
+      const recordBelongsToUser =
+        !credentialRecord.role || !user.role || credentialRecord.role === user.role;
+      const passwordToKeep = user.password || (recordBelongsToUser ? credentialRecord.password : '') || '';
+      if (passwordToKeep) user.password = passwordToKeep;
+
+      const credentialPayload: Record<string, any> = {
         isFirstLogin: false,
         isActivated: true,
         email: cleanEmail,
@@ -92,7 +106,10 @@ export async function POST(request: Request) {
         usn: user.usn,
         role: user.role,
         passwordUpdatedAt: user.passwordUpdatedAt || new Date().toISOString()
-      }, aliases);
+      };
+      if (passwordToKeep) credentialPayload.password = passwordToKeep;
+
+      await saveCloudCredentials(user.id, credentialPayload, aliases);
 
       store.syncToSupabase().catch(console.error);
     } else {

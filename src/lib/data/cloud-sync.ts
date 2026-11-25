@@ -193,8 +193,15 @@ export async function saveCloudCredentials(
     const lockedAdminKey = (key?: string) =>
       Boolean(key) && !mainAdminRecord && (key === SUPER_ADMIN_ID || (key as string).toLowerCase() === SUPER_ADMIN_EMAIL);
 
+    // A partial update (activation, resend, profile touch) must never blank a
+    // password that was already stored: an empty value means "unchanged here".
+    const nextPassword =
+      record.password !== undefined && String(record.password).length > 0
+        ? record.password
+        : existing.password;
+
     const fullRecord: CredentialRecord = {
-      password: record.password !== undefined ? record.password : existing.password,
+      password: nextPassword,
       isFirstLogin: record.isFirstLogin !== undefined ? record.isFirstLogin : existing.isFirstLogin ?? false,
       isActivated: record.isActivated !== undefined ? record.isActivated : existing.isActivated,
       activationToken: record.activationToken !== undefined ? record.activationToken : existing.activationToken,
